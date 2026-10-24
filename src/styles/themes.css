@@ -1,0 +1,15 @@
+:root, [data-theme="lab"] {
+  --paper: #E8EDF2; --ink: #142033; --ink-2: #5A6B80; --accent: #2563EB; --accent-soft: rgba(37,99,235,0.14);
+  --reward: #FF7A1A; --card: rgba(255,255,255,0.92); --line: rgba(20,32,51,0.12);
+  --primary-bg: #142033; --primary-fg: #FFFFFF; --vignette: rgba(140,160,185,0.35);
+}
+[data-theme="night"] {
+  --paper: #121826; --ink: #E8EEF8; --ink-2: #9AA8BF; --accent: #22D3EE; --accent-soft: rgba(34,211,238,0.16);
+  --reward: #FACC15; --card: rgba(26,34,50,0.92); --line: rgba(255,255,255,0.10);
+  --primary-bg: #22D3EE; --primary-fg: #06202A; --vignette: rgba(0,0,0,0.55);
+}
+[data-theme="mint"] {
+  --paper: #E9F5EF; --ink: #12261E; --ink-2: #557066; --accent: #10B981; --accent-soft: rgba(16,185,129,0.15);
+  --reward: #FF6B5B; --card: rgba(255,255,255,0.92); --line: rgba(18,38,30,0.12);
+  --primary-bg: #12261E; --primary-fg: #FFFFFF; --vignette: rgba(120,170,145,0.35);
+}
