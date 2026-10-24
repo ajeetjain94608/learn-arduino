@@ -3,11 +3,11 @@ import { makeCanvasTexture } from '../../../shared/canvasTexture';
 import { castAll, rbox } from '../../../shared/geometry';
 import { MATERIALS, std } from '../../../shared/materials';
 import { smdOf, topElements } from '../layout';
-import { at, P } from './place';
+import { at, P, partFor } from './place';
 
 const capMat = std('#C9A56E', 0.6), resMat = std('#1E2127', 0.55), ferriteMat = std('#3B3E45', 0.6), varMat = std('#8C7B66', 0.6);
 
-// A two-terminal SMD part laid along the line between its two pads.
+// A two-terminal SMD part laid along the line between its two pads (its own inspectable part).
 function twoPad(board: THREE.Object3D, name: string, width: number, height: number, bodyMat: THREE.Material, endFrac = 0.22): THREE.Group | null {
   const [a, b] = smdOf(name);
   if (!a || !b) return null;
@@ -18,9 +18,10 @@ function twoPad(board: THREE.Object3D, name: string, width: number, height: numb
     const e = rbox(len * endFrac, height + 0.02, width + 0.02, 0.05, MATERIALS.tin);
     e.position.set(s * (len / 2 - (len * endFrac) / 2), height / 2, 0); g.add(e);
   }
-  g.position.copy(P((a.x + b.x) / 2, (a.y + b.y) / 2));
+  const mid = P((a.x + b.x) / 2, (a.y + b.y) / 2);
+  g.position.copy(mid);
   g.rotation.y = Math.atan2(b.y - a.y, b.x - a.x);
-  board.add(g);
+  partFor(board, name, mid).add(g);
   return g;
 }
 
@@ -76,14 +77,14 @@ export function buildPassives(board: THREE.Object3D): StatusLeds {
     else if (e.pkg === 'L1812') twoPad(board, e.name, 3.2, 1.0, std('#D8B24C', 0.55));
   }
   const top = capTopTex();
-  for (const name of ['PC1', 'PC2']) at(board, name, electrolytic(top));
+  for (const name of ['PC1', 'PC2']) at(partFor(board, name), name, electrolytic(top));
 
   // resistor arrays (CAY16: four 0603 resistors in one 3.2 x 1.6 body)
   for (const name of ['RN1', 'RN2', 'RN3', 'RN4']) {
     const g = new THREE.Group();
     const body = rbox(3.2, 0.5, 1.6, 0.06, resMat); body.position.y = 0.25; g.add(body);
     for (let i = 0; i < 4; i++) for (const s of [-1, 1]) { const t = rbox(0.45, 0.52, 0.3, 0.04, MATERIALS.tin); t.position.set((i - 1.5) * 0.8, 0.26, s * 0.72); g.add(t); }
-    at(board, name, g);
+    at(partFor(board, name), name, g);
   }
 
   // M7 rectifier (SMB) with cathode band, and the two glass MiniMELF diodes
@@ -92,7 +93,7 @@ export function buildPassives(board: THREE.Object3D): StatusLeds {
   const band = rbox(0.5, 0.02, 3.4, 0.01, std('#A8ADB5', 0.5)); band.position.set(-1.5, 2.11, 0);
   d1.add(d1body, band);
   for (const s of [-1, 1]) { const t = rbox(1.0, 0.25, 2.0, 0.05, MATERIALS.tin); t.position.set(s * 2.45, 0.12, 0); d1.add(t); }
-  at(board, 'D1', d1);
+  at(partFor(board, 'D1'), 'D1', d1);
   for (const name of ['D2', 'D3']) {
     const [a, b] = smdOf(name);
     if (!a || !b) continue;
@@ -102,9 +103,10 @@ export function buildPassives(board: THREE.Object3D): StatusLeds {
     const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.74, 0.74, 0.3, 20), MATERIALS.smdBlack); ring.rotation.z = Math.PI / 2; ring.position.set(len * 0.2, 0.72, 0);
     g.add(glass, ring);
     for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.CylinderGeometry(0.74, 0.74, len * 0.19, 20), MATERIALS.tin); e.rotation.z = Math.PI / 2; e.position.set(s * len * 0.405, 0.72, 0); g.add(e); }
-    g.position.copy(P((a.x + b.x) / 2, (a.y + b.y) / 2));
+    const mid = P((a.x + b.x) / 2, (a.y + b.y) / 2);
+    g.position.copy(mid);
     g.rotation.y = Math.atan2(b.y - a.y, b.x - a.x);
-    board.add(castAll(g));
+    partFor(board, name, mid).add(castAll(g));
   }
 
   const leds: StatusLeds = { L: led0805(board, 'L'), TX: led0805(board, 'TX'), RX: led0805(board, 'RX'), ON: led0805(board, 'ON') };

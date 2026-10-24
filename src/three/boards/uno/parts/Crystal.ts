@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { makeCanvasTexture } from '../../../shared/canvasTexture';
 import { castAll, rbox } from '../../../shared/geometry';
 import { std } from '../../../shared/materials';
-import { at } from './place';
+import { at, partFor } from './place';
 
 // 16 MHz crystal, HC-49/US low profile: an upright racetrack-shaped metal can with a flat top.
 function hc49(): THREE.Group {
@@ -37,6 +37,6 @@ function resonator(): THREE.Group {
 }
 
 export function buildCrystals(board: THREE.Object3D): void {
-  at(board, 'Y1', hc49());
-  at(board, 'Y2', resonator());
+  at(partFor(board, 'Y1'), 'Y1', hc49());
+  at(partFor(board, 'Y2'), 'Y2', resonator());
 }

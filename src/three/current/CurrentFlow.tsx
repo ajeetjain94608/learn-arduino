@@ -29,6 +29,7 @@ export function CurrentFlow({ wires, active }: { wires: Wire[]; active: boolean 
     const mat = new THREE.PointsMaterial({ color: FLOW_COLOR, map: round, alphaTest: 0.5, size: DOT_PX, sizeAttenuation: false, transparent: true, depthTest: false, depthWrite: false, toneMapped: false });
     const dots = noOutline(new THREE.Points(geo, mat));
     dots.renderOrder = 10;
+    dots.raycast = () => {}; // decoration: never intercepts taps on the wires
     dots.frustumCulled = false;
     dots.visible = false;
     return { dots, geo, mat, round, paths, lengths };

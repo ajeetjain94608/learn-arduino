@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { makeCanvasTexture } from '../../../shared/canvasTexture';
 import { instanced, Y_AXIS } from '../../../shared/geometry';
 import { MATERIALS } from '../../../shared/materials';
+import { makePart } from '../../../inspect/findPart';
+import { PART_OF } from '../../../inspect/partCatalog';
 import { boardToLocal, element, smdOf } from '../layout';
 
 export const DEG = Math.PI / 180;
@@ -14,6 +16,13 @@ export function put<T extends THREE.Object3D>(parent: THREE.Object3D, obj: T, x:
   obj.position.copy(P(x, y, h));
   parent.add(obj);
   return obj;
+}
+
+// An inspectable part for one board element: build its meshes into the returned group (board coordinates);
+// hover/tap lifts and scales it about `center` (default: the element's origin on the board surface).
+export function partFor(board: THREE.Object3D, name: string, center?: THREE.Vector3): THREE.Group {
+  const e = element(name);
+  return makePart(board, name, PART_OF[name], center ?? P(e.x, e.y, 0));
 }
 
 // Places an object at an element's origin with its rotation (EAGLE "R90" = counter-clockwise from above = +Y here).

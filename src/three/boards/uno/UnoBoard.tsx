@@ -27,7 +27,7 @@ export function UnoBoard({ position = [-38, 0, 2], pin13 = false, surfacePx = 36
     surface.receiveShadow = true;
     surface.renderOrder = 1;
     g.add(noOutline(surface)); // the PCB beneath supplies the outline; the plane is a plain rectangle
-    g.add(buildHeaders());
+    buildHeaders(g);
     buildIcs(g);
     buildCrystals(g);
     const leds = buildPassives(g);

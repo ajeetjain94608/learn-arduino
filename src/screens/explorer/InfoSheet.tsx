@@ -1,13 +1,13 @@
 import { t } from '../../i18n/en';
 import { CREDITS } from '../../legal/credits';
-import type { Hotspot } from '../../ui/callouts/hotspots';
 
-export function InfoSheet({ hotspot }: { hotspot: Hotspot | null }) {
-  if (!hotspot) return null;
+// Explanation of the selected label or part.
+export function InfoSheet({ info }: { info: { title: string; text: string } | null }) {
+  if (!info) return null;
   return (
     <section className="sheet" data-testid="info-sheet" aria-live="polite">
-      <h2>{t(hotspot.nameKey)}</h2>
-      <p>{t(hotspot.textKey)}</p>
+      <h2>{info.title}</h2>
+      <p>{info.text}</p>
     </section>
   );
 }

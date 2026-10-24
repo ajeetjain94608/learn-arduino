@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { castAll, instanced, placement, rbox } from '../../../shared/geometry';
 import { MATERIALS, std } from '../../../shared/materials';
-import { at, chipLabel, leads, PITCH } from './place';
+import { at, chipLabel, leads, partFor, PITCH } from './place';
 
 // DIP leg: shoulder out of the body side, then straight down into the board.
 const dipLegGeo = mergeGeometries([
@@ -10,15 +10,21 @@ const dipLegGeo = mergeGeometries([
   new THREE.BoxGeometry(0.55, 3.0, 0.32).translate(0, -1.35, 1.0),
 ]);
 
+// The DIL-28 socket stays soldered to the board; the chip lifts out of it when inspected.
+function dipSocket(): THREE.Mesh {
+  const sock = rbox(36.6, 1.6, 10.0, 0.25, MATERIALS.black);
+  sock.position.y = 0.8;
+  return sock;
+}
+
 function atmega328(): THREE.Group {
   const g = new THREE.Group();
-  const sock = rbox(36.6, 1.6, 10.0, 0.25, MATERIALS.black); sock.position.y = 0.8;
   const body = rbox(35.4, 3.4, 7.2, 0.5, MATERIALS.chip, 3); body.position.y = 3.5;
   const notch = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.3, 24, 1, false, 0, Math.PI), MATERIALS.black);
   notch.rotation.y = Math.PI / 2; notch.position.set(-17.75, 5.12, 0);
   const dot = new THREE.Mesh(new THREE.CircleGeometry(0.55, 20), MATERIALS.black); dot.rotation.x = -Math.PI / 2; dot.position.set(-15.6, 5.21, 2.0);
   const label = chipLabel([['ATMEGA328P-PU', 34], ['AU 1931', 24]], 30, 5.6); label.position.set(0.8, 5.22, 0);
-  g.add(sock, body, notch, dot, label);
+  g.add(body, notch, dot, label);
   const legs: THREE.Matrix4[] = [];
   for (let i = 0; i < 14; i++) {
     const x = (i - 6.5) * PITCH;
@@ -46,8 +52,9 @@ function smdBody(w: number, d: number, h: number, text: string): THREE.Group {
 }
 
 export function buildIcs(board: THREE.Object3D): void {
-  at(board, 'ZU4', atmega328());
-  at(board, 'U3', atmega16u2());
+  at(board, 'ZU4', dipSocket());
+  at(partFor(board, 'ZU4'), 'ZU4', atmega328());
+  at(partFor(board, 'U3'), 'U3', atmega16u2());
   const leaded: [name: string, w: number, d: number, h: number, text: string, half: number][] = [
     ['U5', 3.0, 3.0, 0.95, 'V358', 1.5],     // LMV358 op-amp, MSOP-8
     ['U1', 6.5, 3.5, 1.65, 'NCP1117', 1.75], // 5 V regulator, SOT-223
@@ -55,7 +62,8 @@ export function buildIcs(board: THREE.Object3D): void {
     ['T1', 2.9, 1.3, 1.0, '', 0.65],         // FDN340P MOSFET, SOT-23
   ];
   for (const [name, w, d, h, text, half] of leaded) {
-    at(board, name, smdBody(w, d, h, text));
-    leads(board, name, h, half);
+    const part = partFor(board, name);
+    at(part, name, smdBody(w, d, h, text));
+    leads(part, name, h, half);
   }
 }

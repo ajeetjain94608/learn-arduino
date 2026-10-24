@@ -48,6 +48,7 @@ export function Led5mm({ position, color = 'red', lit = 0 }: { position: [number
     });
     const halo = noOutline(new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, depthWrite: false, transparent: true, opacity: 0 })));
     halo.scale.set(24, 24, 1); halo.position.y = LED_Y0 + 4.5;
+    halo.raycast = () => {}; // the glow is light, not something you can tap
     const light = new THREE.PointLight(c.light, 0, 45, 1.8); light.position.y = LED_Y0 + 5;
     g.add(halo, light);
     return { g, epoxy, halo, light };
