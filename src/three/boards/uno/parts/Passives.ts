@@ -42,15 +42,29 @@ function electrolytic(top: THREE.Texture): THREE.Group {
   return castAll(g);
 }
 
-// Status LEDs return their material so the board can light them.
-export type StatusLeds = { L: THREE.MeshStandardMaterial; TX: THREE.MeshStandardMaterial; RX: THREE.MeshStandardMaterial; ON: THREE.MeshStandardMaterial };
+// Owner's choice: all four on-board status LEDs (L, TX, RX, ON) glow red, so they read as lights, not capacitors.
+export const STATUS_LED_RED = '#FF2A1A';
+export type StatusLed = { materials: THREE.MeshStandardMaterial[]; set(level: number): void };
+export type StatusLeds = Record<'L' | 'TX' | 'RX' | 'ON', StatusLed>;
 
-function led0805(board: THREE.Object3D, name: string, color: string): THREE.MeshStandardMaterial {
-  const mat = new THREE.MeshStandardMaterial({ color: '#F2EEE4', emissive: color, emissiveIntensity: 0, roughness: 0.25 });
-  const g = twoPad(board, name, 1.25, 0.75, mat, 0.18)!;
-  const lens = rbox(1.0, 0.12, 0.9, 0.05, new THREE.MeshStandardMaterial({ color, roughness: 0.2, transparent: true, opacity: 0.55 }));
-  lens.position.y = 0.8; g.add(lens);
-  return mat;
+// 0805 chip LED: white body, clear dome lens over a small red die. Dark when off, red glow when on.
+export function led0805(board: THREE.Object3D, name: string): StatusLed {
+  const body = new THREE.MeshStandardMaterial({ color: '#F7F7F4', emissive: STATUS_LED_RED, emissiveIntensity: 0, roughness: 0.3 });
+  // toneMapped off so the lit lens stays a saturated red instead of washing out to pink
+  const lens = new THREE.MeshStandardMaterial({ color: '#FFE9E6', emissive: STATUS_LED_RED, emissiveIntensity: 0, roughness: 0.1, transparent: true, opacity: 0.75, toneMapped: false });
+  const g = twoPad(board, name, 1.25, 0.55, body, 0.16)!;
+  const dome = rbox(1.05, 0.3, 0.95, 0.14, lens); dome.position.y = 0.68; g.add(dome);
+  const die = rbox(0.28, 0.06, 0.28, 0.02, std('#B3261E', 0.4)); die.position.y = 0.58; g.add(die);
+  const off = new THREE.Color('#FFE9E6'), on = new THREE.Color(STATUS_LED_RED);
+  return {
+    materials: [body, lens],
+    set(level) {
+      body.emissiveIntensity = 0.6 * level;
+      lens.emissiveIntensity = 1.4 * level;
+      lens.color.copy(off).lerp(on, level);
+      lens.opacity = 0.75 + 0.25 * level;
+    },
+  };
 }
 
 export function buildPassives(board: THREE.Object3D): StatusLeds {
@@ -93,7 +107,7 @@ export function buildPassives(board: THREE.Object3D): StatusLeds {
     board.add(castAll(g));
   }
 
-  const leds: StatusLeds = { L: led0805(board, 'L', '#FFB020'), TX: led0805(board, 'TX', '#FFB020'), RX: led0805(board, 'RX', '#FFB020'), ON: led0805(board, 'ON', '#2BE07A') };
-  leds.ON.emissiveIntensity = 2.0;
+  const leds: StatusLeds = { L: led0805(board, 'L'), TX: led0805(board, 'TX'), RX: led0805(board, 'RX'), ON: led0805(board, 'ON') };
+  leds.ON.set(1); // the power LED is on whenever the board has power
   return leds;
 }

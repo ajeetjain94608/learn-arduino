@@ -36,7 +36,7 @@ export function UnoBoard({ position = [-38, 0, 2], pin13Level = 0, surfacePx = 3
     return { group: g, leds };
   }, [surfacePx, anisotropy]);
 
-  leds.L.emissiveIntensity = pin13Level > 0.5 ? 2.5 : 0;
+  leds.L.set(pin13Level > 0.5 ? 1 : 0);
 
   return (
     <group position={position}>
