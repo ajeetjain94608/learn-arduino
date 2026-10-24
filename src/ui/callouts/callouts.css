@@ -1,0 +1,21 @@
+.callouts { position: absolute; inset: 0; pointer-events: none; transition: opacity .2s; }
+.callouts--hidden { opacity: 0; }
+.callouts--hidden .callouts__card { pointer-events: none; }
+.callouts__leaders { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.callouts__leaders line { stroke: var(--ink-2); stroke-width: 1.3; stroke-dasharray: 3 3; }
+.callouts__anchor { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 50%; background: #fff;
+  border: 2.5px solid var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.callouts__card { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; will-change: transform;
+  appearance: none; font: inherit; color: var(--ink); text-align: left;
+  min-height: 48px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px;
+  white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.10); display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+.callouts__card b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.callouts__card small { font-size: 11px; color: var(--ink-2); font-weight: 600; }
+.callouts__card.is-active { background: var(--primary-bg); color: var(--primary-fg); }
+.callouts__card.is-active small { color: inherit; opacity: .75; }
+@media (max-width: 520px), (max-height: 520px) {
+  .callouts__card small { display: none; }
+  .callouts__card { padding: 4px 10px; min-height: 32px; }
+  .callouts__card::after { content: ''; position: absolute; inset: -8px -4px; } /* keeps the tap target ≥ 48 px */
+  .callouts__card b { font-size: 11px; }
+}

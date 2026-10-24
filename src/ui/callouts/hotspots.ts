@@ -1,0 +1,41 @@
+import * as THREE from 'three';
+import type { StringKey } from '../../i18n/en';
+import { boardToLocal, element, headerPin } from '../../three/boards/uno/layout';
+import { HEADER_H } from '../../three/boards/uno/parts/Headers';
+import { BB, colX, ROW, holeLocal } from '../../three/breadboard/breadboardGeometry';
+import { LED_Y0 } from '../../three/parts/Led5mm';
+import { BLINK } from '../../three/scenes/blinkLayout';
+import type { View } from '../../three/workbench/cameraViews';
+
+export type Hotspot = {
+  id: string;
+  nameKey: StringKey;
+  subKey: StringKey;
+  textKey: StringKey;
+  view?: View;              // only shown in this view (both when omitted)
+  offset: [number, number]; // card offset from the anchor, px at full size
+  anchor: () => THREE.Vector3;
+};
+
+const onBoard = (x: number, y: number, h: number) => new THREE.Vector3(...boardToLocal(x, y, h)).add(new THREE.Vector3(...BLINK.board));
+const onBreadboard = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).add(new THREE.Vector3(...BLINK.breadboard));
+const keys = (k: string) => ({ nameKey: `hot.${k}.name`, subKey: `hot.${k}.sub`, textKey: `hot.${k}.text` }) as Pick<Hotspot, 'nameKey' | 'subKey' | 'textKey'>;
+
+export const HOTSPOTS: Hotspot[] = [
+  { id: 'usb', ...keys('usb'), view: 'board', offset: [-120, -10], anchor: () => onBoard(1.8, element('X2').y, 10.8) },
+  { id: 'mcu', ...keys('mcu'), view: 'board', offset: [-60, 100], anchor: () => onBoard(element('ZU4').x - 8, element('ZU4').y, 5.3) },
+  { id: 'digital', ...keys('digital'), view: 'board', offset: [40, -80], anchor: () => onBoard(56, headerPin('13').y, HEADER_H) },
+  { id: 'jack', ...keys('jack'), view: 'board', offset: [-100, 40], anchor: () => onBoard(-2.6, element('X1').y, 6) },
+  { id: 'power', ...keys('power'), view: 'board', offset: [-130, 55], anchor: () => onBoard(headerPin('5V').x, headerPin('5V').y, HEADER_H) },
+  { id: 'analog', ...keys('analog'), view: 'board', offset: [80, 85], anchor: () => onBoard(57, headerPin('A0').y, HEADER_H) },
+  { id: 'reset', ...keys('reset'), view: 'board', offset: [10, -85], anchor: () => onBoard(element('RESET').x, element('RESET').y, 2.1) },
+  { id: 'led', ...keys('led'), view: 'circuit', offset: [-20, -95], anchor: () => {
+    const [ax, , z] = holeLocal(...BLINK.ledAnode), [kx] = holeLocal(...BLINK.ledCathode);
+    return onBreadboard((ax + kx) / 2, LED_Y0 + 6.5, z);
+  } },
+  { id: 'resistor', ...keys('resistor'), view: 'circuit', offset: [95, -60], anchor: () => {
+    const [x1, , z] = holeLocal(...BLINK.resistorFrom), [x2] = holeLocal(...BLINK.resistorTo);
+    return onBreadboard((x1 + x2) / 2, BB.H + 4.6, z);
+  } },
+  { id: 'breadboard', ...keys('breadboard'), view: 'circuit', offset: [60, 80], anchor: () => onBreadboard(colX(24), BB.H, ROW.h) },
+];
