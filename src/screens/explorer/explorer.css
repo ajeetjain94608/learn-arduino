@@ -5,19 +5,20 @@
 .topbar .brand { display: flex; align-items: center; gap: 10px; }
 .brand__logo { width: 36px; height: 36px; border-radius: 10px; background: var(--primary-bg); color: var(--primary-fg); display: grid; place-items: center; }
 .topbar h1 { margin: 0; font-size: 17px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; }
-.topbar p { margin: 1px 0 0; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-2); }
+.topbar p { margin: 1px 0 0; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
 .topbar__right { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
 .themes, .seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 4px; }
-.themes button { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 0; background-clip: padding-box; }
+/* 48 px tap target; the visible swatch is the 36 px circle inside */
+.themes button { width: 48px; height: 48px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 3px; background-clip: content-box !important; }
 .themes button.is-on { border-color: var(--ink); }
-.seg button { appearance: none; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 800; color: var(--ink-2);
-  padding: 0 14px; min-height: 40px; border-radius: 10px; cursor: pointer; }
+.seg button { appearance: none; border: 0; background: transparent; font: inherit; font-size: 14px; font-weight: 800; color: var(--ink-2);
+  padding: 0 14px; min-height: 48px; border-radius: 10px; cursor: pointer; }
 .seg button.is-on { background: var(--primary-bg); color: var(--primary-fg); }
 .icon-btn { appearance: none; width: 48px; height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
   display: grid; place-items: center; cursor: pointer; }
-.fps { font: 600 11px ui-monospace, Consolas, monospace; color: var(--ink-2); background: var(--card); border: 1px solid var(--line); padding: 4px 8px; border-radius: 999px; }
+.fps { font: 600 14px ui-monospace, Consolas, monospace; color: var(--ink-2); background: var(--card); border: 1px solid var(--line); padding: 0 12px; min-height: 48px; border-radius: 999px; cursor: pointer; }
 
-.status { position: absolute; top: calc(66px + env(safe-area-inset-top)); left: 16px; font-size: 13px; font-weight: 800;
+.status { position: absolute; top: calc(74px + env(safe-area-inset-top)); left: 16px; font-size: 14px; font-weight: 800;
   display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); padding: 7px 12px; border-radius: 999px; }
 .status i { width: 10px; height: 10px; border-radius: 50%; background: #9AA3AF; transition: background .1s, box-shadow .1s; }
 .status i.is-lit { background: #FF3B2F; box-shadow: 0 0 10px #FF3B2F; }
@@ -47,8 +48,8 @@
 .part-tooltip { position: absolute; left: 0; top: 0; max-width: 260px; pointer-events: none; z-index: 2;
   background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.16); display: flex; flex-direction: column; gap: 2px; }
-.part-tooltip b { font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase; }
-.part-tooltip span { font-size: 13px; color: var(--ink-2); line-height: 1.35; }
+.part-tooltip b { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+.part-tooltip span { font-size: 14px; color: var(--ink-2); line-height: 1.35; }
 
 .gl-guard { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 80%, transparent); }
 .gl-guard p { font-weight: 800; }

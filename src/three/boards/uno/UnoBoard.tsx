@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
+import { useQualityStore } from '../../../state/qualityStore';
 import * as THREE from 'three';
 import { makeCanvasTexture } from '../../shared/canvasTexture';
 import { noOutline } from '../../shared/layers';
@@ -12,10 +13,11 @@ import { buildPassives } from './parts/Passives';
 import { buildPcbMesh } from './parts/pcb';
 import { drawSurface } from './parts/surfaceTexture';
 
-type Props = { position?: [number, number, number]; pin13?: boolean; surfacePx?: number };
+type Props = { position?: [number, number, number]; pin13?: boolean };
 
 // The Uno R3, built from the official layout. `pin13` HIGH lights the built-in "L" LED.
-export function UnoBoard({ position = [-38, 0, 2], pin13 = false, surfacePx = 36 }: Props) {
+export function UnoBoard({ position = [-38, 0, 2], pin13 = false }: Props) {
+  const surfacePx = useQualityStore((s) => s.quality.surfacePx); // board texture resolution follows the quality tier
   const anisotropy = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
   const { group, leds } = useMemo(() => {
     const g = new THREE.Group();

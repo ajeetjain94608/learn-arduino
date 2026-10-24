@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
-import { ENV_HEIGHT, ENV_SIZE, ENV_WIDTH, environmentFromBuffer } from './bakedEnvironment';
+import { ENV_HEIGHT, ENV_SIZE, ENV_WIDTH, environmentFromBuffer, loadBakedEnvironment } from './bakedEnvironment';
 
 test('baked environment dimensions follow the PMREM CubeUV layout for a 64 px cube', () => {
   expect(ENV_SIZE).toBe(64);
@@ -19,4 +19,17 @@ test('turns the baked half-float texels into a ready-to-use CubeUV environment t
 
 test('rejects a file of the wrong size instead of rendering garbage', () => {
   expect(() => environmentFromBuffer(new ArrayBuffer(100))).toThrow(/size/);
+});
+
+const ok = (bytes: number) => async () => new Response(new Uint16Array(bytes / 2).buffer, { status: 200 });
+
+test('loads the baked environment from its URL', async () => {
+  const tex = await loadBakedEnvironment('x.bin', ok(ENV_WIDTH * ENV_HEIGHT * 8));
+  expect(tex?.mapping).toBe(THREE.CubeUVReflectionMapping);
+});
+
+test('a missing, broken or wrong-size file means "no reflections", never a crash', async () => {
+  expect(await loadBakedEnvironment('x.bin', async () => new Response('nope', { status: 404 }))).toBeNull();
+  expect(await loadBakedEnvironment('x.bin', async () => { throw new TypeError('offline'); })).toBeNull();
+  expect(await loadBakedEnvironment('x.bin', ok(100))).toBeNull();
 });

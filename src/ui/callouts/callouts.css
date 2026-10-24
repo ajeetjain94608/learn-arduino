@@ -9,13 +9,13 @@
   appearance: none; font: inherit; color: var(--ink); text-align: left;
   min-height: 48px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px;
   white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.10); display: flex; flex-direction: column; justify-content: center; gap: 1px; }
-.callouts__card b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
-.callouts__card small { font-size: 11px; color: var(--ink-2); font-weight: 600; }
+.callouts__card b { font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; }
+.callouts__card small { font-size: 14px; color: var(--ink-2); font-weight: 600; }
 .callouts__card.is-active { background: var(--primary-bg); color: var(--primary-fg); }
 .callouts__card.is-active small { color: inherit; opacity: .75; }
 @media (max-width: 520px), (max-height: 520px) {
   .callouts__card small { display: none; }
   .callouts__card { padding: 4px 10px; min-height: 32px; }
   .callouts__card::after { content: ''; position: absolute; inset: -8px -4px; } /* keeps the tap target ≥ 48 px */
-  .callouts__card b { font-size: 11px; }
+  .callouts__card b { font-size: 14px; }
 }

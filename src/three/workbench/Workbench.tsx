@@ -7,19 +7,20 @@ import { CameraRig } from './CameraRig';
 import { Ground } from './Ground';
 import { Lights } from './Lights';
 import { OutlineRenderer } from './OutlineRenderer';
-import { deviceQuality, type Quality } from './quality';
+import { useQualityStore } from '../../state/qualityStore';
 
 // The 3D workbench: orthographic camera, soft light, floor, ink outlines. Scene content goes in children.
-type Props = { children?: ReactNode; quality?: Quality; onCanvas?(c: HTMLCanvasElement): void; onBackgroundTap?(): void };
+type Props = { children?: ReactNode; onCanvas?(c: HTMLCanvasElement): void; onBackgroundTap?(): void };
 
-export function Workbench({ children, quality: forced, onCanvas, onBackgroundTap }: Props) {
-  const quality = useMemo(() => forced ?? deviceQuality(), [forced]);
+export function Workbench({ children, onCanvas, onBackgroundTap }: Props) {
+  const quality = useQualityStore((s) => s.quality);
+  const dpr = useMemo(() => Math.min(window.devicePixelRatio || 1, quality.pixelRatio), [quality.pixelRatio]);
   return (
     <Canvas
       className="workbench"
       onPointerMissed={onBackgroundTap}
       orthographic
-      dpr={quality.pixelRatio}
+      dpr={dpr}
       shadows={{ type: THREE.PCFShadowMap }}
       camera={{ near: 1, far: 1500, manual: true }}
       gl={{ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: isTestMode(), toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.92 }}

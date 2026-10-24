@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useInspectStore } from '../../state/inspectStore';
@@ -17,12 +17,16 @@ const firstPart = (e: ThreeEvent<PointerEvent | MouseEvent>) => {
 
 // Wraps scene content whose parts (pivots made by makePart / PartGroup) can be inspected:
 // mouse hover lifts a part slightly and shows its name; a click or tap selects it.
-export function Inspectable({ children }: { children: ReactNode }) {
+type Motion = { lift: number; zoom: number; baseY: number };
+
+export function Inspectable({ children, onEmptyTap }: { children: ReactNode; onEmptyTap?(): void }) {
   const root = useRef<THREE.Group>(null);
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const reduced = useReducedMotion();
   const pivots = useRef<Map<string, THREE.Object3D>>(new Map());
+  // Animation state lives here, not in userData: React re-renders may replace a pivot's userData.
+  const motion = useRef(new WeakMap<THREE.Object3D, Motion>());
 
   // Pivots are created once with the scene; index them after mount.
   useEffect(() => {
@@ -38,7 +42,7 @@ export function Inspectable({ children }: { children: ReactNode }) {
         p.getWorldPosition(v).project(camera);
         return { x: (v.x * 0.5 + 0.5) * size.width, y: (-v.y * 0.5 + 0.5) * size.height };
       };
-      debug.lift = (id: string) => (map.get(id)?.userData.lift as number) ?? 0;
+      debug.lift = (id: string) => { const p = map.get(id); return (p && motion.current.get(p)?.lift) ?? 0; };
     }
   }, [camera, size.width, size.height]);
 
@@ -47,12 +51,13 @@ export function Inspectable({ children }: { children: ReactNode }) {
     const { hovered, selected } = useInspectStore.getState();
     for (const [id, p] of pivots.current) {
       const target = id === selected ? LIFT.selected : id === hovered ? LIFT.hover : LIFT.idle;
-      const ud = p.userData as { lift?: number; zoom?: number; baseY: number };
-      const lift = reduced ? target.y : approach(ud.lift ?? 0, target.y, dt);
-      const zoom = reduced ? target.scale : approach(ud.zoom ?? 1, target.scale, dt);
-      if (lift === ud.lift && zoom === ud.zoom) continue;
-      ud.lift = lift; ud.zoom = zoom;
-      p.position.y = ud.baseY + lift;
+      let m = motion.current.get(p);
+      if (!m) { m = { lift: 0, zoom: 1, baseY: p.userData.baseY ?? p.position.y }; motion.current.set(p, m); }
+      const lift = reduced ? target.y : approach(m.lift, target.y, dt);
+      const zoom = reduced ? target.scale : approach(m.zoom, target.scale, dt);
+      m.lift = lift; m.zoom = zoom;
+      // always re-apply: a re-render can reset the pivot's position from its props
+      p.position.y = m.baseY + lift;
       p.scale.setScalar(zoom);
     }
   });
@@ -68,9 +73,11 @@ export function Inspectable({ children }: { children: ReactNode }) {
   };
   const onLeave = () => { const s = useInspectStore.getState(); if (s.hovered) s.unhover(s.hovered); setCursor(''); };
   const onClick = (e: ThreeEvent<MouseEvent>) => {
-    const hit = firstPart(e);
-    if (!hit) return; // let the click fall through to onPointerMissed / background handling
     e.stopPropagation();
+    const hit = firstPart(e);
+    // Hidden circuit parts and the bare PCB still intercept the raycast, so R3F won't report a "miss":
+    // a tap that reaches no visible part is a tap on empty bench.
+    if (!hit) { onEmptyTap?.(); return; }
     useInspectStore.getState().select(hit.partId, { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
   };
 
@@ -83,9 +90,13 @@ export function Inspectable({ children }: { children: ReactNode }) {
 
 // Declarative pivot for scene parts built as React components (circuit view parts).
 export function PartGroup({ id, kind, center, children }: { id: string; kind: string; center: [number, number, number]; children: ReactNode }) {
+  const [x, y, z] = center;
+  const userData = useMemo(() => ({ partId: id, kind, baseY: y }), [id, kind, y]);
+  const pos = useMemo(() => [x, y, z] as const, [x, y, z]);
+  const back = useMemo(() => [-x, -y, -z] as const, [x, y, z]);
   return (
-    <group position={center} userData={{ partId: id, kind, baseY: center[1] }}>
-      <group position={[-center[0], -center[1], -center[2]]}>{children}</group>
+    <group position={pos} userData={userData}>
+      <group position={back}>{children}</group>
     </group>
   );
 }

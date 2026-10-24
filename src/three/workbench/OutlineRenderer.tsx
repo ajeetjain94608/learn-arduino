@@ -7,7 +7,9 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { useThemeStore } from '../../theme/themeStore';
 import { THEMES } from '../../theme/themes';
+import { useQualityStore } from '../../state/qualityStore';
 import { LAYER_NO_OUTLINE } from '../shared/layers';
+import { isTestMode } from '../shared/motion';
 import type { Quality } from './quality';
 
 // Edge detection over view-space normals and (orthographic, hence linear) depth.
@@ -43,7 +45,11 @@ export function OutlineRenderer({ quality }: { quality: Quality }) {
 
   const pipeline = useMemo(() => {
     const normalRT = new THREE.WebGLRenderTarget(1, 1, { depthTexture: new THREE.DepthTexture(1, 1), type: THREE.HalfFloatType });
-    const composer = new EffectComposer(gl, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: quality.msaaSamples }));
+    // Only the buffer the scene is rendered into is multisampled; the post-process buffer doesn't need MSAA
+    // (EffectComposer would otherwise clone the multisampled target for both, doubling GPU memory).
+    const composer = new EffectComposer(gl, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
+    composer.renderTarget2.dispose();
+    composer.renderTarget2 = composer.readBuffer = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: quality.msaaSamples });
     composer.addPass(new RenderPass(scene, camera));
     const edges = new ShaderPass(EDGE_SHADER);
     // ShaderPass clones its uniforms and drops render-target textures, so bind them afterwards.
@@ -65,6 +71,12 @@ export function OutlineRenderer({ quality }: { quality: Quality }) {
   }, [gl, size.width, size.height, pipeline]);
 
   useEffect(() => { (pipeline.edges.uniforms.ink.value as THREE.Color).set(THEMES[theme].scene.ink); }, [theme, pipeline]);
+
+  useEffect(() => {
+    if (!isTestMode()) return;
+    const { tier, quality: q } = useQualityStore.getState();
+    (window.__rq ??= { debug: {} }).debug.render = { tier, samples: [pipeline.composer.renderTarget1.samples, pipeline.composer.renderTarget2.samples], surfacePx: q.surfacePx };
+  }, [pipeline]);
 
   useFrame(() => {
     const bg = scene.background;

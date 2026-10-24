@@ -6,6 +6,18 @@ export const ENV_SIZE = 64;
 export const ENV_WIDTH = 3 * Math.max(ENV_SIZE, 16 * 7); // PMREM CubeUV layout
 export const ENV_HEIGHT = 4 * ENV_SIZE;
 
+// Fetches and decodes the baked file. Any failure means "no reflections" (metals look duller) rather than no app.
+export async function loadBakedEnvironment(url: string, fetchFn: typeof fetch = fetch): Promise<THREE.DataTexture | null> {
+  try {
+    const res = await fetchFn(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return environmentFromBuffer(await res.arrayBuffer());
+  } catch (err) {
+    console.warn('Baked environment unavailable; continuing without reflections.', err);
+    return null;
+  }
+}
+
 export function environmentFromBuffer(buffer: ArrayBuffer): THREE.DataTexture {
   const expected = ENV_WIDTH * ENV_HEIGHT * 4 * 2;
   if (buffer.byteLength !== expected) throw new Error(`Baked environment has the wrong size: ${buffer.byteLength} bytes, expected ${expected}`);

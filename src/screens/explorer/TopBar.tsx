@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { t } from '../../i18n/en';
+import { useQualityStore } from '../../state/qualityStore';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { useThemeStore } from '../../theme/themeStore';
 import type { ThemeName } from '../../theme/themes';
@@ -10,6 +11,14 @@ const SWATCHES: { name: ThemeName; bg: string; accent: string }[] = [
   { name: 'night', bg: '#121826', accent: '#22D3EE' },
   { name: 'mint', bg: '#E9F5EF', accent: '#10B981' },
 ];
+
+// Dev builds and the on-device test build (vite --mode device) show the fps chip; tapping it cycles the quality tier.
+export const SHOW_FPS = import.meta.env.DEV || import.meta.env.VITE_SHOW_FPS === '1';
+
+function FpsChip() {
+  const { tier, cycle } = useQualityStore();
+  return <button type="button" className="fps" onClick={cycle} title="Quality tier (tap to change)"><span id="fps">-- fps</span> · {tier}</button>;
+}
 
 export function TopBar({ onAbout }: { onAbout(): void }) {
   const { theme, setTheme } = useThemeStore();
@@ -38,7 +47,7 @@ export function TopBar({ onAbout }: { onAbout(): void }) {
         <button type="button" className="icon-btn" aria-label={t('about.open')} onClick={onAbout}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5h.01" /></svg>
         </button>
-        {import.meta.env.DEV && <span className="fps" id="fps">-- fps</span>}
+        {SHOW_FPS && <FpsChip />}
       </div>
     </header>
   );

@@ -34,3 +34,16 @@ test('the canvas follows viewport changes (rotation / resize)', async ({ page })
   await page.setViewportSize({ width: 844, height: 390 });
   await expect.poll(async () => { const s = await canvasStats(page); return s && `${s.cssW}x${s.cssH}`; }).toBe('844x390');
 });
+
+type RenderInfo = { tier: string; samples: number[]; surfacePx: number };
+const renderInfo = (page: Page) => page.evaluate(() => (window as unknown as { __rq?: { debug: { render?: RenderInfo } } }).__rq?.debug.render ?? null);
+
+test('only the scene buffer is multisampled (saves GPU memory on phones)', async ({ page }) => {
+  await page.goto('/?test&quality=desktop');
+  await expect.poll(() => renderInfo(page)).toMatchObject({ tier: 'desktop', samples: [0, 4], surfacePx: 36 });
+});
+
+test('the low tier can be forced and reaches the renderer and the board texture', async ({ page }) => {
+  await page.goto('/?test&quality=low');
+  await expect.poll(() => renderInfo(page)).toMatchObject({ tier: 'low', samples: [0, 0], surfacePx: 24 });
+});
