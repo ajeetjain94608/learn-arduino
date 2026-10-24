@@ -21,7 +21,7 @@ export function BlinkCircuit({ pinHigh, showCircuit, showCurrent }: Props) {
   const lit = pinHigh ? 1 : 0;
   return (
     <>
-      <UnoBoard position={BLINK.board} pin13Level={lit} />
+      <UnoBoard position={BLINK.board} pin13={pinHigh} />
       <group visible={showCircuit}>
         <Breadboard position={BLINK.breadboard}>
           <Led5mm position={[(ax + kx) / 2, 0, az]} lit={lit} />

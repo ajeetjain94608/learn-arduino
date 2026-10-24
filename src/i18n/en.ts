@@ -2,6 +2,17 @@
 export const en = {
   'app.name': 'RoboQuest',
   'credits.boardLayout': 'Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)',
+  'app.tagline': '3D workbench',
+
+  'view.board': 'Board', 'view.circuit': 'Circuit',
+  'theme.lab': 'Lab theme', 'theme.night': 'Night Workshop theme', 'theme.mint': 'Mint theme',
+  'dock.run': 'Run', 'dock.stop': 'Stop', 'dock.current': 'Current', 'dock.labels': 'Labels', 'dock.reset': 'Reset view',
+  'status.stopped': 'Program stopped',
+  'status.high': 'Pin 13 HIGH · LED on', 'status.low': 'Pin 13 LOW · LED off',
+  'status.currentOn': 'Current: pin 13 → LED → resistor → GND', 'status.currentOff': 'Pin 13 LOW · no current',
+  'about.open': 'About', 'about.title': 'About RoboQuest', 'about.close': 'Close',
+  'about.body': 'Learn Arduino and robotics by building in 3D.',
+  'gl.restoring': 'Restoring 3D…', 'gl.reload': 'Tap to reload 3D',
 
   'hot.usb.name': 'USB port', 'hot.usb.sub': 'Power + upload',
   'hot.usb.text': 'Plug in here to power the board and upload your programs from a computer.',

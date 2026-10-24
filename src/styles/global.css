@@ -10,5 +10,3 @@ body {
 .app { position: fixed; inset: 0; }
 .workbench { position: absolute !important; inset: 0; touch-action: none; }
 .overlay { position: absolute; inset: 0; pointer-events: none; }
-.brand { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 16px; margin: 0;
-  font-size: 17px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; pointer-events: none; }

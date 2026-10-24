@@ -20,6 +20,7 @@ export function CameraRig() {
   const size = useThree((s) => s.size);
   const controls = useRef<OrbitControlsImpl>(null);
   const view = useWorkbenchStore((s) => s.view);
+  const resetTick = useWorkbenchStore((s) => s.resetTick);
   const reduced = useReducedMotion();
   const tween = useRef<Tween | null>(null);
   const first = useRef(true);
@@ -49,7 +50,7 @@ export function CameraRig() {
       return;
     }
     tween.current = { t: 0, fromP: camera.position.clone(), fromT: c.target.clone(), fromZ: camera.zoom, toP, toT, toZ: to.zoom };
-  }, [view, reduced, camera]);
+  }, [view, resetTick, reduced, camera]);
 
   useFrame((_, dt) => {
     const tw = tween.current, c = controls.current;

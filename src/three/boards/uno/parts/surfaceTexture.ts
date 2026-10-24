@@ -75,14 +75,3 @@ export function drawSurface(c: CanvasRenderingContext2D, px: number): void {
   txt('UNO', 43.25, 30.8, 4.2, 0, 'center', 900);
   txt('MAKER BOARD · R3', 43.25, 26.6, 1.25, 0, 'center', 700);
 }
-
-// Cyan glow of one pin's full route (chip → header), shown while the pin is HIGH.
-export function drawPinGlow(c: CanvasRenderingContext2D, px: number, pin: string): void {
-  const Y = (y: number) => (UNO.W - y) * px;
-  c.clearRect(0, 0, UNO.L * px, UNO.W * px);
-  c.lineCap = 'round'; c.lineJoin = 'round';
-  for (const [wd, col] of [[1.1, 'rgba(63,233,255,0.35)'], [0.45, 'rgba(200,250,255,1)']] as const) {
-    c.strokeStyle = col;
-    for (const [x1, y1, x2, y2] of PIN_TRACES[pin]?.segs ?? []) { c.lineWidth = wd * px; c.beginPath(); c.moveTo(x1 * px, Y(y1)); c.lineTo(x2 * px, Y(y2)); c.stroke(); }
-  }
-}

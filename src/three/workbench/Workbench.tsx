@@ -10,11 +10,14 @@ import { OutlineRenderer } from './OutlineRenderer';
 import { deviceQuality, type Quality } from './quality';
 
 // The 3D workbench: orthographic camera, soft light, floor, ink outlines. Scene content goes in children.
-export function Workbench({ children, quality: forced }: { children?: ReactNode; quality?: Quality }) {
+type Props = { children?: ReactNode; quality?: Quality; onCanvas?(c: HTMLCanvasElement): void; onBackgroundTap?(): void };
+
+export function Workbench({ children, quality: forced, onCanvas, onBackgroundTap }: Props) {
   const quality = useMemo(() => forced ?? deviceQuality(), [forced]);
   return (
     <Canvas
       className="workbench"
+      onPointerMissed={onBackgroundTap}
       orthographic
       dpr={quality.pixelRatio}
       shadows={{ type: THREE.PCFShadowMap }}
@@ -22,6 +25,7 @@ export function Workbench({ children, quality: forced }: { children?: ReactNode;
       gl={{ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: isTestMode() }}
       onCreated={({ gl, scene }) => {
         gl.domElement.dataset.engine = 'three';
+        onCanvas?.(gl.domElement);
         gl.toneMapping = THREE.NeutralToneMapping;
         gl.toneMappingExposure = 0.92;
         const pmrem = new THREE.PMREMGenerator(gl);

@@ -28,6 +28,13 @@ test('stopping the program drops the pin LOW', () => {
   expect(useWorkbenchStore.getState().pinHigh).toBe(false);
 });
 
+test('reset view bumps a counter the camera listens to, without changing the view', () => {
+  const before = useWorkbenchStore.getState().resetTick;
+  useWorkbenchStore.getState().resetView();
+  expect(useWorkbenchStore.getState().resetTick).toBe(before + 1);
+  expect(useWorkbenchStore.getState().view).toBe('board');
+});
+
 test('labels toggle', () => {
   useWorkbenchStore.getState().toggleLabels();
   expect(useWorkbenchStore.getState().labels).toBe(false);

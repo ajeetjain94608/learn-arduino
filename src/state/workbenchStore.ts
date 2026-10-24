@@ -7,7 +7,9 @@ type WorkbenchState = {
   showCurrent: boolean;
   running: boolean;
   pinHigh: boolean;
+  resetTick: number; // bumped by resetView(); the camera re-applies the current view preset
   setView(v: View): void;
+  resetView(): void;
   toggleLabels(): void;
   toggleCurrent(): void;
   setRunning(r: boolean): void;
@@ -20,7 +22,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   showCurrent: false,
   running: false,
   pinHigh: false,
+  resetTick: 0,
   setView: (view) => set({ view }),
+  resetView: () => set({ resetTick: get().resetTick + 1 }),
   toggleLabels: () => set({ labels: !get().labels }),
   // Showing current only makes sense on the wired circuit with the program running.
   toggleCurrent: () => (get().showCurrent ? set({ showCurrent: false }) : set({ showCurrent: true, view: 'circuit', running: true })),

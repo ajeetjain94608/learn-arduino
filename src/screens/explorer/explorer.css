@@ -1,0 +1,49 @@
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, var(--vignette) 100%); }
+
+.topbar { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 16px; right: 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; pointer-events: none; }
+.topbar .brand { display: flex; align-items: center; gap: 10px; }
+.brand__logo { width: 36px; height: 36px; border-radius: 10px; background: var(--primary-bg); color: var(--primary-fg); display: grid; place-items: center; }
+.topbar h1 { margin: 0; font-size: 17px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; }
+.topbar p { margin: 1px 0 0; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-2); }
+.topbar__right { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
+.themes, .seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 4px; }
+.themes button { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 0; background-clip: padding-box; }
+.themes button.is-on { border-color: var(--ink); }
+.seg button { appearance: none; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 800; color: var(--ink-2);
+  padding: 0 14px; min-height: 40px; border-radius: 10px; cursor: pointer; }
+.seg button.is-on { background: var(--primary-bg); color: var(--primary-fg); }
+.icon-btn { appearance: none; width: 48px; height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  display: grid; place-items: center; cursor: pointer; }
+.fps { font: 600 11px ui-monospace, Consolas, monospace; color: var(--ink-2); background: var(--card); border: 1px solid var(--line); padding: 4px 8px; border-radius: 999px; }
+
+.status { position: absolute; top: calc(66px + env(safe-area-inset-top)); left: 16px; font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); padding: 7px 12px; border-radius: 999px; }
+.status i { width: 10px; height: 10px; border-radius: 50%; background: #9AA3AF; transition: background .1s, box-shadow .1s; }
+.status i.is-lit { background: #FF3B2F; box-shadow: 0 0 10px #FF3B2F; }
+
+.dock { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; gap: 8px; background: var(--card); border: 1px solid var(--line); padding: 6px; border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12); backdrop-filter: blur(8px); }
+.dock button { appearance: none; border: 0; background: transparent; color: var(--ink); min-width: 48px; height: 48px;
+  padding: 0 14px; border-radius: 13px; font: inherit; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
+.dock button.is-on { background: var(--accent-soft); color: var(--accent); }
+.dock button.primary { background: var(--primary-bg); color: var(--primary-fg); }
+.dock button.primary.is-on { background: var(--reward); color: #1B1B1B; }
+.dock svg { width: 18px; height: 18px; }
+@media (max-width: 600px) { .dock button span { display: none; } .dock button { padding: 0 12px; } }
+@media (max-width: 520px), (max-height: 520px) { .topbar p { display: none; } }
+
+.sheet { position: absolute; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); margin: 0 auto; max-width: 440px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.14);
+  animation: sheet-in .25s cubic-bezier(.2,.8,.2,1); }
+.sheet h2 { margin: 0 0 4px; font-size: 16px; }
+.sheet p, .sheet li { margin: 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); }
+.sheet ul { margin: 8px 0 0; padding-left: 18px; }
+.sheet__close { margin-top: 10px; min-height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-weight: 800; cursor: pointer; }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+
+.gl-guard { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 80%, transparent); }
+.gl-guard p { font-weight: 800; }
+.gl-guard button { min-height: 56px; padding: 0 24px; border-radius: 16px; border: 0; background: var(--primary-bg); color: var(--primary-fg); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
