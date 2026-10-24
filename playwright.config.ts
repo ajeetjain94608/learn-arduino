@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.02 } },
+  // 10 s: several 3D browsers start at once during a test run on this PC; real start-up is measured on the phone.
+  expect: { timeout: 10_000, toHaveScreenshot: { maxDiffPixelRatio: 0.02 } },
   use: { baseURL: 'http://localhost:5180' },
   webServer: { command: 'npm run dev', url: 'http://localhost:5180', reuseExistingServer: true, timeout: 60_000 },
   // Uses the installed Google Chrome (channel) so tests don't depend on downloading a browser build.

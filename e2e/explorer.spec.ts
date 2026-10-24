@@ -8,9 +8,9 @@ const canvas = (page: Page) => page.locator('canvas[data-engine]');
 test('Run starts the blink program', async ({ page }) => {
   await page.goto('/?test');
   await expect(status(page)).toHaveText('Program stopped');
-  await page.getByRole('button', { name: 'Run' }).click();
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(status(page)).toHaveText('Pin 13 HIGH · LED on', { timeout: 1200 });
-  await page.getByRole('button', { name: 'Stop' }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(status(page)).toHaveText('Program stopped');
 });
 
@@ -80,7 +80,7 @@ test('a lost 3D context that never returns offers a reload that works', async ({
   await expect(canvas(page)).toBeVisible();
   await loseContext(page, null);
   const reload = page.getByRole('button', { name: 'Tap to reload 3D' });
-  await expect(reload).toBeVisible({ timeout: 3500 });
+  await expect(reload).toBeVisible({ timeout: 5000 }); // guard gives up after 3 s; allow for render + polling
   await reload.click();
   await expect(page.getByTestId('gl-guard')).toBeHidden();
   await expect(canvas(page)).toBeVisible();

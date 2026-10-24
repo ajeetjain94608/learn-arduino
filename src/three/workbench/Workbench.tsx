@@ -1,8 +1,8 @@
 import { useMemo, type ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { isTestMode } from '../shared/motion';
+import { ROOM_ENV } from './roomEnvironment';
 import { CameraRig } from './CameraRig';
 import { Ground } from './Ground';
 import { Lights } from './Lights';
@@ -22,16 +22,11 @@ export function Workbench({ children, quality: forced, onCanvas, onBackgroundTap
       dpr={quality.pixelRatio}
       shadows={{ type: THREE.PCFShadowMap }}
       camera={{ near: 1, far: 1500, manual: true }}
-      gl={{ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: isTestMode() }}
-      onCreated={({ gl, scene }) => {
+      gl={{ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: isTestMode(), toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.92 }}
+      scene={{ environment: ROOM_ENV, environmentIntensity: 0.5 }}
+      onCreated={({ gl }) => {
         gl.domElement.dataset.engine = 'three';
         onCanvas?.(gl.domElement);
-        gl.toneMapping = THREE.NeutralToneMapping;
-        gl.toneMappingExposure = 0.92;
-        const pmrem = new THREE.PMREMGenerator(gl);
-        scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-        scene.environmentIntensity = 0.5;
-        pmrem.dispose();
       }}
     >
       <Lights quality={quality} />
