@@ -63,3 +63,24 @@ test('tapping empty bench in board view clears a selection, even where hidden ci
   await page.mouse.click(Math.min(bb.x, 1000), bb.y);
   await expect(page.getByTestId('info-sheet')).toBeHidden();
 });
+
+test('pressing the 3D reset button reboots the board and restarts the program', async ({ page }) => {
+  await page.goto('/?test&run');
+  await page.getByRole('button', { name: 'Labels' }).click();
+  await expect.poll(() => posOf(page, 'RESET')).not.toBeNull();
+  // wait until the program is in its LOW second, so a restart (which begins HIGH) is visible
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 4000 });
+  // From the default angle the USB connector hides the reset button (as on the real board): rotate a little first.
+  const vp = page.viewportSize()!;
+  await page.mouse.move(vp.width * 0.5, vp.height * 0.55);
+  await page.mouse.down();
+  await page.mouse.move(vp.width * 0.5 + 220, vp.height * 0.55, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 4000 });
+  const r = (await posOf(page, 'RESET'))!;
+  await page.mouse.click(r.x, r.y - 3);
+  await expect(page.getByTestId('status')).toHaveText('Resetting…');
+  await expect(page.getByTestId('part-tooltip')).toContainText('Reset button');
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 1500 });
+});

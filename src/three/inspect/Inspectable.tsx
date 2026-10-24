@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useInspectStore } from '../../state/inspectStore';
+import { useWorkbenchStore } from '../../state/workbenchStore';
 import { isTestMode, useReducedMotion } from '../shared/motion';
 import { findPart } from './findPart';
 import { approach, LIFT } from './lift';
@@ -17,7 +18,13 @@ const firstPart = (e: ThreeEvent<PointerEvent | MouseEvent>) => {
 
 // Wraps scene content whose parts (pivots made by makePart / PartGroup) can be inspected:
 // mouse hover lifts a part slightly and shows its name; a click or tap selects it.
-type Motion = { lift: number; zoom: number; baseY: number };
+type Motion = { lift: number; zoom: number; baseY: number; pressedUntil?: number };
+
+// Parts you operate rather than lift: tapping one presses it and runs its action.
+const PRESS_DEPTH = -0.45, PRESS_S = 0.18;
+const ACTIONS: Record<string, () => void> = {
+  reset: () => useWorkbenchStore.getState().resetBoard(),
+};
 
 export function Inspectable({ children, onEmptyTap }: { children: ReactNode; onEmptyTap?(): void }) {
   const root = useRef<THREE.Group>(null);
@@ -50,9 +57,12 @@ export function Inspectable({ children, onEmptyTap }: { children: ReactNode; onE
     const dt = Math.min(dtRaw, 0.1);
     const { hovered, selected } = useInspectStore.getState();
     for (const [id, p] of pivots.current) {
-      const target = id === selected ? LIFT.selected : id === hovered ? LIFT.hover : LIFT.idle;
       let m = motion.current.get(p);
       if (!m) { m = { lift: 0, zoom: 1, baseY: p.userData.baseY ?? p.position.y }; motion.current.set(p, m); }
+      const pressable = p.userData.kind in ACTIONS;
+      const target = pressable
+        ? { y: (m.pressedUntil ?? 0) > performance.now() ? PRESS_DEPTH : 0, scale: 1 }
+        : id === selected ? LIFT.selected : id === hovered ? LIFT.hover : LIFT.idle;
       const lift = reduced ? target.y : approach(m.lift, target.y, dt);
       const zoom = reduced ? target.scale : approach(m.zoom, target.scale, dt);
       m.lift = lift; m.zoom = zoom;
@@ -78,6 +88,14 @@ export function Inspectable({ children, onEmptyTap }: { children: ReactNode; onE
     // Hidden circuit parts and the bare PCB still intercept the raycast, so R3F won't report a "miss":
     // a tap that reaches no visible part is a tap on empty bench.
     if (!hit) { onEmptyTap?.(); return; }
+    const action = ACTIONS[hit.kind];
+    if (action) {
+      const m = motion.current.get(hit.pivot);
+      if (m) m.pressedUntil = performance.now() + PRESS_S * 1000;
+      action();
+      // keep the name card up without toggling it off on a second press
+      if (useInspectStore.getState().selected === hit.partId) return;
+    }
     useInspectStore.getState().select(hit.partId, { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
   };
 

@@ -1,7 +1,8 @@
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 
-export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean }): string {
+export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean; booting: boolean }): string {
+  if (s.booting) return t('status.resetting');
   if (!s.running) return t('status.stopped');
   if (s.showCurrent) return s.pinHigh ? t('status.currentOn') : t('status.currentOff');
   return s.pinHigh ? t('status.high') : t('status.low');

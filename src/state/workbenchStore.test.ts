@@ -39,3 +39,11 @@ test('labels toggle', () => {
   useWorkbenchStore.getState().toggleLabels();
   expect(useWorkbenchStore.getState().labels).toBe(false);
 });
+
+test('resetting the board starts a boot: pin 13 drops LOW and the reset counter moves on', () => {
+  const s = useWorkbenchStore.getState();
+  s.setRunning(true);
+  s.setPinHigh(true);
+  s.resetBoard();
+  expect(useWorkbenchStore.getState()).toMatchObject({ booting: true, pinHigh: false, running: true, resetCount: 1 });
+});

@@ -7,7 +7,7 @@ export const en = {
   'view.board': 'Board', 'view.circuit': 'Circuit',
   'theme.lab': 'Lab theme', 'theme.night': 'Night Workshop theme', 'theme.mint': 'Mint theme',
   'dock.run': 'Run', 'dock.stop': 'Stop', 'dock.current': 'Current', 'dock.labels': 'Labels', 'dock.reset': 'Reset view',
-  'status.stopped': 'Program stopped',
+  'status.stopped': 'Program stopped', 'status.resetting': 'Resetting…',
   'status.high': 'Pin 13 HIGH · LED on', 'status.low': 'Pin 13 LOW · LED off',
   'status.currentOn': 'Current: pin 13 → LED → resistor → GND', 'status.currentOff': 'Pin 13 LOW · no current',
   'menu.open': 'Menu', 'menu.close': 'Close menu', 'menu.view': 'View', 'menu.theme': 'Theme',
