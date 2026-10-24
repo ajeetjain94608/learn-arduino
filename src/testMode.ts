@@ -11,4 +11,6 @@ export function applyTestParams(): void {
   if (view === 'board' || view === 'circuit') useWorkbenchStore.getState().setView(view);
   const theme = q.get('theme');
   if (isThemeName(theme)) useThemeStore.getState().setTheme(theme);
+  if (q.has('current')) useWorkbenchStore.getState().toggleCurrent();
+  else if (q.has('run')) useWorkbenchStore.getState().setRunning(true);
 }
