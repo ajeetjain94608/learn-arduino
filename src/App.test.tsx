@@ -1,5 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+
+// jsdom has no WebGL; the 3D scene is covered by the Playwright tests.
+vi.mock('./three/workbench/Workbench', () => ({ Workbench: () => null }));
 import App from './App';
 import { t } from './i18n/en';
 import { CREDITS } from './legal/credits';
