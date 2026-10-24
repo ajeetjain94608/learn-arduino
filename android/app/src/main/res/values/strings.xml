@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RoboQuest</string>
+    <string name="title_activity_main">RoboQuest</string>
+    <string name="package_name">com.roboquest.app</string>
+    <string name="custom_url_scheme">com.roboquest.app</string>
+</resources>
