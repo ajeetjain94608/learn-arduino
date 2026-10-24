@@ -10,6 +10,8 @@ export const en = {
   'status.stopped': 'Program stopped',
   'status.high': 'Pin 13 HIGH · LED on', 'status.low': 'Pin 13 LOW · LED off',
   'status.currentOn': 'Current: pin 13 → LED → resistor → GND', 'status.currentOff': 'Pin 13 LOW · no current',
+  'menu.open': 'Menu', 'menu.close': 'Close menu', 'menu.view': 'View', 'menu.theme': 'Theme',
+  'themeName.lab': 'Lab', 'themeName.night': 'Night Workshop', 'themeName.mint': 'Mint',
   'about.open': 'About', 'about.title': 'About RoboQuest', 'about.close': 'Close',
   'about.body': 'Learn Arduino and robotics by building in 3D.',
   'gl.restoring': 'Restoring 3D…', 'gl.reload': 'Tap to reload 3D',

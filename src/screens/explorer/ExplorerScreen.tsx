@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { t, type StringKey } from '../../i18n/en';
 import { useInspectStore } from '../../state/inspectStore';
 import { useWorkbenchStore } from '../../state/workbenchStore';
@@ -14,7 +14,7 @@ import { HOTSPOTS } from '../../ui/callouts/hotspots';
 import { DemoClock } from './DemoClock';
 import { Dock, StatusPill } from './Dock';
 import { AboutSheet, InfoSheet } from './InfoSheet';
-import { FpsProbe, SHOW_FPS, TopBar } from './TopBar';
+import { FpsProbe, SHOW_FPS, SideMenu, TopBar } from './TopBar';
 import './explorer.css';
 
 // Stage 1 screen: explore the Uno, switch to the wired blink circuit, run it, watch current flow,
@@ -28,6 +28,8 @@ export function ExplorerScreen() {
   const selectPart = useInspectStore((s) => s.select);
   const [callout, setCallout] = useState<string | null>(null);
   const [about, setAbout] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const closeMenu = useCallback(() => setMenu(false), []);
   const bridge = useMemo(createCalloutBridge, []);
   const guard = useContextGuard();
 
@@ -58,12 +60,13 @@ export function ExplorerScreen() {
           onSelect={(id) => { setAbout(false); selectPart(null); setCallout(id === callout ? null : id); }} />
         <PartTooltip />
       </div>
-      <TopBar onAbout={() => { setCallout(null); selectPart(null); setAbout((a) => !a); }} />
+      <TopBar onMenu={() => setMenu(true)} />
       <StatusPill />
       <InfoSheet info={about ? null : info} />
       <AboutSheet open={about} onClose={() => setAbout(false)} />
       <Dock onResetView={resetView} />
       <GlGuardCard state={guard.state} onReload={guard.reload} />
+      <SideMenu open={menu} onClose={closeMenu} onAbout={() => { setCallout(null); selectPart(null); setAbout(true); }} />
     </main>
   );
 }

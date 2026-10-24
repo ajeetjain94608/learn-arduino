@@ -7,10 +7,7 @@
 .topbar h1 { margin: 0; font-size: 17px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; }
 .topbar p { margin: 1px 0 0; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
 .topbar__right { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
-.themes, .seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 4px; }
-/* 48 px tap target; the visible swatch is the 36 px circle inside */
-.themes button { width: 48px; height: 48px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 3px; background-clip: content-box !important; }
-.themes button.is-on { border-color: var(--ink); }
+.seg { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 4px; }
 .seg button { appearance: none; border: 0; background: transparent; font: inherit; font-size: 14px; font-weight: 800; color: var(--ink-2);
   padding: 0 14px; min-height: 48px; border-radius: 10px; cursor: pointer; }
 .seg button.is-on { background: var(--primary-bg); color: var(--primary-fg); }
@@ -50,6 +47,26 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.16); display: flex; flex-direction: column; gap: 2px; }
 .part-tooltip b { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
 .part-tooltip span { font-size: 14px; color: var(--ink-2); line-height: 1.35; }
+
+/* side menu: every option that would otherwise cover the 3D view */
+.side-menu__backdrop { position: absolute; inset: 0; z-index: 5; background: rgba(8, 12, 20, 0.35); animation: fade-in .2s ease-out; }
+.side-menu { position: absolute; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); overflow-y: auto;
+  background: var(--paper); border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(0,0,0,0.18);
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 10px; animation: slide-in .25s cubic-bezier(.2,.8,.2,1); }
+.side-menu__head { display: flex; align-items: center; justify-content: space-between; }
+.side-menu h2 { margin: 0; font-size: 18px; font-weight: 800; }
+.side-menu h3 { margin: 8px 0 0; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.side-menu .seg button { flex: 1; }
+.side-menu__themes { display: flex; flex-direction: column; gap: 6px; }
+.side-menu__theme, .side-menu__item { appearance: none; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px;
+  border-radius: 12px; border: 2px solid transparent; background: var(--card); color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; text-align: left; }
+.side-menu__theme i { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); flex: none; }
+.side-menu__theme.is-on { border-color: var(--accent); }
+.side-menu__item { margin-top: 8px; border-color: var(--line); }
+@keyframes slide-in { from { transform: translateX(100%); } }
+@keyframes fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .side-menu, .side-menu__backdrop { animation: none; } }
 
 .gl-guard { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 80%, transparent); }
 .gl-guard p { font-weight: 800; }
