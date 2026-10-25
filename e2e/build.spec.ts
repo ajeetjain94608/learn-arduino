@@ -190,3 +190,43 @@ test.describe('Build: burns and warnings', () => {
     await expect(page.getByTestId('burn-card').getByRole('button', { name: 'Replace board' })).toBeVisible();
   });
 });
+
+test('review fix: Home and Build each keep their own program; Build has no "show current" shortcut', async ({ page }) => {
+  await openBuild(page);
+  await expect(page.getByRole('toolbar', { name: /3D view/ }).getByRole('button', { name: /current/i })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Code' }).click();
+  await page.getByRole('textbox', { name: 'Sketch code' }).fill('void setup() {\n  pinMode(13, OUTPUT)\n}\n\nvoid loop() {\n}\n'); // a mistake
+  await page.getByTestId('code-card').getByRole('button', { name: 'Run' }).click();
+  await expect(page.getByRole('list', { name: 'Compiler messages' })).toBeVisible({ timeout: 40_000 });
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Home' }).click();
+  const home = await page.evaluate(() => (window as unknown as { __rq: { debug: { store(): { code: string; diagnostics: unknown[]; program: { hex: string } } } } }).__rq.debug.store());
+  expect(home.code).toContain('digitalWrite(13, HIGH);'); // Home's Blink, not the build's code
+  expect(home.diagnostics).toEqual([]);                   // the build's errors stay with the build
+  await expect(page.getByRole('toolbar', { name: /3D view/ }).getByRole('button', { name: /current/i })).toHaveCount(1);
+});
+
+test.describe('review fix: touch — quick drags orbit, press-and-hold starts a wire', () => {
+  test.use({ hasTouch: true });
+
+  test('a quick finger drag over the breadboard makes no wire; holding first does', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'one viewport is enough for the gesture');
+    await openBuild(page);
+    const pin = (ref: string) => page.evaluate((r) => (window as unknown as { __rq: { debug: { buildPinScreen(r: string): { x: number; y: number } } } }).__rq.debug.buildPinScreen(r), ref);
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', p?: { x: number; y: number }) =>
+      cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [] });
+    const glide = async (a: { x: number; y: number }, b: { x: number; y: number }) => {
+      for (let i = 1; i <= 10; i++) await touch('touchMove', { x: a.x + ((b.x - a.x) * i) / 10, y: a.y + ((b.y - a.y) * i) / 10 });
+    };
+    const wires = () => page.evaluate(() => (window as unknown as { __rq: { debug: { build(): { wires: unknown[] } } } }).__rq.debug.build().wires.length);
+
+    let a = await pin('uno.D13'), b = await pin('bb.1c');
+    await touch('touchStart', a); await glide(a, b); await touch('touchEnd');  // quick drag: the camera's
+    await page.waitForTimeout(300);
+    expect(await wires()).toBe(0);
+
+    a = await pin('uno.D13'); b = await pin('bb.1c');                         // the camera may have moved
+    await touch('touchStart', a); await page.waitForTimeout(450); await glide(a, b); await touch('touchEnd');
+    await expect.poll(wires).toBe(1);
+  });
+});

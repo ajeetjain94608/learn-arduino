@@ -1,5 +1,6 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { InputValues } from '../circuit/evaluate';
+import { BB_HOLES, UNO_PINS } from '../circuit/board';
 import { PART_DEFS, paramsOf } from '../circuit/parts';
 import type { CircuitSpec, PartInstance, PartType, PinRef, Placement, Row, Wire } from '../circuit/types';
 import { t } from '../i18n/en';
@@ -9,9 +10,12 @@ const KEY = 'rq-build-v1';
 const WIRE_COLORS = ['#F28C16', '#2563EB', '#10B981', '#E2483D', '#8B5CF6', '#2B2F38'];
 const ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 
-type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string };
+// counters: the highest number each part type has used, so an id is never given out twice (a new LED must never
+// inherit an old one's burn)
+type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number> };
 
 export type BuildState = {
+  counters: Record<string, number>;
   parts: PartInstance[];
   wires: Wire[];
   inputs: InputValues;
@@ -36,13 +40,30 @@ export type BuildState = {
 const coveredHoles = (p: PartInstance, at = p.at) => PART_DEFS[p.type].covers(at, p.params).map((h) => `bb.${h}`);
 const defaultInputs = (type: PartType) => Object.fromEntries(PART_DEFS[type].inputs.map((i) => [i.key, i.default]));
 
+const POINTS = new Set([...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`)]);
+const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
+const validPart = (p: unknown): p is PartInstance =>
+  isObject(p) && typeof p.id === 'string' && typeof p.type === 'string' && p.type in PART_DEFS && isObject(p.params) && isObject(p.at)
+  && PART_DEFS[p.type as PartType].footprint(p.at as Placement, p.params as Record<string, string | number>) !== null;
+const validWire = (w: unknown): w is Wire =>
+  isObject(w) && typeof w.id === 'string' && typeof w.color === 'string' && POINTS.has(w.from as string) && POINTS.has(w.to as string);
+
+// A saved build, checked entry by entry: whatever is damaged or unknown (e.g. saved by a newer version) is dropped
+// rather than breaking the Build screen; unreadable JSON or another version gives a fresh build.
 function load(storage: Storage | undefined): Saved | null {
   try {
     const raw = storage?.getItem(KEY);
     if (!raw) return null;
-    const s = JSON.parse(raw) as Saved;
-    if (s?.v !== 1 || !Array.isArray(s.parts) || !Array.isArray(s.wires) || typeof s.code !== 'string' || typeof s.inputs !== 'object') return null;
-    return s;
+    const s = JSON.parse(raw) as Record<string, unknown>;
+    if (!isObject(s) || s.v !== 1 || !Array.isArray(s.parts) || !Array.isArray(s.wires) || typeof s.code !== 'string') return null;
+    const parts = s.parts.filter(validPart);
+    const ids = new Set(parts.map((p) => p.id));
+    const inputs: InputValues = {};
+    if (isObject(s.inputs)) for (const [id, v] of Object.entries(s.inputs)) {
+      if (ids.has(id) && isObject(v)) inputs[id] = Object.fromEntries(Object.entries(v).filter(([, n]) => typeof n === 'number' && Number.isFinite(n))) as Record<string, number>;
+    }
+    const counters = isObject(s.counters) ? Object.fromEntries(Object.entries(s.counters).filter(([, n]) => typeof n === 'number')) as Record<string, number> : {};
+    return { v: 1, parts, wires: s.wires.filter(validWire), inputs, code: s.code, counters };
   } catch { return null; }
 }
 
@@ -66,6 +87,7 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
     let nextWire = 0;
 
     return {
+      counters: saved?.counters ?? {},
       parts: saved?.parts ?? [],
       wires: saved?.wires ?? [],
       inputs: saved?.inputs ?? {},
@@ -74,13 +96,13 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       message: null,
 
       addPart(type) {
-        const n = 1 + Math.max(0, ...get().parts.filter((p) => p.type === type).map((p) => Number(p.id.slice(type.length)) || 0));
+        const n = 1 + Math.max(get().counters[type] ?? 0, ...get().parts.filter((p) => p.type === type).map((p) => Number(p.id.slice(type.length)) || 0));
         const part: PartInstance = { id: `${type}${n}`, type, params: paramsOf(type, {}), at: { col: 1, row: 'a' } };
         for (const row of ROWS) for (let col = 1; col <= 30; col++) {
           const at = { col, row };
           if (!fits(part, at)) continue;
           part.at = at;
-          set({ parts: [...get().parts, part], inputs: { ...get().inputs, [part.id]: defaultInputs(type) }, message: null });
+          set({ parts: [...get().parts, part], inputs: { ...get().inputs, [part.id]: defaultInputs(type) }, counters: { ...get().counters, [type]: n }, message: null });
           return part.id;
         }
         return refuse('build.msg.full');
@@ -119,7 +141,7 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       setWireColor(id, color) { set({ wires: get().wires.map((w) => (w.id === id ? { ...w, color } : w)) }); },
       select(selected) { set({ selected }); },
       setCode(code) { set({ code }); },
-      reset() { set({ parts: [], wires: [], inputs: {}, code: FRESH_CODE, selected: null, message: null }); },
+      reset() { set({ parts: [], wires: [], inputs: {}, code: FRESH_CODE, selected: null, message: null }); }, // counters stay: ids are never reused
       spec() { return { parts: get().parts, wires: get().wires }; },
       usedPins() {
         const used = taken();
@@ -129,7 +151,7 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
     };
   });
   store.subscribe((s) => {
-    try { storage?.setItem(KEY, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code } satisfies Saved)); } catch { /* storage full or blocked */ }
+    try { storage?.setItem(KEY, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters } satisfies Saved)); } catch { /* storage full or blocked */ }
   });
   return store;
 }

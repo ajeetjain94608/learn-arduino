@@ -88,3 +88,32 @@ describe('the build store', () => {
     expect(createBuildStore(storage).getState().code).toBe(FRESH_CODE);
   });
 });
+
+describe('review fixes: the build store', () => {
+  it('a removed part\'s id is never used again (a new LED never inherits an old one\'s burn)', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const s = createBuildStore(storage).getState;
+    const a = s().addPart('led')!;
+    s().removePart(a);
+    const b = s().addPart('led')!;
+    expect(b).not.toBe(a);
+    expect(createBuildStore(storage).getState().addPart('led')).not.toBe(b); // also after a reload
+  });
+
+  it('a partly damaged save keeps what is valid and drops the rest', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    storage.setItem('rq-build-v1', JSON.stringify({
+      v: 1,
+      parts: [{ id: 'x1', type: 'x', params: {}, at: { col: 1, row: 'a' } }, { id: 'led1', type: 'led', params: {}, at: { col: 40, row: 'a' } },
+        { id: 'led2', type: 'led', params: { color: 'blue' }, at: { col: 5, row: 'c' } }, null],
+      wires: [{ id: 'w1', from: 'uno.D99', to: 'bb.1a', color: '#000' }, { id: 'w2', from: 'uno.D13', to: 'bb.5a', color: '#000' }, 7],
+      inputs: null,
+      code: 'void setup() {}\nvoid loop() {}\n',
+    }));
+    const s = createBuildStore(storage).getState();
+    expect(s.parts.map((p) => p.id)).toEqual(['led2']);
+    expect(s.wires.map((w) => w.id)).toEqual(['w2']);
+    expect(s.inputs).toEqual({});
+    expect(s.code).toBe('void setup() {}\nvoid loop() {}\n');
+  });
+});

@@ -9,7 +9,11 @@ const SPEED_WINDOW_MS = 500;     // speed = chip time ÷ wall time over windows 
 const CIRCUIT_SLICE_MS = 1;      // with a circuit, the chip runs in slices this long and the circuit follows its pins
 const HIGH_VOLTS = 2.5;          // a digital input reads HIGH above this
 
-export type CircuitSnapshot = { parts: Record<string, PartState>; burns: Burn[]; board: { shorted: boolean; burntPins: number[] } };
+// seq goes up each time the circuit is solved again, so the page only re-renders when something changed
+export type CircuitSnapshot = { seq: number; parts: Record<string, PartState>; burns: Burn[]; board: { shorted: boolean; burntPins: number[] } };
+
+// Whether a snapshot's circuit is news for the page (worker messages are fresh copies, so compare by seq).
+export const circuitChanged = (prev: CircuitSnapshot | null, next: CircuitSnapshot | null) => (next ? prev?.seq !== next.seq : prev !== null);
 
 // What the page needs from the chip each frame.
 export type SimSnapshot = {
@@ -44,6 +48,7 @@ export class SimEngine {
   private circuitState: CircuitSnapshot | null = null;
   private signature = '';      // the chip's pin drives last time the circuit was solved
   private dirty = true;        // the circuit or an input changed: solve again
+  evaluations = 0;             // how many times the circuit was solved (tests keep this low)
 
   load(flash: Uint8Array, lines: LineEntry[], now: number): void {
     this.chip = new AvrRunner(flash);
@@ -69,6 +74,10 @@ export class SimEngine {
   setCircuit(spec: CircuitSpec | null): void {
     this.spec = spec;
     this.dirty = true;
+    // a part that was thrown away takes its burn with it (the board's own burns stay until "Replace board")
+    const ids = new Set(spec?.parts.map((p) => p.id) ?? []);
+    for (const b of [...this.burnt]) if (!b.startsWith('uno') && !ids.has(b)) this.burnt.delete(b);
+    this.burns = this.burns.filter((b) => this.burnt.has(b.id));
     if (!spec) { this.circuitState = null; this.chip && this.releasePins(this.chip); }
   }
   setInput(partId: string, key: string, value: number): void { (this.inputs[partId] ??= {})[key] = value; this.dirty = true; }
@@ -83,13 +92,15 @@ export class SimEngine {
   // Solve the circuit for the chip's pins as they are now and feed the voltages back to its inputs and ADC.
   private applyCircuit(chip: AvrRunner) {
     const drives: PinDrive[] = Array.from({ length: 20 }, (_, n) => { const p = chip.pin(n); return { mode: p.mode, high: p.high, duty: chip.pwmDuty(n) }; });
-    const signature = drives.map((d) => `${d.mode[0]}${d.high ? 1 : 0}${d.duty === null ? '' : d.duty.toFixed(3)}`).join();
+    // a PWM pin's level flips hundreds of times a second; the circuit only depends on its duty
+    const signature = drives.map((d) => (d.duty === null ? `${d.mode[0]}${d.high ? 1 : 0}` : `${d.mode[0]}p${d.duty.toFixed(3)}`)).join();
     if (!this.dirty && signature === this.signature) return;
     this.signature = signature;
     this.dirty = false;
     const r = evaluate(this.spec!, drives, this.inputs, this.burnt);
+    this.evaluations++;
     for (const b of r.newBurns) { this.burnt.add(b.id); this.burns.push(b); }
-    this.circuitState = { parts: r.parts, burns: [...this.burns], board: r.board };
+    this.circuitState = { seq: (this.circuitState?.seq ?? 0) + 1, parts: r.parts, burns: [...this.burns], board: r.board };
     drives.forEach((d, n) => {
       if (d.mode !== 'output') chip.setInput(n, r.pinVolts[n] > HIGH_VOLTS);
       if (n >= 14) chip.setAnalog(n - 14, r.pinVolts[n]);

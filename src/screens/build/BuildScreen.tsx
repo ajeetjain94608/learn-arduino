@@ -56,16 +56,23 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
     return [...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`).filter((h) => !used.has(h))];
   }, [parts, wires]);
 
-  // While Build is open the code card edits the build's code; Home gets its own code back afterwards.
+  // While Build is open the board runs the build's program: code, compiled program and compiler messages are
+  // swapped in, and Home gets its own back afterwards.
   useEffect(() => {
     const wb = useWorkbenchStore.getState();
-    const homeCode = wb.code;
+    const home = { code: wb.code, program: wb.program, diagnostics: wb.diagnostics, showCurrent: wb.showCurrent };
     wb.setRunning(false);
     wb.setView('circuit');
+    useWorkbenchStore.setState({ diagnostics: [], showCurrent: false });
     wb.setCode(useBuildStore.getState().code);
     const unsub = useWorkbenchStore.subscribe((s) => { if (s.code !== useBuildStore.getState().code) useBuildStore.getState().setCode(s.code); });
     if (isTestMode()) (window.__rq ??= { debug: {} }).debug.build = () => useBuildStore.getState();
-    return () => { unsub(); const w = useWorkbenchStore.getState(); w.setRunning(false); w.setCode(homeCode); w.setCircuitState(null); };
+    return () => {
+      unsub();
+      const w = useWorkbenchStore.getState();
+      w.setRunning(false);
+      useWorkbenchStore.setState({ code: home.code, program: home.program, diagnostics: home.diagnostics, showCurrent: home.showCurrent, circuitState: null });
+    };
   }, []);
 
   return (
@@ -81,7 +88,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />
-        <ViewerToolbar />
+        <ViewerToolbar showCurrentButton={false} />
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
       <div className="side build-side" data-expand={panel ?? undefined}>

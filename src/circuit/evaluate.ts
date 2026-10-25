@@ -22,13 +22,17 @@ const LED_RON = 15, LED_FULL_A = 0.02;
 const LED_BURN_A = 0.05, PIN_BURN_A = 0.04, SHORT_A = 1;
 const unoPinName = (n: number) => (n < 14 ? `D${n}` : `A${n - 14}`);
 
+// Nets depend only on the circuit, which changes far less often than the pins: work them out once per circuit.
+const netCache = new WeakMap<CircuitSpec, ReturnType<typeof buildNets>>();
+
 const legs = (p: PartInstance): Record<string, string> =>
   Object.fromEntries(Object.entries(PART_DEFS[p.type].footprint(p.at, p.params) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
 
 // Solves the circuit for the chip's current pin states and the learner's inputs, applying the burn rules.
 // `burnt` holds everything already burnt: part ids, 'uno.D<n>' pins, 'uno' (a shorted board).
 export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>): CircuitResult {
-  const nets = buildNets(spec, legs);
+  let nets = netCache.get(spec);
+  if (!nets) { nets = buildNets(spec, legs); netCache.set(spec, nets); }
   const net = (ref: string) => nets.netOf(ref);
   const ground = net('uno.GND');
   const burns = new Set(burnt);
@@ -83,13 +87,15 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
   // PWM: an LED's brightness is the time average of the pin's HIGH and LOW states
   const pwmPins = pins.flatMap((d, n) => (d.mode === 'output' && d.duty !== null && d.duty > 0 && d.duty < 1 ? [n] : []));
   const parts: Record<string, PartState> = {};
+  const lowRuns = new Map<number, ReturnType<typeof run>>(); // one extra solve per PWM pin, shared by all LEDs
   for (const p of spec.parts) {
     if (p.type !== 'led') continue;
     if (burns.has(p.id)) { parts[p.id] = { burnt: true, brightness: 0, current: 0 }; continue; }
     const iHigh = Math.max(0, currentOf(s, `led:${p.id}`));
     let i = iHigh;
     for (const n of pwmPins) {
-      const iLow = Math.max(0, currentOf(run(n), `led:${p.id}`));
+      if (!lowRuns.has(n)) lowRuns.set(n, run(n));
+      const iLow = Math.max(0, currentOf(lowRuns.get(n)!, `led:${p.id}`));
       if (Math.abs(iLow - iHigh) > 1e-6) { const d = pins[n].duty!; i = d * iHigh + (1 - d) * iLow; break; }
     }
     parts[p.id] = { brightness: Math.min(1, i / LED_FULL_A), current: i };

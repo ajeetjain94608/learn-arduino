@@ -5,15 +5,20 @@ import type { PinRef } from '../../circuit/types';
 import { noOutline } from '../shared/layers';
 import { isTestMode } from '../shared/motion';
 import { pinWorld } from './pinPoints';
+import { TouchHold } from './touchHold';
 
 const SNAP_PX = 22; // a press or release this close (on screen) to a pin or hole counts as on it
 const DRAG_PLANE_Y = 14; // the loose end of a wire being dragged floats at this height (mm)
 
-// Drag a wire in 3D: press near a UNO pin or a free breadboard hole, drag, release near another one.
+// Drag a wire in 3D: press near a UNO pin or a free breadboard hole, drag, release near another one. With a finger,
+// press and hold the point first (a quick drag orbits the camera, two fingers pinch).
 // A press on a part (to turn a knob, press a button, select it) belongs to the part; presses that are not near a
 // point are left to the camera controls (orbit).
 export function WireDragger({ targets, color, onWire }: { targets: PinRef[]; color: string; onWire(from: PinRef, to: PinRef): void }) {
   const { camera, gl, scene } = useThree();
+  const cameraControls = useThree((s) => s.controls);
+  const useThreeControls = useRef(cameraControls);
+  useThreeControls.current = cameraControls;
   const points = useMemo(() => targets.map((ref) => ({ ref, world: pinWorld(ref) })), [targets]);
   const latest = useRef({ points, onWire });
   latest.current = { points, onWire };
@@ -64,32 +69,62 @@ export function WireDragger({ targets, color, onWire }: { targets: PinRef[]; col
       for (let o: THREE.Object3D | null = first?.object ?? null; o; o = o.parent) if (o.userData?.buildPart) return true; // the learner's parts only (the UNO's pieces are tagged partId for Home's inspect)
       return false;
     };
-    const down = (ev: PointerEvent) => {
-      if (ev.button !== 0 || onPart(ev.clientX, ev.clientY)) return;
-      const start = nearest(ev.clientX, ev.clientY);
-      if (!start) return; // not near a point: let the camera orbit
-      ev.stopImmediatePropagation();
-      ev.preventDefault();
+    // The wire follows one pointer only (its pointerId); another finger landing ends it, so pinch still works.
+    const drag = (start: { ref: PinRef; world: THREE.Vector3 }, pointerId: number, afterwards: () => void) => {
       fx.line.visible = true;
       setLine(start.world, start.world);
       let over: typeof start | null = null;
       const move = (e: PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
         over = nearest(e.clientX, e.clientY);
         if (over?.ref === start.ref) over = null;
         fx.ring.visible = !!over;
         if (over) fx.ring.position.copy(over.world).setY(over.world.y + 0.3);
         setLine(start.world, over ? over.world : looseEnd(e.clientX, e.clientY));
       };
-      const up = () => {
+      const finish = (e: PointerEvent) => {
+        if (e.type === 'pointerdown' ? e.pointerId === pointerId : e.pointerId !== pointerId) return;
+        if (e.type === 'pointerdown') over = null; // a second finger: cancel the wire
         window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-        window.removeEventListener('pointercancel', up);
+        window.removeEventListener('pointerup', finish);
+        window.removeEventListener('pointercancel', finish);
+        window.removeEventListener('pointerdown', finish);
         fx.line.visible = fx.ring.visible = false;
+        afterwards();
         if (over) latest.current.onWire(start.ref, over.ref);
       };
       window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-      window.addEventListener('pointercancel', up);
+      window.addEventListener('pointerup', finish);
+      window.addEventListener('pointercancel', finish);
+      window.addEventListener('pointerdown', finish);
+    };
+    const controls = () => (useThreeControls.current as { enabled: boolean } | null);
+
+    const down = (ev: PointerEvent) => {
+      if (ev.button !== 0 || onPart(ev.clientX, ev.clientY)) return;
+      const start = nearest(ev.clientX, ev.clientY);
+      if (!start) return; // not near a point: let the camera orbit
+      if (ev.pointerType !== 'touch') { // mouse and pen: a press on a point starts the wire at once
+        ev.stopImmediatePropagation();
+        ev.preventDefault();
+        drag(start, ev.pointerId, () => {});
+        return;
+      }
+      // touch: the camera keeps the finger (orbit / pinch) unless it is held still on the point
+      const hold = new TouchHold(() => {
+        cleanup();
+        const c = controls();
+        if (c) c.enabled = false;
+        drag(start, ev.pointerId, () => { if (c) c.enabled = true; });
+      });
+      const track = (e: PointerEvent) => {
+        if (e.pointerId !== ev.pointerId) { if (e.type === 'pointerdown') { hold.second(); cleanup(); } return; }
+        if (e.type === 'pointerdown') return; // the press that started the hold, reaching the window
+        if (e.type === 'pointermove') hold.move(e.clientX, e.clientY); else { hold.up(); cleanup(); }
+      };
+      const cleanup = () => { for (const t of ['pointermove', 'pointerup', 'pointercancel', 'pointerdown'] as const) window.removeEventListener(t, track); };
+      for (const t of ['pointermove', 'pointerup', 'pointercancel', 'pointerdown'] as const) window.addEventListener(t, track);
+      hold.down(ev.clientX, ev.clientY);
     };
     el.addEventListener('pointerdown', down, { capture: true }); // before the camera controls see the press
     if (isTestMode()) (window.__rq ??= { debug: {} }).debug.buildPinScreen = (ref: string) => screen(pinWorld(ref));

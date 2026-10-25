@@ -7,7 +7,7 @@ import { isTestMode } from '../three/shared/motion';
 import type { LineEntry, Program } from '../build/compiler/types';
 import type { InputValues } from '../circuit/evaluate';
 import type { CircuitSpec } from '../circuit/types';
-import type { SimSnapshot } from './simEngine';
+import { circuitChanged, type SimSnapshot } from './simEngine';
 import type { SimCommand, SimMessage } from './sim.worker';
 import { shownSpeed } from './simSpeed';
 
@@ -126,7 +126,7 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
     const tx = chip.simMs - chip.lastTxSimMs < TX_LIT_MS, rx = performance.now() < rxUntil.current;
     if (tx !== s.txLed || rx !== s.rxLed) s.setSerialLeds(rx, tx);
     if (chip.line !== s.line) s.setLine(chip.line);
-    if (chip.circuit !== s.circuitState) s.setCircuitState(chip.circuit ?? null);
+    if (circuitChanged(s.circuitState, chip.circuit ?? null)) s.setCircuitState(chip.circuit ?? null);
     if (chip.circuit?.board.shorted && s.running) s.setRunning(false); // a short stops the board
     if (isTestMode()) (window.__rq ??= { debug: {} }).debug.sim = { simMs: chip.simMs, pin13: chip.pin13, speed: chip.speed };
   });
