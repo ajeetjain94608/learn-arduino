@@ -198,3 +198,15 @@ test('desktop: an expanded panel takes the whole column, like the reference', as
   await page.getByRole('button', { name: 'Expand panel' }).click();
   await expect(code).toBeHidden();
 });
+
+test('phone held upright: scrolled to the bottom, the last controls sit clear of the bottom bar', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone-portrait');
+  await page.goto('/?test');
+  await expect(page.getByTestId('viewer').locator('canvas[data-engine]')).toBeVisible();
+  await page.evaluate(() => { document.querySelector('main.app')!.scrollTop = 1e6; });
+  const nav = await box(page.getByRole('navigation', { name: 'Main' }));
+  for (const name of ['Send to board', 'Clear']) {
+    const b = await box(page.getByRole('button', { name }));
+    expect(b.y + b.height, name).toBeLessThanOrEqual(nav.y);
+  }
+});

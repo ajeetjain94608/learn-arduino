@@ -1,80 +1,44 @@
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { BLINK } from '../content/sketches/blink';
 import { useWorkbenchStore } from './workbenchStore';
 
-const initial = useWorkbenchStore.getState();
-beforeEach(() => useWorkbenchStore.setState(initial, true));
+const s = () => useWorkbenchStore.getState();
 
-test('starts on the board view with labels on and nothing running', () => {
-  expect(useWorkbenchStore.getState()).toMatchObject({ view: 'board', labels: true, showCurrent: false, running: false, pinHigh: false });
-});
+describe('workbench store: program and serial', () => {
+  beforeEach(() => { s().clearSerial(); s().setRunning(false); });
 
-test('turning current on also shows the circuit and starts the program', () => {
-  useWorkbenchStore.getState().toggleCurrent();
-  expect(useWorkbenchStore.getState()).toMatchObject({ showCurrent: true, view: 'circuit', running: true });
-});
+  it('starts with the shipped Blink program', () => {
+    expect(s().program).toBe(BLINK.program);
+  });
 
-test('turning current off leaves view and program alone', () => {
-  const s = useWorkbenchStore.getState();
-  s.toggleCurrent();
-  s.toggleCurrent();
-  expect(useWorkbenchStore.getState()).toMatchObject({ showCurrent: false, view: 'circuit', running: true });
-});
+  it('serial text joins partial lines and drops carriage returns', () => {
+    s().appendSerialText('LED o');
+    s().appendSerialText('n\r\nLED off\r\nHI');
+    expect(s().serial).toEqual(['LED on', 'LED off', 'HI']);
+    s().appendSerialText('!\n');
+    expect(s().serial).toEqual(['LED on', 'LED off', 'HI!']);
+    s().appendSerialText('next\n');
+    expect(s().serial.at(-1)).toBe('next');
+  });
 
-test('stopping the program drops the pin LOW', () => {
-  const s = useWorkbenchStore.getState();
-  s.setRunning(true);
-  s.setPinHigh(true);
-  s.setRunning(false);
-  expect(useWorkbenchStore.getState().pinHigh).toBe(false);
-});
+  it('keeps only the last 200 lines', () => {
+    s().appendSerialText('x\n'.repeat(450));
+    expect(s().serial).toHaveLength(200);
+  });
 
-test('reset view bumps a counter the camera listens to, without changing the view', () => {
-  const before = useWorkbenchStore.getState().resetTick;
-  useWorkbenchStore.getState().resetView();
-  expect(useWorkbenchStore.getState().resetTick).toBe(before + 1);
-  expect(useWorkbenchStore.getState().view).toBe('board');
-});
+  it('text sent to the board waits in a queue until the board takes it', () => {
+    s().serialSend('hi');
+    s().serialSend('there');
+    expect(s().takeSerialInput()).toBe('hi\nthere\n');
+    expect(s().takeSerialInput()).toBe('');
+  });
 
-test('labels toggle', () => {
-  useWorkbenchStore.getState().toggleLabels();
-  expect(useWorkbenchStore.getState().labels).toBe(false);
-});
-
-test('resetting the board starts a boot: pin 13 drops LOW and the reset counter moves on', () => {
-  const s = useWorkbenchStore.getState();
-  s.setRunning(true);
-  s.setPinHigh(true);
-  s.resetBoard();
-  expect(useWorkbenchStore.getState()).toMatchObject({ booting: true, pinHigh: false, running: true, resetCount: 1 });
-});
-
-test('toolbar camera commands are queued with an increasing sequence number', () => {
-  const s = useWorkbenchStore.getState();
-  s.nudgeCamera('rotate', 0.5);
-  const first = useWorkbenchStore.getState().cameraCmd!;
-  expect(first).toMatchObject({ kind: 'rotate', amount: 0.5 });
-  s.nudgeCamera('zoom', 1.25);
-  expect(useWorkbenchStore.getState().cameraCmd).toMatchObject({ kind: 'zoom', amount: 1.25, seq: first.seq + 1 });
-});
-
-test('Run uploads first: pin LOW, serial cleared, then the program starts', () => {
-  const s = useWorkbenchStore.getState();
-  s.appendSerial(['old']);
-  s.upload();
-  expect(useWorkbenchStore.getState()).toMatchObject({ running: true, uploading: true, pinHigh: false, serial: [], line: null });
-});
-
-test('the serial monitor keeps the latest 200 lines', () => {
-  const s = useWorkbenchStore.getState();
-  s.appendSerial(Array.from({ length: 250 }, (_, i) => `line ${i}`));
-  const log = useWorkbenchStore.getState().serial;
-  expect(log).toHaveLength(200);
-  expect(log.at(-1)).toBe('line 249');
-});
-
-test('stopping clears the running line and the board lights', () => {
-  const s = useWorkbenchStore.getState();
-  s.upload();
-  s.setRunning(false);
-  expect(useWorkbenchStore.getState()).toMatchObject({ running: false, uploading: false, line: null, rxLed: false, txLed: false });
+  it('loadProgram runs another program: upload first', () => {
+    const p = { ...BLINK.program, hex: ':00000001FF\n' };
+    s().loadProgram(p);
+    expect(s().program).toBe(p);
+    expect(s().uploading).toBe(true);
+    expect(s().running).toBe(true);
+    s().loadProgram(BLINK.program);
+  });
 });

@@ -14,3 +14,16 @@ export type Diagnostic = {
   hint?: string;
   notes?: { line: number; message: string }[];
 };
+
+// A compiled sketch, ready to run on the simulated UNO.
+export type Program = { hex: string; flashBytes: number; ramBytes: number; lines: LineEntry[] };
+
+export type CompileResult =
+  | { ok: true; program: Program; diagnostics: Diagnostic[]; ms: number }
+  | { ok: false; diagnostics: Diagnostic[]; ms: number };
+
+// Sketch in → program + diagnostics out. One interface so each platform can bring its own compiler
+// (GCC as WebAssembly on Android and the web; LLVM later on iOS — Build design §4).
+export interface Compiler {
+  compile(sketch: string): Promise<CompileResult>;
+}

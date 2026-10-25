@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { t, type StringKey } from '../../i18n/en';
+import { SimClock } from '../../sim/SimClock';
 import { useInspectStore } from '../../state/inspectStore';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { Inspectable } from '../../three/inspect/Inspectable';
@@ -12,7 +13,6 @@ import { Workbench } from '../../three/workbench/Workbench';
 import { CalloutLayer, CalloutProjector, createCalloutBridge } from '../../ui/callouts/CalloutLayer';
 import { HOTSPOTS } from '../../ui/callouts/hotspots';
 import { CodeCard } from './CodeCard';
-import { DemoClock } from './DemoClock';
 import type { Panel } from './ExpandButton';
 import { StatusPill, ViewerToolbar } from './Dock';
 import { AboutSheet, InfoCard } from './InfoSheet';
@@ -57,7 +57,7 @@ export function ExplorerScreen() {
       <section className="viewer" data-testid="viewer" aria-label={t('viewer.toolbar')}>
         <GlErrorBoundary onReload={guard.reload}>
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={clearAll}>
-            <DemoClock />
+            <SimClock />
             <Inspectable onEmptyTap={clearAll}>
               <BlinkCircuit pinHigh={pinHigh} bootLed={bootLed} rx={rxLed} tx={txLed} showCircuit={view === 'circuit'} showCurrent={showCurrent} />
             </Inspectable>

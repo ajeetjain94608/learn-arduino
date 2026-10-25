@@ -15,6 +15,9 @@ export function StatusPill() {
     <div className="status" data-testid="status-pill">
       <i className={s.running && s.pinHigh ? 'is-lit' : ''} aria-hidden />
       <span data-testid="status" aria-live="polite">{statusText(s)}</span>
+      {s.running && !s.uploading && !s.booting && s.simSpeed < 1 && (
+        <span className="status__speed" data-testid="sim-speed">{t('status.speed').replace('{x}', s.simSpeed.toFixed(1))}</span>
+      )}
     </div>
   );
 }

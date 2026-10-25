@@ -1,22 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { BLINK } from '../../content/sketches/blink';
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { ExpandButton, type Panel } from './ExpandButton';
 
-// The sketch running on the board (Stage 2 swaps the demo clock for real execution of this code).
-export const BLINK_SKETCH = `void setup() {
-  pinMode(13, OUTPUT);
-  Serial.begin(9600);
-}
-
-void loop() {
-  digitalWrite(13, HIGH);
-  Serial.println("LED on");
-  delay(1000);
-  digitalWrite(13, LOW);
-  Serial.println("LED off");
-  delay(1000);
-}`;
+// The project's sketch; the simulated board runs its compiled program (src/content/sketches).
+export const BLINK_SKETCH = BLINK.code;
 const LINES = BLINK_SKETCH.split('\n');
 
 export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): void }) {
@@ -67,6 +56,9 @@ export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): 
 function SerialMonitor({ expanded, onExpand }: { expanded: boolean; onExpand(): void }) {
   const lines = useWorkbenchStore((s) => s.serial);
   const clear = useWorkbenchStore((s) => s.clearSerial);
+  const send = useWorkbenchStore((s) => s.serialSend);
+  const [message, setMessage] = useState('');
+  const submit = (e: FormEvent) => { e.preventDefault(); send(message); setMessage(''); };
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { const el = box.current; if (el) el.scrollTop = el.scrollHeight; }, [lines]); // follow new output
   return (
@@ -80,6 +72,11 @@ function SerialMonitor({ expanded, onExpand }: { expanded: boolean; onExpand(): 
       <div ref={box} className="serial__out" role="log" aria-label={t('serial.title')} aria-live="polite">
         {lines.length === 0 ? <span className="serial__empty">{t('serial.empty')}</span> : lines.map((l, i) => <div key={i}>{l}</div>)}
       </div>
+      <form className="serial__send" onSubmit={submit}>
+        <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} aria-label={t('serial.input')}
+          placeholder={t('serial.placeholder')} autoComplete="off" spellCheck={false} />
+        <button type="submit" aria-label={t('serial.send')}>{t('serial.sendShort')}</button>
+      </form>
     </div>
   );
 }
