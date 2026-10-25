@@ -4,7 +4,8 @@ import { partPoints } from '../../circuit/parts';
 import type { PartInstance, PartType } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { SimClock } from '../../sim/SimClock';
-import { useBuildStore } from '../../state/buildStore';
+import { BuildStoreContext, useBuild, useBuildApi } from '../../state/buildContext';
+import { useBuildStore, type BuildStore } from '../../state/buildStore';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { isTestMode } from '../../three/shared/motion';
 import { BuildScene } from '../../three/build/BuildScene';
@@ -20,12 +21,14 @@ import { NavBar, type Screen } from '../explorer/NavBar';
 import { Header, SettingsPanel } from '../explorer/TopBar';
 import '../explorer/explorer.css';
 import '../explorer/layout.css';
+import type { Project } from '../../content/projects';
 import { BurnCard, WiringWarnings } from './BurnCard';
+import { ProjectAbout } from './ProjectAbout';
 import { PartWindow } from './PartWindow';
 import { WiringTable } from './WiringTable';
 import './build.css';
 
-type Tab = 'parts' | 'wiring' | 'code';
+type Tab = 'about' | 'parts' | 'wiring' | 'code';
 // the parts library, in the order a beginner meets them
 const CATEGORIES: { key: string; types: PartType[] }[] = [
   { key: 'basic', types: ['led', 'resistor', 'button', 'pot', 'diode', 'npn'] },
@@ -38,22 +41,30 @@ const partName = (type: PartType) => t(`build.part.${type}` as StringKey);
 const fill = (s: string, name: string) => s.replace('{name}', name);
 const label = (id: string, type: PartType) => `${partName(type)} ${id.slice(type.length)}`;
 
-// Build: the learner's own circuit. Same frame as Home — the 3D bench on the left, Parts · Wiring · Code on the right.
-export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
-  const parts = useBuildStore((s) => s.parts);
-  const wires = useBuildStore((s) => s.wires);
-  const inputs = useBuildStore((s) => s.inputs);
-  const select = useBuildStore((s) => s.select);
-  const setInput = useBuildStore((s) => s.setInput);
-  const addWire = useBuildStore((s) => s.addWire);
-  const burns = useBuildStore((s) => s.burns);
-  const setBurns = useBuildStore((s) => s.setBurns);
-  const message = useBuildStore((s) => s.message);
+// Build: the learner's own circuit (or a project's own copy, given its store). Same frame as Home — the 3D bench on
+// the left, Parts · Wiring · Code on the right.
+// With a project: its own copy of the project's build, and an About tab first.
+export function BuildScreen({ onNavigate, store = useBuildStore, project }: { onNavigate(s: Screen): void; store?: BuildStore; project?: Project }) {
+  return <BuildStoreContext.Provider value={store}><Workspace onNavigate={onNavigate} project={project} /></BuildStoreContext.Provider>;
+}
+
+function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; project?: Project }) {
+  const api = useBuildApi();
+  const parts = useBuild((s) => s.parts);
+  const wires = useBuild((s) => s.wires);
+  const inputs = useBuild((s) => s.inputs);
+  const select = useBuild((s) => s.select);
+  const setInput = useBuild((s) => s.setInput);
+  const addWire = useBuild((s) => s.addWire);
+  const burns = useBuild((s) => s.burns);
+  const setBurns = useBuild((s) => s.setBurns);
+  const message = useBuild((s) => s.message);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const rxLed = useWorkbenchStore((s) => s.rxLed);
   const txLed = useWorkbenchStore((s) => s.txLed);
-  const [tab, setTab] = useState<Tab>('parts');
+  const [tab, setTab] = useState<Tab>(project ? 'about' : 'parts');
+  const tabs: Tab[] = project ? ['about', 'parts', 'wiring', 'code'] : ['parts', 'wiring', 'code'];
   const [panel, setPanel] = useState<Panel>(null);
   const [settings, setSettings] = useState(false);
   const [about, setAbout] = useState(false);
@@ -62,32 +73,32 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
   const circuit = useMemo(() => ({ parts, wires }), [parts, wires]); // sent to the simulator only when it changes
   // points a wire can be dragged from/to: every UNO pin, and the holes nothing sits in yet
   const targets = useMemo(() => {
-    const used = useBuildStore.getState().usedPins();
+    const used = api.getState().usedPins();
     return [...UNO_PINS.map((p) => `uno.${p}`), ...[...BB_HOLES.map((h) => `bb.${h}`), ...parts.flatMap(partPoints)].filter((h) => !used.has(h))];
-  }, [parts, wires]);
+  }, [api, parts, wires]);
 
   // While Build is open the board runs the build's program: code, compiled program and compiler messages are
   // swapped in, and Home gets its own back afterwards.
   useEffect(() => {
     const wb = useWorkbenchStore.getState();
-    const home = { code: wb.code, program: wb.program, diagnostics: wb.diagnostics, showCurrent: wb.showCurrent };
+    const home = { code: wb.code, program: wb.program, diagnostics: wb.diagnostics, showCurrent: wb.showCurrent, view: wb.view };
     wb.setRunning(false);
-    wb.setView('circuit');
+    wb.setView(api.getState().parts.some((p) => 'x' in p.at) ? 'bench' : 'circuit'); // modules on the bench: show it all
     useWorkbenchStore.setState({ diagnostics: [], showCurrent: false });
-    wb.setCode(useBuildStore.getState().code);
-    const unsub = useWorkbenchStore.subscribe((s) => { if (s.code !== useBuildStore.getState().code) useBuildStore.getState().setCode(s.code); });
-    if (isTestMode()) (window.__rq ??= { debug: {} }).debug.build = () => useBuildStore.getState();
+    wb.setCode(api.getState().code);
+    const unsub = useWorkbenchStore.subscribe((s) => { if (s.code !== api.getState().code) api.getState().setCode(s.code); });
+    if (isTestMode()) (window.__rq ??= { debug: {} }).debug.build = () => api.getState();
     return () => {
       unsub();
       const w = useWorkbenchStore.getState();
       w.setRunning(false);
-      useWorkbenchStore.setState({ code: home.code, program: home.program, diagnostics: home.diagnostics, showCurrent: home.showCurrent, circuitState: null });
+      useWorkbenchStore.setState({ code: home.code, program: home.program, diagnostics: home.diagnostics, showCurrent: home.showCurrent, circuitState: null, view: home.view === 'bench' ? 'circuit' : home.view });
     };
-  }, []);
+  }, [api]);
 
   return (
     <main className="app layout" data-testid="build-screen">
-      <NavBar current="build" onNavigate={onNavigate} onSettings={() => setSettings(true)} />
+      <NavBar current={project ? 'projects' : 'build'} onNavigate={onNavigate} onSettings={() => setSettings(true)} />
       <Header />
       <section className="viewer" data-testid="viewer" aria-label={t('viewer.toolbar')}>
         <GlErrorBoundary onReload={guard.reload}>
@@ -107,10 +118,11 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
         <PartWindow />
         <section className={`card build-card${tab === 'code' ? ' build-card--tabs-only' : ''}`}>
           <div className="tabs" role="tablist" aria-label={t('build.tabs')}>
-            {(['parts', 'wiring', 'code'] as Tab[]).map((k) => (
+            {tabs.map((k) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'is-on' : ''} onClick={() => setTab(k)}>{t(`build.tab.${k}` as StringKey)}</button>
             ))}
           </div>
+          {tab === 'about' && project && <ProjectAbout project={project} onRun={() => setTab('code')} />}
           {tab === 'parts' && <PartsPanel />}
           {tab === 'wiring' && <><WiringWarnings /><WiringTable /></>}
         </section>
@@ -123,10 +135,10 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
 }
 
 function PartsPanel() {
-  const parts = useBuildStore((s) => s.parts);
-  const addPart = useBuildStore((s) => s.addPart);
-  const removePart = useBuildStore((s) => s.removePart);
-  const select = useBuildStore((s) => s.select);
+  const parts = useBuild((s) => s.parts);
+  const addPart = useBuild((s) => s.addPart);
+  const removePart = useBuild((s) => s.removePart);
+  const select = useBuild((s) => s.select);
   return (
     <div className="parts-panel">
       <h3>{t('build.library')}</h3>

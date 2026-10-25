@@ -58,10 +58,12 @@ export function CameraRig() {
     const c = controls.current;
     if (!c || !cameraCmd) return;
     const t = c.target.toArray() as [number, number, number];
-    const toP = cameraCmd.kind === 'rotate' ? new THREE.Vector3(...orbitAround(camera.position.toArray() as [number, number, number], t, cameraCmd.amount)) : camera.position.clone();
-    const toZ = cameraCmd.kind === 'zoom' ? clampZoom(camera.zoom * cameraCmd.amount) : camera.zoom;
-    if (reduced) { camera.position.copy(toP); camera.zoom = toZ; camera.updateProjectionMatrix(); c.update(); return; }
-    tween.current = { t: 0, fromP: camera.position.clone(), fromT: c.target.clone(), fromZ: camera.zoom, toP, toT: c.target.clone(), toZ };
+    const toT = cameraCmd.kind === 'focus' && cameraCmd.target ? new THREE.Vector3(...cameraCmd.target) : c.target.clone();
+    const toP = cameraCmd.kind === 'rotate' ? new THREE.Vector3(...orbitAround(camera.position.toArray() as [number, number, number], t, cameraCmd.amount))
+      : cameraCmd.kind === 'focus' ? toT.clone().add(camera.position.clone().sub(c.target)) : camera.position.clone();
+    const toZ = cameraCmd.kind === 'zoom' ? clampZoom(camera.zoom * cameraCmd.amount) : cameraCmd.kind === 'focus' ? clampZoom(cameraCmd.amount) : camera.zoom;
+    if (reduced) { camera.position.copy(toP); c.target.copy(toT); camera.zoom = toZ; camera.updateProjectionMatrix(); c.update(); return; }
+    tween.current = { t: 0, fromP: camera.position.clone(), fromT: c.target.clone(), fromZ: camera.zoom, toP, toT, toZ };
   }, [cameraCmd, camera, reduced]);
 
   useEffect(() => {

@@ -24,7 +24,7 @@ import './layout.css';
 
 // Home screen. The 3D view sits in its own card with its toolbar; projects, the explanation tabs and the
 // code sit beside it (landscape / desktop) or below it (phone held upright).
-export function ExplorerScreen({ onNavigate }: { onNavigate?(s: Screen): void } = {}) {
+export function ExplorerScreen({ onNavigate, onOpenProject, onAllProjects }: { onNavigate?(s: Screen): void; onOpenProject?(id: string): void; onAllProjects?(): void } = {}) {
   const view = useWorkbenchStore((s) => s.view);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const showCurrent = useWorkbenchStore((s) => s.showCurrent);
@@ -78,7 +78,7 @@ export function ExplorerScreen({ onNavigate }: { onNavigate?(s: Screen): void } 
         <InfoCard project={view} focus={focus} expanded={panel === 'info'} onExpand={() => setPanel(panel === 'info' ? null : 'info')} />
         <CodeCard panel={panel} onPanel={setPanel} />
       </div>
-      <ProjectsRow />
+      <ProjectsRow onOpen={onOpenProject} onAll={onAllProjects} />
       <AboutSheet open={about} onClose={() => setAbout(false)} />
       <SettingsPanel open={settings} onClose={closeSettings} onAbout={() => { setCallout(null); selectPart(null); setAbout(true); }} />
     </main>

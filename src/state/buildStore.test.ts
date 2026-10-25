@@ -197,3 +197,25 @@ describe('B3: modules on the bench', () => {
     expect(b.wires).toEqual(a().wires);
   });
 });
+
+describe('B3: a project has its own copy of its build', () => {
+  const start = {
+    parts: [{ id: 'led1', type: 'led' as const, params: { color: 'green' }, at: { col: 5, row: 'a' as const } }],
+    wires: [{ id: 'w1', from: 'uno.D13', to: 'bb.5c', color: '#F28C16' }],
+    code: 'void setup() {}\nvoid loop() {}\n',
+  };
+  it('starts from the ready-made build, keeps changes under its own key, and Reset brings the original back', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const free = createBuildStore(storage).getState;
+    const p = createBuildStore(storage, 'rq-project-blink-v1', start).getState;
+    expect(p().parts).toEqual(start.parts);
+    expect(p().wires).toEqual(start.wires);
+    expect(p().inputs).toEqual({ led1: {} });
+    p().removeWire('w1');
+    expect(createBuildStore(storage, 'rq-project-blink-v1', start).getState().wires).toEqual([]); // the change is saved
+    expect(free().parts).toEqual([]);                                                              // the free build is untouched
+    p().restart(start);
+    expect(p().wires).toEqual(start.wires);
+    expect(p().burns).toEqual([]);
+  });
+});

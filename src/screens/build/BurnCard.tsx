@@ -1,19 +1,19 @@
 import { useMemo } from 'react';
 import { checkWiring } from '../../circuit/check';
 import { t, type StringKey } from '../../i18n/en';
-import { useBuildStore } from '../../state/buildStore';
+import { useBuild } from '../../state/buildContext';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 
 const SUPPLY_WORDS: Record<string, string> = { '5V': '5 V', '3V3': '3.3 V', GND: 'GND' };
 
 // What burnt, in plain words, and the way back: Replace part (an LED) or Replace board (a short or a damaged pin).
 export function BurnCard() {
-  const burns = useBuildStore((s) => s.burns);
+  const burns = useBuild((s) => s.burns);
   const replaceInSim = useWorkbenchStore((s) => s.replacePart);
-  const replaceBurn = useBuildStore((s) => s.replaceBurn);
+  const replaceBurn = useBuild((s) => s.replaceBurn);
   const replace = (id: string) => { replaceBurn(id); replaceInSim(id); };
-  const parts = useBuildStore((s) => s.parts);
-  const wires = useBuildStore((s) => s.wires);
+  const parts = useBuild((s) => s.parts);
+  const wires = useBuild((s) => s.wires);
   const warnings = useMemo(() => checkWiring({ parts, wires }), [parts, wires]);
   if (!burns.length) return null;
   const lines = burns.map((b) => {
@@ -38,8 +38,8 @@ export function BurnCard() {
 
 // Dangerous wiring spotted before Run (it still runs — then the consequences show).
 export function WiringWarnings() {
-  const parts = useBuildStore((s) => s.parts);
-  const wires = useBuildStore((s) => s.wires);
+  const parts = useBuild((s) => s.parts);
+  const wires = useBuild((s) => s.wires);
   const warnings = useMemo(() => checkWiring({ parts, wires }), [parts, wires]);
   if (!warnings.length) return null;
   return (

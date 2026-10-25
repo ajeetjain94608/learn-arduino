@@ -66,3 +66,33 @@
 .build-card--tabs-only { flex: none; padding-bottom: 0; }
 .build-card--tabs-only .tabs { margin-bottom: 0; border-bottom: 0; }
 .part-library__group h4 { margin: 12px 0 6px; font-size: 14px; font-weight: 800; color: var(--muted); letter-spacing: .02em; }
+/* a project's About tab */
+.project-about h2 { margin: 0 0 6px; font-size: 20px; }
+.project-about h3 { margin: 16px 0 6px; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.project-about p, .project-about li { font-size: 15px; line-height: 1.5; }
+.project-about ul:not(.chips), .project-about ol { margin: 0; padding-left: 20px; }
+.project-about__wiring { width: 100%; border-collapse: collapse; font-size: 14px; }
+.project-about__wiring th { text-align: left; color: var(--ink-2); font-weight: 700; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.project-about__wiring td { padding: 6px; border-bottom: 1px solid var(--line); }
+.project-about__wiring .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; }
+.project-about__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.project-about__actions button { appearance: none; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.project-about__actions .project-about__run { background: var(--primary-bg); color: var(--primary-fg); border: 0; }
+.project-about__confirm { display: flex; gap: 8px; }
+/* a component's page */
+.component-info { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.component-info h2 { margin: 0; }
+.component-info p, .component-info li { font-size: 15px; line-height: 1.5; margin: 0; }
+.component-info ul { margin: 0; padding-left: 20px; }
+.component-info__specs { margin: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.component-info__specs div { padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.component-info__specs dt { font-size: 14px; color: var(--ink-2); }
+.component-info__specs dd { margin: 2px 0 0; font-weight: 800; font-size: 15px; }
+.component-info__code { margin: 0; padding: 12px; border-radius: 12px; background: var(--paper); border: 1px solid var(--line); overflow: auto; font-size: 14px; line-height: 1.5; }
+.component-info__use { margin-top: auto; }
+.component-page .project__icon { width: 56px; height: 48px; }
+.component-page .project { width: 220px; min-height: 64px; }
+.component-info > * { flex-shrink: 0; }
+@media (max-height: 500px) and (orientation: landscape) { .component-info { flex: none; overflow: visible; } }
+@media (orientation: portrait) and (max-width: 760px) { .component-info { flex: none; overflow: visible; } }

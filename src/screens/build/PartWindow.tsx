@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BENCH_STEP, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
 import type { PartInstance, Placement, Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
-import { useBuildStore } from '../../state/buildStore';
+import { useBuild } from '../../state/buildContext';
 import { commitNumber } from './numberInput';
 
 // How an input is shown: the knob's 0…1 is shown as the 0–1023 reading it gives on A0 with 5 V across it.
@@ -27,8 +27,8 @@ const legsText = (part: PartInstance) => ('x' in part.at ? '' : Object.values(PA
 
 // A slider and a number box for one input, always showing the same value as the 3D part.
 function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
-  const value = useBuildStore((s) => s.inputs[partId]?.[def.key] ?? def.default);
-  const setInput = useBuildStore((s) => s.setInput);
+  const value = useBuild((s) => s.inputs[partId]?.[def.key] ?? def.default);
+  const setInput = useBuild((s) => s.setInput);
   const shown = SHOWN[def.key] ?? { label: 'build.input.value' as StringKey, scale: 1 };
   const display = Math.round(value * shown.scale * 1000) / 1000;
   const [text, setText] = useState(String(display));
@@ -52,8 +52,8 @@ function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
 // On/off inputs (a push button): hold to press, or keep it pressed. The switch shows the button as it is, however it
 // was pressed (here, in 3D or by the switch).
 function PressInput({ partId }: { partId: string }) {
-  const pressed = useBuildStore((s) => (s.inputs[partId]?.pressed ?? 0) >= 0.5);
-  const setInput = useBuildStore((s) => s.setInput);
+  const pressed = useBuild((s) => (s.inputs[partId]?.pressed ?? 0) >= 0.5);
+  const setInput = useBuild((s) => s.setInput);
   const press = (on: boolean) => setInput(partId, 'pressed', on ? 1 : 0);
   const holding = useRef(false);
   const hold = (on: boolean) => { if (on || holding.current) press(on); holding.current = on; };
@@ -71,19 +71,19 @@ function PressInput({ partId }: { partId: string }) {
 }
 
 // The window for the selected part: its options (resistor value, LED colour) and its inputs, three ways in sync with
-// the part in 3D. Opens when a part is tapped.
-export function PartWindow() {
-  const selected = useBuildStore((s) => s.selected);
-  const part = useBuildStore((s) => s.parts.find((p) => p.id === s.selected));
-  const setParam = useBuildStore((s) => s.setParam);
-  const movePart = useBuildStore((s) => s.movePart);
-  const canMove = useBuildStore((s) => s.canMove);
-  useBuildStore((s) => s.parts); // the arrows' state follows every part (another part may free or take a spot)
+// the part in 3D. Opens when a part is tapped. `fixed`: the part stays where it is (a component's own page).
+export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
+  const selected = useBuild((s) => s.selected);
+  const part = useBuild((s) => s.parts.find((p) => p.id === s.selected));
+  const setParam = useBuild((s) => s.setParam);
+  const movePart = useBuild((s) => s.movePart);
+  const canMove = useBuild((s) => s.canMove);
+  useBuild((s) => s.parts); // the arrows' state follows every part (another part may free or take a spot)
   const ref = useRef<HTMLElement>(null);
   // opening the window moves focus into it (keyboard and screen readers follow); Escape closes it
   useEffect(() => { if (selected && part) ref.current?.focus(); }, [selected, !!part]); // eslint-disable-line react-hooks/exhaustive-deps
-  const removePart = useBuildStore((s) => s.removePart);
-  const select = useBuildStore((s) => s.select);
+  const removePart = useBuild((s) => s.removePart);
+  const select = useBuild((s) => s.select);
   if (!selected || !part) return null;
   const def = PART_DEFS[part.type];
   const params = paramsOf(part.type, part.params);
@@ -95,7 +95,7 @@ export function PartWindow() {
         <b>{name}</b>
         <button type="button" className="part-window__close" aria-label={t('build.close')} onClick={() => select(null)}>×</button>
       </header>
-      <div className="part-window__place">
+      {!fixed && <div className="part-window__place">
         {'x' in part.at ? <span>{t('build.onBench')}</span> : <span>{t('build.legs')} <b>{legsText(part)}</b></span>}
         <div className="part-window__moves">
           {MOVES.map(([dir, dc, dr]) => {
@@ -108,7 +108,7 @@ export function PartWindow() {
             );
           })}
         </div>
-      </div>
+      </div>}
       {def.params.map((p) => (
         <div key={p.key} className="part-window__param" role="radiogroup" aria-label={t(`build.param.${p.key}` as StringKey)}>
           {p.options.map((o) => (
@@ -120,7 +120,7 @@ export function PartWindow() {
         </div>
       ))}
       {def.inputs.map((d) => (d.step >= 1 ? <PressInput key={d.key} partId={part.id} /> : <SliderInput key={d.key} partId={part.id} def={d} />))}
-      <button type="button" className="part-window__remove" onClick={() => removePart(part.id)}>{t('build.removePart')}</button>
+      {!fixed && <button type="button" className="part-window__remove" onClick={() => removePart(part.id)}>{t('x' in part.at ? 'build.removeModule' : 'build.removePart')}</button>}
     </section>
   );
 }

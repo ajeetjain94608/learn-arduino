@@ -27,7 +27,12 @@ test('main navigation: Home, Projects, Components, Build, Settings', async ({ pa
   const nav = page.getByRole('navigation', { name: 'Main' });
   for (const name of ['Home', 'Projects', 'Components', 'Build', 'Settings']) await expect(nav.getByRole('button', { name })).toBeVisible();
   await nav.getByRole('button', { name: 'Components' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Coming soon' })).toBeVisible();
+  await expect(page.getByTestId('components-screen')).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Components' })).toHaveAttribute('aria-current', 'page');
+  await nav.getByRole('button', { name: 'Projects' }).click();
+  await expect(page.getByTestId('projects-screen')).toBeVisible();
+  await page.goBack(); // every page has an address: Back works
+  await expect(page.getByTestId('components-screen')).toBeVisible();
 });
 
 test('the viewer toolbar rotates and zooms the camera', async ({ page }) => {

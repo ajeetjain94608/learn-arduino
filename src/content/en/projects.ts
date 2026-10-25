@@ -12,7 +12,7 @@ export type ProjectInfo = {
   specs: { label: string; value: string }[];
 };
 
-export const PROJECT_INFO: Record<View, ProjectInfo> = {
+export const PROJECT_INFO: Record<Exclude<View, 'bench'>, ProjectInfo> = {
   board: {
     title: 'UNO R3 board',
     overview: {

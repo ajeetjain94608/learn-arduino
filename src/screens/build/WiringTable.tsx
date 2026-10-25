@@ -3,7 +3,7 @@ import { BB_HOLES, UNO_PINS } from '../../circuit/board';
 import { partPoints } from '../../circuit/parts';
 import type { PartInstance, PinRef } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
-import { useBuildStore } from '../../state/buildStore';
+import { useBuild, useBuildApi } from '../../state/buildContext';
 
 const COLORS: { value: string; name: string }[] = [
   { value: '#F28C16', name: 'Orange' }, { value: '#2563EB', name: 'Blue' }, { value: '#10B981', name: 'Green' },
@@ -42,14 +42,15 @@ function PointSelect({ label, value, onChange, used, parts }: { label: string; v
 
 // Wiring tab: the list of connections (recolour, delete) and a From → To row to add one.
 export function WiringTable() {
-  const wires = useBuildStore((s) => s.wires);
-  const selected = useBuildStore((s) => s.selected);
-  const addWire = useBuildStore((s) => s.addWire);
-  const removeWire = useBuildStore((s) => s.removeWire);
-  const setWireColor = useBuildStore((s) => s.setWireColor);
-  const select = useBuildStore((s) => s.select);
-  const parts = useBuildStore((s) => s.parts);
-  const used = useMemo(() => useBuildStore.getState().usedPins(), [parts, wires]); // in-use marks follow the parts and wires
+  const wires = useBuild((s) => s.wires);
+  const selected = useBuild((s) => s.selected);
+  const addWire = useBuild((s) => s.addWire);
+  const removeWire = useBuild((s) => s.removeWire);
+  const setWireColor = useBuild((s) => s.setWireColor);
+  const select = useBuild((s) => s.select);
+  const parts = useBuild((s) => s.parts);
+  const api = useBuildApi();
+  const used = useMemo(() => api.getState().usedPins(), [api, parts, wires]); // in-use marks follow the parts and wires
   const [from, setFrom] = useState(''), [to, setTo] = useState('');
   const connect = () => { if (from && to && addWire(from, to)) { setFrom(''); setTo(''); } };
   return (

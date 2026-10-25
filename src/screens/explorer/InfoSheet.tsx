@@ -25,7 +25,7 @@ const stagger = (i: number) => ({ '--i': i }) as CSSProperties;
 export function InfoCard({ project, focus, expanded, onExpand }: { project: View; focus: { title: string; text: string } | null; expanded: boolean; onExpand(): void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const shown = focus ? 'overview' : tab;
-  const info = PROJECT_INFO[project];
+  const info = PROJECT_INFO[project === 'bench' ? 'circuit' : project]; // (Home never shows the Build bench)
   return (
     <section className="card info-card" data-testid="info-card" aria-label={t('info.tabs')}>
       <div className="info-card__head">

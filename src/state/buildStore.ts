@@ -7,6 +7,8 @@ import { t } from '../i18n/en';
 
 export const FRESH_CODE = 'void setup() {\n\n}\n\nvoid loop() {\n\n}\n';
 const KEY = 'rq-build-v1';
+// A ready-made build (a project): what a project's own copy starts from, and what "Reset project" brings back.
+export type BuildStart = { parts: PartInstance[]; wires: Wire[]; inputs?: InputValues; code: string };
 const WIRE_COLORS = ['#F28C16', '#2563EB', '#10B981', '#E2483D', '#8B5CF6', '#2B2F38'];
 const ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 
@@ -40,7 +42,9 @@ export type BuildState = {
   usedPins(): Set<PinRef>;
   setBurns(burns: Burn[]): void;
   replaceBurn(id: string): void; // 'uno' = a new board: every damaged pin and the short go
+  restart(start: BuildStart): void; // back to a ready-made build (burns cleared)
 };
+export type BuildStore = UseBoundStore<StoreApi<BuildState>>;
 
 const coveredHoles = (p: PartInstance, at = p.at) => PART_DEFS[p.type].covers(at, p.params).map((h) => `bb.${h}`);
 const defaultInputs = (type: PartType) => Object.fromEntries(PART_DEFS[type].inputs.map((i) => [i.key, i.default]));
@@ -62,9 +66,9 @@ const validWire = (parts: PartInstance[]) => (w: unknown): w is Wire =>
 
 // A saved build, checked entry by entry: whatever is damaged or unknown (e.g. saved by a newer version) is dropped
 // rather than breaking the Build screen; unreadable JSON or another version gives a fresh build.
-function load(storage: Storage | undefined): Saved | null {
+function load(storage: Storage | undefined, key: string): Saved | null {
   try {
-    const raw = storage?.getItem(KEY);
+    const raw = storage?.getItem(key);
     if (!raw) return null;
     const s = JSON.parse(raw) as Record<string, unknown>;
     if (!isObject(s) || s.v !== 1 || !Array.isArray(s.parts) || !Array.isArray(s.wires) || typeof s.code !== 'string') return null;
@@ -80,9 +84,10 @@ function load(storage: Storage | undefined): Saved | null {
   } catch { return null; }
 }
 
-// The learner's build: parts on the breadboard, wires, input values and code. Saved on the device as it changes.
-export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<BuildState>> {
-  const saved = load(storage);
+// The learner's build: parts on the breadboard, wires, input values and code. Saved on the device (under `key`) as it
+// changes. `start`: what a new build begins with (a project's ready-made build) when nothing is saved yet.
+export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStart): BuildStore {
+  const saved = load(storage, key) ?? (start ? { v: 1 as const, parts: start.parts, wires: start.wires, inputs: startInputs(start), code: start.code, counters: {}, burns: [] } : null);
   const store = create<BuildState>((set, get) => {
     // holes taken by part bodies and legs (except `ignore`'s), and holes and module pins taken by wire ends
     const taken = (ignore?: string) => {
@@ -172,14 +177,30 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
         return used;
       },
       setBurns(burns) { set({ burns }); },
+      restart(begin) {
+        set({ parts: begin.parts, wires: begin.wires, inputs: startInputs(begin), code: begin.code, selected: null, message: null, burns: [] });
+      },
       replaceBurn(id) { set({ burns: get().burns.filter((b) => (id === 'uno' ? !b.id.startsWith('uno') : b.id !== id)) }); },
     };
   });
   store.subscribe((s) => {
-    try { storage?.setItem(KEY, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns } satisfies Saved)); } catch { /* storage full or blocked */ }
+    try { storage?.setItem(key, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns } satisfies Saved)); } catch { /* storage full or blocked */ }
   });
   return store;
 }
 
+// every part's inputs at their defaults, then the ready-made build's own values
+function startInputs(start: BuildStart): InputValues {
+  return Object.fromEntries(start.parts.map((p) => [p.id, { ...defaultInputs(p.type), ...start.inputs?.[p.id] }]));
+}
+
 const deviceStorage = (() => { try { return window.localStorage; } catch { return undefined; } })();
 export const useBuildStore = createBuildStore(deviceStorage);
+
+// Each project's own copy of its build, made when it is first opened (saved separately from the free build).
+const projectStores = new Map<string, BuildStore>();
+export function projectStore(id: string, start: BuildStart): BuildStore {
+  let s = projectStores.get(id);
+  if (!s) { s = createBuildStore(deviceStorage, `rq-project-${id}-v1`, start); projectStores.set(id, s); }
+  return s;
+}
