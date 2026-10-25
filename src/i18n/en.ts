@@ -11,7 +11,7 @@ export const en = {
   'serial.title': 'Serial monitor', 'serial.baud': '9600 baud', 'serial.clear': 'Clear', 'serial.empty': 'Nothing printed yet. Press Run.', 'code.uploading': 'Uploading',
   'status.high': 'Pin 13 HIGH · LED on', 'status.low': 'Pin 13 LOW · LED off',
   'status.currentOn': 'Current: pin 13 → LED → resistor → GND', 'status.currentOff': 'Pin 13 LOW · no current',
-  'nav.main': 'Main', 'nav.home': 'Home', 'nav.projects': 'Projects', 'nav.components': 'Components', 'nav.build': 'Build', 'nav.settings': 'Settings',
+  'nav.main': 'Main', 'nav.expand': 'Expand sidebar', 'nav.collapse': 'Collapse sidebar', 'nav.home': 'Home', 'nav.projects': 'Projects', 'nav.components': 'Components', 'nav.build': 'Build', 'nav.settings': 'Settings',
   'toast.soon': 'Coming soon',
   'viewer.toolbar': '3D view', 'viewer.rotateLeft': 'Rotate left', 'viewer.rotateRight': 'Rotate right', 'viewer.zoomOut': 'Zoom out', 'viewer.zoomIn': 'Zoom in',
   'projects.title': 'Projects', 'projects.soon': 'Coming soon',

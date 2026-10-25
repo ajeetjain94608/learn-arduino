@@ -34,13 +34,15 @@ test('the viewer toolbar rotates and zooms the camera', async ({ page }) => {
   await page.goto('/?test');
   const bar = page.getByRole('toolbar', { name: '3D view' });
   for (const name of ['Rotate left', 'Rotate right', 'Zoom out', 'Zoom in', 'Reset view', 'Current', 'Labels']) await expect(bar.getByRole('button', { name })).toBeVisible();
-  const cam = () => page.evaluate(() => (window as unknown as { __rq: { debug: { camera(): { azimuth: number; zoom: number } } } }).__rq.debug.camera());
-  await expect.poll(cam).toBeTruthy();
-  const before = await cam();
+  type Cam = { azimuth: number; zoom: number };
+  // null until the 3D scene has registered its test hook
+  const cam = () => page.evaluate(() => (window as unknown as { __rq?: { debug: { camera?(): Cam } } }).__rq?.debug.camera?.() ?? null);
+  await expect.poll(cam).not.toBeNull();
+  const before = (await cam())!;
   await bar.getByRole('button', { name: 'Rotate left' }).click();
-  await expect.poll(async () => Math.abs((await cam()).azimuth - before.azimuth)).toBeGreaterThan(0.3);
+  await expect.poll(async () => Math.abs((await cam())!.azimuth - before.azimuth)).toBeGreaterThan(0.3);
   await bar.getByRole('button', { name: 'Zoom in' }).click();
-  await expect.poll(async () => (await cam()).zoom).toBeGreaterThan(before.zoom * 1.1);
+  await expect.poll(async () => (await cam())!.zoom).toBeGreaterThan(before.zoom * 1.1);
 });
 
 test('projects open their scene; the info tabs explain the board', async ({ page }) => {
@@ -98,4 +100,17 @@ test('Run uploads (RX/TX flicker), then runs with the current line highlighted a
   await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 2500 });
   await expect(active).toHaveText(/digitalWrite\(13, LOW\);|Serial\.println\("LED off"\);|delay\(1000\);/);
   await expect(monitor).toContainText('LED off');
+});
+
+test('the side rail shows icons only; its arrow expands it to show names', async ({ page }, info) => {
+  test.skip(info.project.name === 'phone-portrait', 'phones held upright use the bottom bar with names');
+  await page.goto('/?test');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const label = nav.getByText('Components', { exact: true });
+  await expect(label).toBeHidden();
+  await nav.getByRole('button', { name: 'Expand sidebar' }).click();
+  await expect(label).toBeVisible();
+  await expect(nav.getByText('Settings', { exact: true })).toBeVisible();
+  await nav.getByRole('button', { name: 'Collapse sidebar' }).click();
+  await expect(label).toBeHidden();
 });

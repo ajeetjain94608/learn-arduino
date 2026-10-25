@@ -13,14 +13,18 @@ const ICONS: Record<string, string> = {
 // Projects, Components and Build arrive with the component library; Settings holds themes and About.
 export function NavBar({ onSettings }: { onSettings(): void }) {
   const [toast, setToast] = useState(false);
+  const [expanded, setExpanded] = useState(false); // rail only: icons, or icons + names
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(false), 1800); return () => clearTimeout(id); }, [toast]);
   return (
     <>
-      <nav className="navbar" aria-label={t('nav.main')}>
+      <nav className={`navbar${expanded ? ' is-expanded' : ''}`} aria-label={t('nav.main')}>
+        <button type="button" className="navbar__toggle" aria-label={t(expanded ? 'nav.collapse' : 'nav.expand')} aria-expanded={expanded} onClick={() => setExpanded((e) => !e)}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={expanded ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} /></svg>
+        </button>
         {(['home', 'projects', 'components', 'build', 'settings'] as const).map((id) => (
           <button key={id} type="button" aria-label={t(`nav.${id}` as StringKey)} aria-current={id === 'home' ? 'page' : undefined}
             className={id === 'home' ? 'is-on' : ''}
-            onClick={() => (id === 'settings' ? onSettings() : id !== 'home' && setToast(true))}>
+            onClick={() => { setExpanded(false); if (id === 'settings') onSettings(); else if (id !== 'home') setToast(true); }}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={ICONS[id]} /></svg>
             <span>{t(`nav.${id}` as StringKey)}</span>
           </button>
