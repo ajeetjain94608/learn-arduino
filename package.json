@@ -24,6 +24,7 @@
     "@fontsource-variable/nunito": "^5.3.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
+    "avr8js": "^0.21.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.186.1",
