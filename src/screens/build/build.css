@@ -1,0 +1,17 @@
+/* Build screen: the right column holds one tabbed card (Parts · Wiring) or the code card (Code). */
+.build-side { overflow-y: auto; }
+.build-card { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.build-card h3 { margin: 14px 0 8px; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.build-note { margin: 4px 0; font-size: 15px; color: var(--ink-2); }
+.part-library, .bench-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.part-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; }
+.part-card span { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.part-card b { font-size: 15px; }
+.part-card small { font-size: 14px; color: var(--ink-2); }
+.part-card__add, .bench-list__remove { appearance: none; flex: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; }
+.part-card__add { background: var(--primary-bg); color: var(--primary-fg); border: 0; }
+.bench-list li { display: flex; align-items: center; gap: 8px; min-height: 48px; font-size: 15px; padding-left: 4px; }
+.bench-list__name { appearance: none; flex: 1; text-align: left; min-height: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.bench-list__name small { font-size: 14px; color: var(--ink-2); font-weight: 600; margin-left: 6px; }
+.build-message { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, #E8A317 14%, var(--card)); font-size: 14px; font-weight: 700; }

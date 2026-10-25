@@ -11,7 +11,14 @@ export const LED_LEG_H = 5;
 export const LED_Y0 = BB.H + LED_LEG_H;     // underside of the flange, breadboard-local
 export const LED_ANODE_TOP_Y = LED_Y0 + 3.6; // where current enters the die inside the body
 
-const COLORS = { red: { body: '#F04A3A', glow: '#FF2A1A', light: '#FF3420', halo: [255, 70, 45] } } as const;
+const COLORS = {
+  red: { body: '#F04A3A', glow: '#FF2A1A', light: '#FF3420', halo: [255, 70, 45] },
+  green: { body: '#3FC46A', glow: '#22E05A', light: '#30FF6A', halo: [60, 230, 110] },
+  yellow: { body: '#F5C83A', glow: '#FFD21A', light: '#FFE040', halo: [255, 215, 60] },
+  blue: { body: '#3E7BF0', glow: '#2A6BFF', light: '#4A86FF', halo: [70, 130, 255] },
+  white: { body: '#EDEFF2', glow: '#FFFFFF', light: '#F4F8FF', halo: [235, 242, 255] },
+} as const;
+export type LedColor = keyof typeof COLORS;
 
 // The LED as plain three.js objects (also used by tools/bake-thumbs for the project picture).
 export function buildLed5mm(color: keyof typeof COLORS = 'red') {

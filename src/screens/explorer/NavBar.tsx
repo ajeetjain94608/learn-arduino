@@ -9,9 +9,11 @@ const ICONS: Record<string, string> = {
   settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z',
 };
 
+export type Screen = 'home' | 'build';
+
 // Main navigation: a bottom bar on phones held upright, an icon rail on the left otherwise.
-// Projects, Components and Build arrive with the component library; Settings holds themes and About.
-export function NavBar({ onSettings }: { onSettings(): void }) {
+// Home and Build are screens; Projects and Components arrive with the component library; Settings holds themes and About.
+export function NavBar({ current = 'home', onNavigate, onSettings }: { current?: Screen; onNavigate?(s: Screen): void; onSettings(): void }) {
   const [toast, setToast] = useState(false);
   const [expanded, setExpanded] = useState(false); // rail only: icons, or icons + names
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(false), 1800); return () => clearTimeout(id); }, [toast]);
@@ -22,9 +24,14 @@ export function NavBar({ onSettings }: { onSettings(): void }) {
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={expanded ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} /></svg>
         </button>
         {(['home', 'projects', 'components', 'build', 'settings'] as const).map((id) => (
-          <button key={id} type="button" aria-label={t(`nav.${id}` as StringKey)} aria-current={id === 'home' ? 'page' : undefined}
-            className={id === 'home' ? 'is-on' : ''}
-            onClick={() => { setExpanded(false); if (id === 'settings') onSettings(); else if (id !== 'home') setToast(true); }}>
+          <button key={id} type="button" aria-label={t(`nav.${id}` as StringKey)} aria-current={id === current ? 'page' : undefined}
+            className={id === current ? 'is-on' : ''}
+            onClick={() => {
+              setExpanded(false);
+              if (id === 'settings') onSettings();
+              else if (id === 'home' || id === 'build') onNavigate?.(id);
+              else setToast(true);
+            }}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={ICONS[id]} /></svg>
             <span>{t(`nav.${id}` as StringKey)}</span>
           </button>

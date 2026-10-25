@@ -16,7 +16,7 @@ import { CodeCard } from './CodeCard';
 import type { Panel } from './ExpandButton';
 import { StatusPill, ViewerToolbar } from './Dock';
 import { AboutSheet, InfoCard } from './InfoSheet';
-import { NavBar } from './NavBar';
+import { NavBar, type Screen } from './NavBar';
 import { ProjectsRow } from './ProjectsRow';
 import { FpsProbe, Header, SettingsPanel, SHOW_FPS } from './TopBar';
 import './explorer.css';
@@ -24,7 +24,7 @@ import './layout.css';
 
 // Home screen. The 3D view sits in its own card with its toolbar; projects, the explanation tabs and the
 // code sit beside it (landscape / desktop) or below it (phone held upright).
-export function ExplorerScreen() {
+export function ExplorerScreen({ onNavigate }: { onNavigate?(s: Screen): void } = {}) {
   const view = useWorkbenchStore((s) => s.view);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const showCurrent = useWorkbenchStore((s) => s.showCurrent);
@@ -52,7 +52,7 @@ export function ExplorerScreen() {
 
   return (
     <main className="app layout">
-      <NavBar onSettings={() => setSettings(true)} />
+      <NavBar current="home" onNavigate={onNavigate} onSettings={() => setSettings(true)} />
       <Header />
       <section className="viewer" data-testid="viewer" aria-label={t('viewer.toolbar')}>
         <GlErrorBoundary onReload={guard.reload}>
