@@ -1,14 +1,20 @@
-import { useMemo } from 'react';
-import { useThree, type ThreeEvent } from '@react-three/fiber';
+import { useMemo, type ComponentType } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PartState } from '../../circuit/evaluate';
 import { PART_DEFS, paramsOf } from '../../circuit/parts';
-import type { BoardPlacement, PartInstance } from '../../circuit/types';
+import type { BoardPlacement, PartInstance, PartType } from '../../circuit/types';
 import { BB, colX, holeLocal, ROW } from '../breadboard/breadboardGeometry';
 import { Led5mm, type LedColor } from '../parts/Led5mm';
 import { Resistor } from '../parts/Resistor';
 import { castAll, rbox } from '../shared/geometry';
 import { MATERIALS, std } from '../shared/materials';
+import { BoardParts } from '../parts/board';
+import { BenchParts } from '../parts/bench';
+import { useHold, useTurn, type OnInput } from './controls3d';
+import type { PartView } from '../parts/partView';
+
+export { pointerAngle, turnKnob } from './controls3d';
 
 // Colour bands (digit, digit, multiplier, ±5 % gold) for the resistor values on offer.
 const BANDS: Record<number, string[]> = {
@@ -16,55 +22,6 @@ const BANDS: Record<number, string[]> = {
   1000: ['#7A4A24', '#1A1A1A', '#D8342B', '#C9A140'],
   10000: ['#7A4A24', '#1A1A1A', '#EE8A24', '#C9A140'],
 };
-
-type Controls = { enabled: boolean } | null;
-type OnInput = (key: string, value: number) => void;
-
-// Press-and-hold in 3D: pressed while the pointer is down (anywhere it goes), released when it lifts.
-function useHold(onInput: OnInput) {
-  const controls = useThree((s) => s.controls) as Controls;
-  return (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    if (controls) controls.enabled = false; // the camera stays still while you press
-    onInput('pressed', 1);
-    const up = () => { onInput('pressed', 0); if (controls) controls.enabled = true; window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-  };
-}
-
-// Turn a knob in 3D: drag around its centre, like turning a real one — it turns by how far the pointer goes round
-// (wherever you grab it), and stops at the ends. The full range is 270°.
-export const pointerAngle = (dx: number, dy: number) => (Math.atan2(dx, -dy) * 180) / Math.PI; // 0° = top, clockwise
-export function turnKnob(position: number, fromAngle: number, toAngle: number): number {
-  let d = toAngle - fromAngle;
-  if (d > 180) d -= 360;
-  if (d < -180) d += 360;
-  return Math.min(1, Math.max(0, position + d / 270));
-}
-function useTurn(knob: THREE.Object3D, position: number, onInput: OnInput) {
-  const { camera, gl } = useThree();
-  const controls = useThree((s) => s.controls) as Controls;
-  return (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    if (controls) controls.enabled = false;
-    const v = knob.getWorldPosition(new THREE.Vector3()).project(camera);
-    const r = gl.domElement.getBoundingClientRect();
-    const cx = r.left + (v.x * 0.5 + 0.5) * r.width, cy = r.top + (-v.y * 0.5 + 0.5) * r.height;
-    let pos = position, angle: number | null = null;
-    const move = (ev: PointerEvent) => {
-      const dx = ev.clientX - cx, dy = ev.clientY - cy;
-      if (dx * dx + dy * dy < 36) return; // too close to the centre to tell the angle
-      const a = pointerAngle(dx, dy);
-      if (angle !== null) { const p = turnKnob(pos, angle, a); if (p !== pos) { pos = p; onInput('position', p); } }
-      angle = a;
-    };
-    const up = () => { if (controls) controls.enabled = true; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-  };
-}
 
 // 6 mm tactile push button straddling the gap: black body, round cap that moves down when pressed.
 function Button6mm({ col, pressed, onInput }: { col: number; pressed: boolean; onInput: OnInput }) {
@@ -108,13 +65,16 @@ function Potentiometer({ id, col, row, position, onInput }: { id: string; col: n
 }
 
 type Props = { part: PartInstance; state?: PartState; inputs?: Record<string, number>; onPick(e: ThreeEvent<MouseEvent>): void; onInput: OnInput };
+const view = ({ part, state, inputs, onInput }: Props): PartView => ({ id: part.id, at: part.at, params: paramsOf(part.type, part.params), state, inputs: inputs ?? {}, onInput });
 
 // One placed part, in breadboard-local coordinates (render inside <Breadboard>).
-export function PartModel({ part, state, inputs, onPick, onInput }: Props) {
+export function PartModel(props: Props) {
+  const { part, state, inputs, onPick, onInput } = props;
   const { col, row } = part.at as BoardPlacement;
   const params = paramsOf(part.type, part.params);
   const [, , z] = holeLocal(col, row);
   let model: React.ReactNode = null;
+  const Own = BoardParts[part.type as keyof typeof BoardParts] as ComponentType<PartView> | undefined;
   if (part.type === 'led') model = (
     <>
       <Led5mm position={[colX(col) + 1.27, 0, z]} color={String(params.color) as LedColor} lit={state?.burnt ? 0 : state?.brightness ?? 0} />
@@ -129,23 +89,25 @@ export function PartModel({ part, state, inputs, onPick, onInput }: Props) {
   else if (part.type === 'resistor') model = <Resistor from={[col, row]} to={[col + 4, row]} bands={BANDS[Number(params.ohms)] ?? BANDS[220]} />;
   else if (part.type === 'button') model = <Button6mm col={col} pressed={(inputs?.pressed ?? 0) >= 0.5} onInput={onInput} />;
   else if (part.type === 'pot') model = <Potentiometer id={part.id} col={col} row={row} position={inputs?.position ?? 0.5} onInput={onInput} />;
-  else { // a plain block over its legs until the part's own model is added
-    const holes = PART_DEFS[part.type].covers(part.at, part.params);
-    const cols = holes.map((h) => Number(h.match(/^\d+/)![0]));
-    const x0 = colX(Math.min(...cols)), x1 = colX(Math.max(...cols));
-    model = <mesh position={[(x0 + x1) / 2, BB.H + 3, z]}><boxGeometry args={[x1 - x0 + 2.4, 6, 3]} /><meshStandardMaterial color="#5A6372" /></mesh>;
-  }
+  else if (Own) model = <Own {...view(props)} />;
   return <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick}>{model}</group>;
 }
 
-// A module standing on the bench, in world coordinates (render outside <Breadboard>). A plain block the module's
-// size until its own model is added.
-export function BenchModel({ part, onPick }: Props) {
-  const bench = PART_DEFS[part.type].bench!;
+// A module standing on the bench, in world coordinates (render outside <Breadboard>); its model is drawn around its
+// own centre on the bench top (y = 0).
+export function BenchModel(props: Props) {
+  const { part, onPick } = props;
   const at = part.at as { x: number; z: number };
+  const Own = BenchParts[part.type as keyof typeof BenchParts] as ComponentType<PartView>;
   return (
     <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick} position={[at.x, 0, at.z]}>
-      <mesh position={[0, bench.h / 2, 0]} castShadow><boxGeometry args={[bench.w, bench.h, bench.d]} /><meshStandardMaterial color="#3E5C76" roughness={0.6} /></mesh>
+      <Own {...view(props)} />
     </group>
   );
+}
+
+// a plain block the size of a module (used until a model exists)
+export function BenchBlock({ type }: { type: PartType }) {
+  const b = PART_DEFS[type].bench!;
+  return <mesh position={[0, b.h / 2, 0]} castShadow><boxGeometry args={[b.w, b.h, b.d]} /><meshStandardMaterial color="#3E5C76" roughness={0.6} /></mesh>;
 }

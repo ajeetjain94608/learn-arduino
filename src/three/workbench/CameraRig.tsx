@@ -70,6 +70,18 @@ export function CameraRig() {
       const t = controls.current?.target ?? new THREE.Vector3();
       return { azimuth: Math.atan2(camera.position.x - t.x, camera.position.z - t.z), zoom: camera.zoom };
     };
+    // look at a point (world mm) from the same direction, at this zoom (previews and screenshots)
+    window.__rq.debug.lookAt = (x: number, y: number, z: number, zoom: number) => {
+      const c = controls.current;
+      if (!c) return;
+      const dir = camera.position.clone().sub(c.target);
+      c.target.set(x, y, z);
+      camera.position.copy(c.target).add(dir);
+      camera.zoom = zoom;
+      camera.updateProjectionMatrix();
+      c.update();
+      tween.current = null;
+    };
   }, [camera]);
 
   useFrame((_, dt) => {
