@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BB_HOLES, UNO_PINS } from '../../circuit/board';
 import { PART_DEFS } from '../../circuit/parts';
 import type { PartType } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
@@ -7,6 +8,7 @@ import { useBuildStore } from '../../state/buildStore';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { isTestMode } from '../../three/shared/motion';
 import { BuildScene } from '../../three/build/BuildScene';
+import { WireDragger } from '../../three/build/WireDragger';
 import { GlErrorBoundary } from '../../three/workbench/GlErrorBoundary';
 import { GlGuardCard, useContextGuard } from '../../three/workbench/ContextGuard';
 import { Workbench } from '../../three/workbench/Workbench';
@@ -19,6 +21,7 @@ import { Header, SettingsPanel } from '../explorer/TopBar';
 import '../explorer/explorer.css';
 import '../explorer/layout.css';
 import { PartWindow } from './PartWindow';
+import { WiringTable } from './WiringTable';
 import './build.css';
 
 type Tab = 'parts' | 'wiring' | 'code';
@@ -34,6 +37,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
   const inputs = useBuildStore((s) => s.inputs);
   const select = useBuildStore((s) => s.select);
   const setInput = useBuildStore((s) => s.setInput);
+  const addWire = useBuildStore((s) => s.addWire);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const rxLed = useWorkbenchStore((s) => s.rxLed);
@@ -45,6 +49,11 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
   const closeSettings = useCallback(() => setSettings(false), []);
   const guard = useContextGuard();
   const circuit = useMemo(() => ({ parts, wires }), [parts, wires]); // sent to the simulator only when it changes
+  // points a wire can be dragged from/to: every UNO pin, and the holes nothing sits in yet
+  const targets = useMemo(() => {
+    const used = useBuildStore.getState().usedPins();
+    return [...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`).filter((h) => !used.has(h))];
+  }, [parts, wires]);
 
   // While Build is open the code card edits the build's code; Home gets its own code back afterwards.
   useEffect(() => {
@@ -66,6 +75,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
         <GlErrorBoundary onReload={guard.reload}>
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} />
+            <WireDragger targets={targets} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
             <BuildScene parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
@@ -82,7 +92,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
             ))}
           </div>
           {tab === 'parts' && <PartsPanel />}
-          {tab === 'wiring' && <p className="build-note">{t('build.wiringSoon')}</p>}
+          {tab === 'wiring' && <WiringTable />}
         </section>
         {tab === 'code' && <CodeCard panel={panel} onPanel={setPanel} />}
       </div>

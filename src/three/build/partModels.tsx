@@ -119,5 +119,5 @@ export function PartModel({ part, state, inputs, onPick, onInput }: Props) {
   else if (part.type === 'resistor') model = <Resistor from={[col, row]} to={[col + 4, row]} bands={BANDS[Number(params.ohms)] ?? BANDS[220]} />;
   else if (part.type === 'button') model = <Button6mm col={col} pressed={(inputs?.pressed ?? 0) >= 0.5} onInput={onInput} />;
   else if (part.type === 'pot') model = <Potentiometer id={part.id} col={col} row={row} position={inputs?.position ?? 0.5} onInput={onInput} />;
-  return <group name={part.id} userData={{ partId: part.id }} onClick={onPick}>{model}</group>;
+  return <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick}>{model}</group>;
 }

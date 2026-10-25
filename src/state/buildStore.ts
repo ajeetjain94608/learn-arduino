@@ -87,7 +87,8 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       },
       movePart(id, at) {
         const p = get().parts.find((x) => x.id === id);
-        if (!p || !fits(p, at, id)) return false;
+        if (!p) return false;
+        if (!fits(p, at, id)) { set({ message: t('build.msg.cantMove') }); return false; }
         set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)) });
         return true;
       },

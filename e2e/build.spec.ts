@@ -96,3 +96,66 @@ test.describe('Build: inputs three ways', () => {
     await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 10_000 });
   });
 });
+
+const BLINK_CODE = 'void setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  delay(1000);\n  digitalWrite(13, LOW);\n  delay(1000);\n}\n';
+type Snap = { pinHigh: boolean; circuitState: { parts: Record<string, { brightness?: number }> } | null };
+const store = (page: Page) => page.evaluate(() => (window as unknown as { __rq: { debug: { store(): Snap } } }).__rq.debug.store());
+
+async function ledAndResistor(page: Page) {
+  await page.getByRole('button', { name: 'Add LED' }).click();       // LED 1: anode 1a, cathode 2a
+  await page.getByRole('button', { name: 'Add Resistor' }).click();  // Resistor 1 at 3a
+  // move the resistor so one leg is in the LED's cathode column: 3a → 3b → 2b (legs 2b, 6b); left first would hit the LED
+  await page.getByRole('button', { name: 'Move down' }).click();
+  await page.getByRole('button', { name: 'Move left' }).click();
+  await expect(page.getByTestId('part-window')).toContainText('2b');
+}
+async function connect(page: Page, from: string, to: string) {
+  await page.getByRole('combobox', { name: 'From' }).selectOption(from);
+  await page.getByRole('combobox', { name: 'To' }).selectOption(to);
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
+}
+async function expectBlinkLights(page: Page) {
+  await runSketch(page, BLINK_CODE);
+  await expect.poll(async () => { const s = await store(page); return s.pinHigh && (s.circuitState?.parts.led1?.brightness ?? 0) > 0.5; }, { timeout: 10_000 }).toBe(true);
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 10_000 });
+}
+
+test.describe('Build: wiring', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('build Blink from scratch with the table', async ({ page }) => {
+    await openBuild(page);
+    await ledAndResistor(page);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.D13', 'bb.1c');
+    await connect(page, 'bb.6c', 'uno.GND');
+    await expect(page.getByRole('list', { name: 'Connections' }).getByRole('listitem')).toHaveCount(2);
+    await expectBlinkLights(page);
+  });
+
+  test('build Blink by dragging wires in 3D', async ({ page }) => {
+    await openBuild(page);
+    await ledAndResistor(page);
+    await page.getByTestId('viewer').scrollIntoViewIfNeeded();
+    const pin = (ref: string) => page.evaluate((r) => (window as unknown as { __rq: { debug: { buildPinScreen(r: string): { x: number; y: number } } } }).__rq.debug.buildPinScreen(r), ref);
+    for (const [from, to] of [['uno.D13', 'bb.1c'], ['bb.6c', 'uno.GND']]) {
+      const a = await pin(from), b = await pin(to);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(b.x, b.y, { steps: 8 });
+      await page.mouse.up();
+    }
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await expect(page.getByRole('list', { name: 'Connections' }).getByRole('listitem')).toHaveCount(2);
+    await expectBlinkLights(page);
+  });
+
+  test('a duplicate connection shows a message', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.D13', 'bb.1c');
+    await connect(page, 'bb.1c', 'uno.D13');
+    await expect(page.getByRole('status').filter({ hasText: 'already connected' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Connections' }).getByRole('listitem')).toHaveCount(1);
+  });
+});

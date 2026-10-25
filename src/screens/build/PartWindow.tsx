@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
+import type { Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { useBuildStore } from '../../state/buildStore';
 import { commitNumber } from './numberInput';
@@ -9,6 +10,8 @@ const SHOWN: Record<string, { label: StringKey; scale: number }> = {
   position: { label: 'build.input.knob', scale: 1023 },
 };
 const ohmsLabel = (v: number) => (v >= 1000 ? `${v / 1000} kΩ` : `${v} Ω`);
+const ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+const MOVES = [['left', -1, 0], ['right', 1, 0], ['up', 0, -1], ['down', 0, 1]] as const;
 
 // A slider and a number box for one input, always showing the same value as the 3D part.
 function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
@@ -59,6 +62,7 @@ export function PartWindow() {
   const selected = useBuildStore((s) => s.selected);
   const part = useBuildStore((s) => s.parts.find((p) => p.id === s.selected));
   const setParam = useBuildStore((s) => s.setParam);
+  const movePart = useBuildStore((s) => s.movePart);
   const removePart = useBuildStore((s) => s.removePart);
   const select = useBuildStore((s) => s.select);
   if (!selected || !part) return null;
@@ -71,6 +75,17 @@ export function PartWindow() {
         <b>{name}</b>
         <button type="button" className="part-window__close" aria-label={t('build.close')} onClick={() => select(null)}>×</button>
       </header>
+      <div className="part-window__place">
+        <span>{t('build.legs')} <b>{Object.values(def.footprint(part.at, part.params) ?? {}).join(' · ')}</b></span>
+        <div className="part-window__moves">
+          {MOVES.map(([dir, dc, dr]) => (
+            <button key={dir} type="button" aria-label={t(`build.move.${dir}` as StringKey)}
+              onClick={() => { const r = ROWS.indexOf(part.at.row) + dr; if (r >= 0 && r < ROWS.length) movePart(part.id, { col: part.at.col + dc, row: ROWS[r] }); }}>
+              {{ left: '◀', right: '▶', up: '▲', down: '▼' }[dir]}
+            </button>
+          ))}
+        </div>
+      </div>
       {def.params.map((p) => (
         <div key={p.key} className="part-window__param" role="radiogroup" aria-label={t(`build.param.${p.key}` as StringKey)}>
           {p.options.map((o) => (
