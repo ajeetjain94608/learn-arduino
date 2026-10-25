@@ -9,7 +9,7 @@ export default defineConfig({
   preview: { port: 5181, strictPort: true },
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'tools/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
   },
 });

@@ -14,7 +14,9 @@
     "android:sync": "npm run build:device && npx cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "build:device": "tsc -b && vite build --mode device",
-    "bake:thumbs": "node tools/bake-thumbs.mjs"
+    "bake:thumbs": "node tools/bake-thumbs.mjs",
+    "avr:core": "node tools/avr/build-core.mjs && node tools/avr/record-commands.mjs",
+    "avr:fixtures": "node tools/avr/build-fixtures.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
