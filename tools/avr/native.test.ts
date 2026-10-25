@@ -28,7 +28,7 @@ describe.skipIf(!nativeAvailable())('native AVR toolchain outputs', () => {
 
   it('every fixture has a hex and a non-empty line table', () => {
     const sketches = readdirSync(FIX).filter((f) => f.endsWith('.ino'));
-    expect(sketches.length).toBe(8);
+    expect(sketches.length).toBe(13); // + tone, servo, sonar, stepper, oled (B3 modules)
     for (const ino of sketches) {
       const base = `${FIX}/${ino.replace(/\.ino$/, '')}`;
       expect(readFileSync(`${base}.hex`, 'utf8'), base).toMatch(/^:[0-9A-F]+/);
