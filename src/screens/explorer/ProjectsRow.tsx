@@ -1,11 +1,14 @@
 import { t, type StringKey } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import type { View } from '../../three/workbench/cameraViews';
+import ledThumb from '../../assets/thumbs/led-red.png';
+import unoThumb from '../../assets/thumbs/uno.png';
 
 // Pre-built projects. Two are playable in Stage 1; the rest are the launch sensors, coming with the component library.
-const PROJECTS: { id: string; view?: View; icon: string }[] = [
-  { id: 'board', view: 'board', icon: 'M6 6h12v12H6zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4' },
-  { id: 'blink', view: 'circuit', icon: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z' },
+// thumb: picture rendered from our own 3D model (npm run bake:thumbs); icon: placeholder until the part's model exists.
+const PROJECTS: { id: string; view?: View; icon: string; thumb?: string }[] = [
+  { id: 'board', view: 'board', thumb: unoThumb, icon: 'M6 6h12v12H6zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4' },
+  { id: 'blink', view: 'circuit', thumb: ledThumb, icon: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z' },
   { id: 'button', icon: 'M4 14h16v4H4zM8 14v-3a4 4 0 0 1 8 0v3' },
   { id: 'ldr', icon: 'M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z' },
   { id: 'ultrasonic', icon: 'M3 12h3M8 8a6 6 0 0 1 0 8M12 5a10 10 0 0 1 0 14M16 3a13 13 0 0 1 0 18' },
@@ -27,9 +30,11 @@ export function ProjectsRow() {
             <button key={p.id} type="button" disabled={!playable}
               className={`project${playable && view === p.view ? ' is-on' : ''}`}
               onClick={() => p.view && setView(p.view)}>
-              <span className="project__icon" aria-hidden>
-                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={p.icon} /></svg>
-              </span>
+              {p.thumb
+                ? <img className="project__thumb" src={p.thumb} alt="" width={88} height={62} draggable={false} />
+                : <span className="project__icon" aria-hidden>
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={p.icon} /></svg>
+                  </span>}
               <span className="project__text"><b>{i + 1}. {name}</b>{!playable && <small>{t('projects.soon')}</small>}</span>
             </button>
           );

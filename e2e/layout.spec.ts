@@ -63,3 +63,14 @@ test('"Try it yourself" shows the blink code and runs it', async ({ page }) => {
   await code.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 1500 });
 });
+
+test('project cards show rendered pictures of the real parts', async ({ page }) => {
+  await page.goto('/?test');
+  const projects = page.getByTestId('projects');
+  const thumb = (name: RegExp) => projects.getByRole('button', { name }).locator('img.project__thumb');
+  for (const [name, file] of [[/Meet the board/, 'uno'], [/Blink an LED/, 'led-red']] as const) {
+    const img = thumb(name);
+    await expect(img).toHaveAttribute('src', new RegExp(file));
+    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(100);
+  }
+});

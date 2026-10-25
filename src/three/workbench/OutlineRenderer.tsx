@@ -13,7 +13,7 @@ import { isTestMode } from '../shared/motion';
 import type { Quality } from './quality';
 
 // Edge detection over view-space normals and (orthographic, hence linear) depth.
-const EDGE_SHADER = {
+export const EDGE_SHADER = {
   uniforms: {
     tDiffuse: { value: null },
     tNormal: { value: null },

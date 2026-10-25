@@ -13,7 +13,8 @@
     "bake:env": "node tools/bake-env.mjs",
     "android:sync": "npm run build:device && npx cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
-    "build:device": "tsc -b && vite build --mode device"
+    "build:device": "tsc -b && vite build --mode device",
+    "bake:thumbs": "node tools/bake-thumbs.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
