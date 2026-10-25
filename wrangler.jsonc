@@ -1,0 +1,13 @@
+// Website deployment (Cloudflare Workers static assets): serves the built site in dist/ — no server code.
+// Deploy: npm run build && npx wrangler deploy
+{
+  "name": "learnarduino",
+  "compatibility_date": "2026-10-19",
+  "assets": {
+    "directory": "./dist",
+    // a missing file is a real 404 (the compiler's offline cache must never store the app page as a tool)
+    "not_found_handling": "none"
+  },
+  // no request logging: the site collects nothing about its visitors
+  "observability": { "enabled": false }
+}
