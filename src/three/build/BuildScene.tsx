@@ -7,10 +7,13 @@ import { UnoBoard } from '../boards/uno/UnoBoard';
 import { isTestMode } from '../shared/motion';
 import { Breadboard } from '../breadboard/Breadboard';
 import { Jumper } from '../parts/Jumper';
+import { BurnEffect } from './BurnEffect';
 import { PartModel } from './partModels';
+import { colX, holeLocal } from '../breadboard/breadboardGeometry';
 import { BENCH, pinWorld } from './pinPoints';
 
 type Props = {
+  burns: { id: string }[];
   parts: PartInstance[];
   wires: Wire[];
   inputs: InputValues;
@@ -49,7 +52,17 @@ function WireModel({ wire, onPick }: { wire: Wire; onPick(id: string): void }) {
 }
 
 // The Build bench: the UNO and the breadboard where they sit in the Blink project, the learner's parts and wires.
-export function BuildScene({ parts, wires, inputs, partStates, pin13, rx, tx, onPick, onInput }: Props) {
+// Where to show a burn: on the LED, on the damaged pin, or over the UNO's power section for a short.
+function burnPosition(id: string, parts: PartInstance[]): [number, number, number] | null {
+  if (id === 'uno') return [BENCH.board[0] - 18, 14, BENCH.board[2] + 14];
+  if (id.startsWith('uno.')) return pinWorld(id).add(new THREE.Vector3(0, 4, 0)).toArray() as [number, number, number];
+  const p = parts.find((x) => x.id === id);
+  if (!p) return null;
+  const [, , z] = holeLocal(p.at.col, p.at.row);
+  return [colX(p.at.col) + 1.27 + BENCH.breadboard[0], 20, z + BENCH.breadboard[2]];
+}
+
+export function BuildScene({ burns, parts, wires, inputs, partStates, pin13, rx, tx, onPick, onInput }: Props) {
   return (
     <>
       <ScreenProbe />
@@ -61,6 +74,7 @@ export function BuildScene({ parts, wires, inputs, partStates, pin13, rx, tx, on
         ))}
       </Breadboard>
       {wires.map((w) => <WireModel key={w.id} wire={w} onPick={onPick} />)}
+      {burns.map((b) => { const at = burnPosition(b.id, parts); return at && <BurnEffect key={b.id} position={at} />; })}
     </>
   );
 }

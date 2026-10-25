@@ -52,3 +52,13 @@
 .wiring__name { appearance: none; display: flex; align-items: center; gap: 8px; min-height: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; }
 .wiring__name i { flex: none; width: 14px; height: 14px; border-radius: 50%; }
 .wiring__delete { appearance: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 20px; cursor: pointer; }
+/* burns and warnings */
+.burn-card { flex: none; padding: 12px 14px; border-radius: 16px; border: 2px solid #E2483D; background: color-mix(in srgb, #E2483D 8%, var(--card)); display: flex; flex-direction: column; gap: 10px; }
+.burn-card__item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.burn-card__item p { flex: 1 1 200px; margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; }
+.burn-card__item button { appearance: none; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 0; background: #E2483D; color: #fff; font: inherit; font-size: 15px; font-weight: 800; cursor: pointer; }
+.wiring-warnings { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wiring-warnings li { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #E8A317 16%, var(--card)); border: 1px solid color-mix(in srgb, #E8A317 50%, var(--line)); font-size: 14px; font-weight: 700; line-height: 1.4; }
+/* on the Code tab the tab card is just its tabs; the code card takes the column */
+.build-card--tabs-only { flex: none; padding-bottom: 0; }
+.build-card--tabs-only .tabs { margin-bottom: 0; border-bottom: 0; }

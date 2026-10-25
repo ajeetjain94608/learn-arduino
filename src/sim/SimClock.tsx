@@ -61,6 +61,8 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
       (sentInputs.current[partId] ??= {})[key] = value;
     }
   }, [inputs]);
+  const replaceRequest = useWorkbenchStore((s) => s.replaceRequest);
+  useEffect(() => { if (replaceRequest) worker.current?.postMessage({ t: 'replace', id: replaceRequest.id } satisfies SimCommand); }, [replaceRequest]);
   useEffect(() => {
     if (!isTestMode()) return;
     const debug = (window.__rq ??= { debug: {} }).debug;

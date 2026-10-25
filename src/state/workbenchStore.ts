@@ -44,6 +44,8 @@ type WorkbenchState = {
   loadProgram(p: Program): void;        // upload and run another program
   setSimSpeed(x: number): void;
   setCircuitState(c: CircuitSnapshot | null): void;
+  replaceRequest: { id: string; seq: number } | null; // "Replace part/board": the simulator clears that burn
+  replacePart(id: string): void;
   clearSerial(): void;
   setSerialLeds(rx: boolean, tx: boolean): void;
   resetBoard(): void; // the board's reset button: reboot, then restart the program from the beginning
@@ -88,6 +90,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   compileSeq: 0,
   simSpeed: 1,
   circuitState: null,
+  replaceRequest: null,
   rxLed: false,
   txLed: false,
   setView: (view) => set({ view }),
@@ -134,6 +137,19 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   loadProgram: (program) => { set({ program }); startUpload(set); },
   setSimSpeed: (simSpeed) => set({ simSpeed }),
   setCircuitState: (circuitState) => set({ circuitState }),
+  replacePart: (id) => {
+    const c = get().circuitState;
+    const cleared = (b: string) => b === id || (id === 'uno' && b.startsWith('uno'));
+    set({
+      replaceRequest: { id, seq: (get().replaceRequest?.seq ?? 0) + 1 },
+      circuitState: c && {
+        ...c,
+        burns: c.burns.filter((b) => !cleared(b.id)),
+        parts: Object.fromEntries(Object.entries(c.parts).map(([k, v]) => [k, cleared(k) ? { ...v, burnt: false } : v])),
+        board: id === 'uno' ? { shorted: false, burntPins: [] } : c.board,
+      },
+    });
+  },
   clearSerial: () => set({ serial: [], serialOpen: false }),
   setSerialLeds: (rxLed, txLed) => set({ rxLed, txLed }),
   resetBoard: () => set({ booting: true, pinHigh: false, resetCount: get().resetCount + 1 }),

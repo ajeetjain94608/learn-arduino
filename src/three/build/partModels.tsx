@@ -115,7 +115,17 @@ export function PartModel({ part, state, inputs, onPick, onInput }: Props) {
   const params = paramsOf(part.type, part.params);
   const [, , z] = holeLocal(col, row);
   let model: React.ReactNode = null;
-  if (part.type === 'led') model = <Led5mm position={[colX(col) + 1.27, 0, z]} color={String(params.color) as LedColor} lit={state?.burnt ? 0 : state?.brightness ?? 0} />;
+  if (part.type === 'led') model = (
+    <>
+      <Led5mm position={[colX(col) + 1.27, 0, z]} color={String(params.color) as LedColor} lit={state?.burnt ? 0 : state?.brightness ?? 0} />
+      {state?.burnt && ( // a blackened, cracked-looking lens
+        <mesh position={[colX(col) + 1.27, BB.H + 10.5, z]} raycast={() => {}}>
+          <sphereGeometry args={[2.75, 20, 16]} />
+          <meshStandardMaterial color="#1B1410" roughness={0.9} transparent opacity={0.72} />
+        </mesh>
+      )}
+    </>
+  );
   else if (part.type === 'resistor') model = <Resistor from={[col, row]} to={[col + 4, row]} bands={BANDS[Number(params.ohms)] ?? BANDS[220]} />;
   else if (part.type === 'button') model = <Button6mm col={col} pressed={(inputs?.pressed ?? 0) >= 0.5} onInput={onInput} />;
   else if (part.type === 'pot') model = <Potentiometer id={part.id} col={col} row={row} position={inputs?.position ?? 0.5} onInput={onInput} />;

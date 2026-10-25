@@ -20,6 +20,7 @@ import { NavBar, type Screen } from '../explorer/NavBar';
 import { Header, SettingsPanel } from '../explorer/TopBar';
 import '../explorer/explorer.css';
 import '../explorer/layout.css';
+import { BurnCard, WiringWarnings } from './BurnCard';
 import { PartWindow } from './PartWindow';
 import { WiringTable } from './WiringTable';
 import './build.css';
@@ -76,7 +77,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} />
             <WireDragger targets={targets} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
-            <BuildScene parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
+            <BuildScene burns={circuitState?.burns ?? []} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />
@@ -84,17 +85,18 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
       <div className="side build-side" data-expand={panel ?? undefined}>
+        <BurnCard />
         <PartWindow />
-        <section className="card build-card">
+        <section className={`card build-card${tab === 'code' ? ' build-card--tabs-only' : ''}`}>
           <div className="tabs" role="tablist" aria-label={t('build.tabs')}>
             {(['parts', 'wiring', 'code'] as Tab[]).map((k) => (
               <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'is-on' : ''} onClick={() => setTab(k)}>{t(`build.tab.${k}` as StringKey)}</button>
             ))}
           </div>
           {tab === 'parts' && <PartsPanel />}
-          {tab === 'wiring' && <WiringTable />}
+          {tab === 'wiring' && <><WiringWarnings /><WiringTable /></>}
         </section>
-        {tab === 'code' && <CodeCard panel={panel} onPanel={setPanel} />}
+        {tab === 'code' && <><WiringWarnings /><CodeCard panel={panel} onPanel={setPanel} /></>}
       </div>
       <AboutSheet open={about} onClose={() => setAbout(false)} />
       <SettingsPanel open={settings} onClose={closeSettings} onAbout={() => setAbout(true)} />

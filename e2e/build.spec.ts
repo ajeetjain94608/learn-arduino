@@ -159,3 +159,34 @@ test.describe('Build: wiring', () => {
     await expect(page.getByRole('list', { name: 'Connections' }).getByRole('listitem')).toHaveCount(1);
   });
 });
+
+test.describe('Build: burns and warnings', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('an LED without a resistor burns, and Replace part brings it back', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('button', { name: 'Add LED' }).click(); // anode 1a, cathode 2a
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.D13', 'bb.1c');
+    await connect(page, 'bb.2c', 'uno.GND');
+    await runSketch(page, BLINK_CODE);
+    const card = page.getByTestId('burn-card');
+    await expect(card).toContainText('The LED burnt out', { timeout: 10_000 });
+    await page.getByTestId('code-card').getByRole('button', { name: 'Stop' }).click();
+    await card.getByRole('button', { name: 'Replace part' }).click();
+    await expect(card).toBeHidden();
+    const parts = await page.evaluate(() => (window as unknown as { __rq: { debug: { store(): { circuitState: { parts: Record<string, { burnt?: boolean }> } | null } } } }).__rq.debug.store().circuitState?.parts ?? {});
+    expect(parts.led1?.burnt).toBeFalsy();
+  });
+
+  test('wiring 5V to GND warns before Run, and running shorts the board', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.5V', 'uno.GND');
+    await expect(page.getByRole('list', { name: 'Wiring warnings' })).toContainText('5 V and GND are connected');
+    await runSketch(page, BLINK_CODE);
+    await expect(page.getByTestId('burn-card')).toContainText('Short circuit', { timeout: 10_000 });
+    await expect(page.getByTestId('status')).toHaveText('Program stopped');
+    await expect(page.getByTestId('burn-card').getByRole('button', { name: 'Replace board' })).toBeVisible();
+  });
+});
