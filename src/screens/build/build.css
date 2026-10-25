@@ -15,3 +15,23 @@
 .bench-list__name { appearance: none; flex: 1; text-align: left; min-height: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 .bench-list__name small { font-size: 14px; color: var(--ink-2); font-weight: 600; margin-left: 6px; }
 .build-message { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: color-mix(in srgb, #E8A317 14%, var(--card)); font-size: 14px; font-weight: 700; }
+/* the selected part's window: options and inputs (slider + number box). It sits at the top of the right column
+   (right under the 3D view on phones held upright) so it never covers the part being turned or pressed. */
+.part-window { flex: none; padding: 12px 14px; border-radius: 16px; background: var(--card); border: 2px solid var(--accent);
+  display: flex; flex-direction: column; gap: 10px; }
+.part-window__head { display: flex; align-items: center; gap: 8px; }
+.part-window__head b { flex: 1; font-size: 16px; }
+.part-window__close, .part-window__remove { appearance: none; min-height: 48px; min-width: 48px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.part-window__close { font-size: 22px; }
+.part-window__param { display: flex; flex-wrap: wrap; gap: 6px; }
+.part-window__param button { appearance: none; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.part-window__param button.is-on { background: var(--primary-bg); color: var(--primary-fg); border-color: transparent; }
+.part-window__input { display: grid; grid-template-columns: auto 1fr 84px; align-items: center; gap: 10px; }
+.part-window__label { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); }
+.part-window__input input[type=range] { width: 100%; min-height: 48px; accent-color: var(--accent); }
+.part-window__input input[type=number] { min-height: 48px; width: 100%; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 700 15px ui-monospace, Consolas, monospace; }
+.part-window__press { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.part-window__hold { appearance: none; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--primary-bg); color: var(--primary-fg); font: inherit; font-size: 15px; font-weight: 800; cursor: pointer; touch-action: none; }
+.part-window__hold.is-on { background: var(--reward); color: #1B1B1B; }
+.part-window__keep { display: flex; align-items: center; gap: 8px; min-height: 48px; font-size: 15px; font-weight: 700; }
+.part-window__keep input { width: 22px; height: 22px; accent-color: var(--accent); }

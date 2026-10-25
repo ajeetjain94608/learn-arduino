@@ -18,6 +18,7 @@ import { NavBar, type Screen } from '../explorer/NavBar';
 import { Header, SettingsPanel } from '../explorer/TopBar';
 import '../explorer/explorer.css';
 import '../explorer/layout.css';
+import { PartWindow } from './PartWindow';
 import './build.css';
 
 type Tab = 'parts' | 'wiring' | 'code';
@@ -32,6 +33,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
   const wires = useBuildStore((s) => s.wires);
   const inputs = useBuildStore((s) => s.inputs);
   const select = useBuildStore((s) => s.select);
+  const setInput = useBuildStore((s) => s.setInput);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const rxLed = useWorkbenchStore((s) => s.rxLed);
@@ -64,7 +66,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
         <GlErrorBoundary onReload={guard.reload}>
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} />
-            <BuildScene parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} />
+            <BuildScene parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />
@@ -72,6 +74,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
       <div className="side build-side" data-expand={panel ?? undefined}>
+        <PartWindow />
         <section className="card build-card">
           <div className="tabs" role="tablist" aria-label={t('build.tabs')}>
             {(['parts', 'wiring', 'code'] as Tab[]).map((k) => (
