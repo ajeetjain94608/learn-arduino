@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
 import { BLINK } from '../../content/sketches/blink';
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
@@ -6,7 +6,6 @@ import { ExpandButton, type Panel } from './ExpandButton';
 
 // The project's sketch; the simulated board runs its compiled program (src/content/sketches).
 export const BLINK_SKETCH = BLINK.code;
-const LINES = BLINK_SKETCH.split('\n');
 
 export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): void }) {
   const running = useWorkbenchStore((s) => s.running);
@@ -15,9 +14,21 @@ export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): 
   const line = useWorkbenchStore((s) => s.line);
   const upload = useWorkbenchStore((s) => s.upload);
   const setRunning = useWorkbenchStore((s) => s.setRunning);
+  const code = useWorkbenchStore((s) => s.code);
+  const setCode = useWorkbenchStore((s) => s.setCode);
+  const diagnostics = useWorkbenchStore((s) => s.diagnostics);
+  const editor = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(BLINK_SKETCH); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard blocked */ }
+    try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard blocked */ }
+  };
+  // a compiler message was tapped: put the cursor at the start of its line
+  const goToLine = (n: number) => {
+    const el = editor.current;
+    if (!el) return;
+    const at = el.value.split('\n').slice(0, n - 1).reduce((sum, l) => sum + l.length + 1, 0);
+    el.focus();
+    el.setSelectionRange(at, at);
   };
   const activeLine = running && !uploading ? line : null;
   return (
@@ -43,13 +54,53 @@ export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): 
           </div>
         </div>
       )}
-      <pre className="code"><code>{LINES.map((text, i) => (
-        <span key={i} className={`code__line${activeLine === i + 1 ? ' is-running' : ''}`} aria-current={activeLine === i + 1 ? 'step' : undefined}>
-          <span className="code__no" aria-hidden>{i + 1}</span>{text || ' '}{'\n'}
-        </span>
-      ))}</code></pre>
+      {running ? (
+        <pre className="code"><code>{code.split('\n').map((text, i) => (
+          <span key={i} className={`code__line${activeLine === i + 1 ? ' is-running' : ''}`} aria-current={activeLine === i + 1 ? 'step' : undefined}>
+            <span className="code__no" aria-hidden>{i + 1}</span>{text || ' '}{'\n'}
+          </span>
+        ))}</code></pre>
+      ) : (
+        <CodeEditor code={code} onChange={setCode} errorLines={new Set(diagnostics.filter((d) => d.severity === 'error').map((d) => d.line))} editor={editor} />
+      )}
+      {!running && diagnostics.length > 0 && (
+        <ul className="diagnostics" aria-label={t('code.messages')}>
+          {diagnostics.map((d, i) => (
+            <li key={i} className={`diagnostic is-${d.severity}`}>
+              <button type="button" onClick={() => goToLine(d.line)}>
+                <b>{t('code.line').replace('{n}', String(d.line))}</b> <span>{d.message}</span>
+                {d.hint && <small>{d.hint}</small>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <SerialMonitor expanded={panel === 'serial'} onExpand={() => onPanel(panel === 'serial' ? null : 'serial')} />
     </section>
+  );
+}
+
+// The sketch editor: line numbers beside a plain text area (no autocorrect; Tab indents by two spaces).
+// Lines with compiler errors get a red number.
+function CodeEditor({ code, onChange, errorLines, editor }: { code: string; onChange(c: string): void; errorLines: Set<number>; editor: RefObject<HTMLTextAreaElement | null> }) {
+  const gutter = useRef<HTMLDivElement>(null);
+  const count = code.split('\n').length;
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Tab' || e.shiftKey) return;
+    e.preventDefault();
+    const el = e.currentTarget, { selectionStart: a, selectionEnd: b } = el;
+    onChange(el.value.slice(0, a) + '  ' + el.value.slice(b));
+    requestAnimationFrame(() => el.setSelectionRange(a + 2, a + 2));
+  };
+  return (
+    <div className="code code--edit">
+      <div className="code__gutter" ref={gutter} aria-hidden>
+        {Array.from({ length: count }, (_, i) => <span key={i} className={errorLines.has(i + 1) ? 'is-error' : ''}>{i + 1}</span>)}
+      </div>
+      <textarea ref={editor} value={code} aria-label={t('code.editor')} wrap="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" autoComplete="off"
+        onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown}
+        onScroll={(e) => { if (gutter.current) gutter.current.scrollTop = e.currentTarget.scrollTop; }} />
+    </div>
   );
 }
 

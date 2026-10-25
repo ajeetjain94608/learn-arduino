@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { setCompiler } from '../build/compiler/compiler';
+import type { CompileResult, Compiler } from '../build/compiler/types';
 import { BLINK } from '../content/sketches/blink';
 import { useWorkbenchStore } from './workbenchStore';
 
@@ -40,5 +42,78 @@ describe('workbench store: program and serial', () => {
     expect(s().uploading).toBe(true);
     expect(s().running).toBe(true);
     s().loadProgram(BLINK.program);
+  });
+});
+
+describe('workbench store: Run compiles changed code', () => {
+  type Pending = { sketch: string; resolve(r: CompileResult): void };
+  let pending: Pending[] = [];
+  const fake: Compiler = { compile: (sketch) => new Promise((resolve) => pending.push({ sketch, resolve })) };
+  const ok = (hex: string): CompileResult => ({ ok: true, program: { ...BLINK.program, hex }, diagnostics: [], ms: 5 });
+
+  beforeEach(() => { pending = []; setCompiler(fake); s().setRunning(false); s().setCode(BLINK.code); s().loadProgram(BLINK.program); s().setRunning(false); });
+
+  it('unchanged project code runs instantly without compiling', () => {
+    s().upload();
+    expect(pending).toHaveLength(0);
+    expect(s().program).toBe(BLINK.program);
+    expect(s().uploading).toBe(true);
+  });
+
+  it('changed code compiles first, then uploads the new program', async () => {
+    s().setCode(BLINK.code.replace('delay(1000)', 'delay(200)'));
+    s().upload();
+    expect(s().compiling).toBe(true);
+    expect(s().uploading).toBe(false);
+    expect(pending[0].sketch).toContain('delay(200)');
+    pending[0].resolve(ok(':NEW'));
+    await Promise.resolve();
+    expect(s().compiling).toBe(false);
+    expect(s().program.hex).toBe(':NEW');
+    expect(s().uploading).toBe(true);
+  });
+
+  it('errors are shown and nothing runs', async () => {
+    s().setCode('void setup() {}');
+    s().upload();
+    const d = { line: 1, col: 1, severity: 'error' as const, message: 'boom' };
+    pending[0].resolve({ ok: false, diagnostics: [d], ms: 5 });
+    await Promise.resolve();
+    expect(s().diagnostics).toEqual([d]);
+    expect(s().running).toBe(false);
+    expect(s().uploading).toBe(false);
+  });
+
+  it('stale compile results are ignored', async () => {
+    s().setCode('void setup() {} void loop() {} // one');
+    s().upload();
+    s().setCode('void setup() {} void loop() {} // two');
+    s().upload();
+    pending[1].resolve(ok(':TWO'));
+    await Promise.resolve();
+    pending[0].resolve(ok(':ONE')); // the older compile finishes last
+    await Promise.resolve();
+    expect(s().program.hex).toBe(':TWO');
+  });
+
+  it('Stop during compile means nothing runs', async () => {
+    s().setCode('void setup() {} void loop() {} // three');
+    s().upload();
+    s().setRunning(false);
+    expect(s().compiling).toBe(false);
+    pending[0].resolve(ok(':THREE'));
+    await Promise.resolve();
+    expect(s().running).toBe(false);
+    expect(s().uploading).toBe(false);
+    expect(s().program.hex).not.toBe(':THREE');
+  });
+
+  it('a compiler failure becomes an error message, not a crash', async () => {
+    setCompiler({ compile: () => Promise.reject(new Error('toolchain missing')) });
+    s().setCode('void setup() {} void loop() {} // four');
+    s().upload();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(s().compiling).toBe(false);
+    expect(s().diagnostics[0]).toMatchObject({ severity: 'error', message: expect.stringContaining('toolchain missing') });
   });
 });

@@ -10,3 +10,7 @@ test('status says the board is resetting while it boots', () => {
 test('status says uploading while the sketch uploads', () => {
   expect(statusText({ running: true, pinHigh: false, showCurrent: false, booting: false, uploading: true })).toBe('Uploading…');
 });
+
+test('while the sketch compiles the status says so', () => {
+  expect(statusText({ running: false, pinHigh: false, showCurrent: false, booting: false, compiling: true })).toBe('Compiling…');
+});

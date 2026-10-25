@@ -49,5 +49,5 @@ const out = {
   ld: ld.slice(1).filter((a) => !/^-plugin|liblto_plugin|^-fresolution|^-plugin-opt/.test(a))
     .map((a) => (a === 'IN.o' ? '{IN}' : a === 'OUT.elf' ? '{OUT}' : a === 'core.a' ? '{CORE_A}' : generic(a, []))),
 };
-writeFileSync('tools/avr/commands.json', JSON.stringify(out, null, 2) + '\n');
+writeFileSync('src/build/compiler/commands.json', JSON.stringify(out, null, 2) + '\n');
 console.log(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.length])));

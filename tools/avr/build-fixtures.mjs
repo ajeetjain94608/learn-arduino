@@ -23,6 +23,11 @@ export function buildSketch(ino, name) {
     execFileSync(t.gcc, [...LINK_FLAGS, obj, 'public/avr/uno/core.a', '-lm', '-o', elf], { stdio: 'inherit' });
     execFileSync(t.objcopy, ['-O', 'ihex', '-R', '.eeprom', elf, hex]);
     const decoded = execFileSync(t.objdump, ['--dwarf=decodedline', elf], { encoding: 'utf8', maxBuffer: 64 << 20 });
+    // the in-app compiler reads line tables with readelf: keep blink's as a parser fixture
+    if (name === 'blink') {
+      const text = execFileSync(t.readelf, ['--debug-dump=decodedline', elf], { encoding: 'utf8', maxBuffer: 64 << 20 });
+      writeFileSync('src/build/compiler/fixtures/blink.decodedline.txt', text.replace(/[A-Za-z]:[\\/][^\n]*?Arduino15[\\/]/gi, '{ARDUINO15}/'));
+    }
     // section sizes (avr-objdump -h rows: "Idx Name Size …"): flash = .text + .data, RAM = .data + .bss
     const headers = execFileSync(t.objdump, ['-h', elf], { encoding: 'utf8' });
     const size = (sec) => { const m = headers.match(new RegExp(`\\s${sec.replace('.', '\\.')}\\s+([0-9a-f]+)`)); return m ? parseInt(m[1], 16) : 0; };

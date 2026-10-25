@@ -1,7 +1,8 @@
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 
-export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean; booting: boolean; uploading?: boolean }): string {
+export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean; booting: boolean; uploading?: boolean; compiling?: boolean }): string {
+  if (s.compiling) return t('status.compiling');
   if (s.uploading) return t('status.uploading');
   if (s.booting) return t('status.resetting');
   if (!s.running) return t('status.stopped');

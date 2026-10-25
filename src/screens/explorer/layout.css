@@ -201,3 +201,19 @@
 .serial__send { display: flex; gap: 8px; margin-top: 8px; }
 .serial__send input { flex: 1; min-width: 0; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 500 14px ui-monospace, Consolas, monospace; }
 .serial__send button { appearance: none; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--primary-bg); color: var(--primary-fg); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+/* the sketch editor: line numbers + a plain text area, same look as the read-only code */
+.code--edit { display: flex; padding: 0; overflow: hidden; }
+.code__gutter { flex: none; padding: 10px 10px 10px 12px; overflow: hidden; text-align: right; color: var(--ink-2); opacity: .7; user-select: none; }
+.code__gutter span { display: block; }
+.code__gutter span.is-error { color: #E2483D; opacity: 1; font-weight: 800; }
+.code--edit textarea { flex: 1; min-width: 0; margin: 0; padding: 10px 12px 10px 2px; border: 0; outline: none; resize: none; background: transparent;
+  color: var(--ink); font: inherit; line-height: inherit; white-space: pre; overflow: auto; tab-size: 2; }
+.code--edit:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+/* compiler messages: tap one to jump to its line */
+.diagnostics { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: none; }
+.diagnostic button { appearance: none; width: 100%; min-height: 48px; text-align: left; cursor: pointer; padding: 8px 12px; border-radius: 12px; font: inherit; font-size: 14px; line-height: 1.4;
+  border: 1px solid color-mix(in srgb, #E2483D 40%, var(--line)); background: color-mix(in srgb, #E2483D 8%, var(--card)); color: var(--ink); }
+.diagnostic.is-warning button { border-color: color-mix(in srgb, #E8A317 45%, var(--line)); background: color-mix(in srgb, #E8A317 10%, var(--card)); }
+.diagnostic b { color: #C2362C; margin-right: 4px; }
+.diagnostic.is-warning b { color: #9A6A00; }
+.diagnostic small { display: block; margin-top: 2px; font-size: 14px; font-weight: 700; color: var(--ink-2); }

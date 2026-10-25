@@ -18,7 +18,7 @@ describe.skipIf(!nativeAvailable())('native AVR toolchain outputs', () => {
   });
 
   it('commands.json has cc1plus, as and ld with {IN} and {OUT}', () => {
-    const c = JSON.parse(readFileSync('tools/avr/commands.json', 'utf8')) as Record<string, string[]>;
+    const c = JSON.parse(readFileSync('src/build/compiler/commands.json', 'utf8')) as Record<string, string[]>;
     for (const tool of ['cc1plus', 'as', 'ld']) {
       expect(c[tool], tool).toBeInstanceOf(Array);
       expect(c[tool].some((a) => a.includes('{IN}')), `${tool} {IN}`).toBe(true);

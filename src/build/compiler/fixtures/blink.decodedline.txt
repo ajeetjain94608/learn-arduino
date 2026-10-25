@@ -1,0 +1,1082 @@
+Decoded dump of debug contents of section .debug_line:
+
+
+CU: ./blink.ino:
+File name                            Line number    Starting address
+blink.ino                                      1               0x10e
+
+blink.ino                                      2               0x10e
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial.h:
+HardwareSerial.h                             121               0x116
+
+
+./blink.ino:[++]
+blink.ino                                      4               0x128
+
+blink.ino                                      6               0x12a
+blink.ino                                      7               0x12a
+
+blink.ino                                      8               0x132
+
+blink.ino                                      9               0x13e
+
+blink.ino                                     10               0x14a
+
+blink.ino                                     11               0x152
+
+blink.ino                                     12               0x15e
+
+blink.ino                                     13               0x16a
+
+
+HardwareSerial.cpp:
+File name                            Line number    Starting address
+HardwareSerial.cpp                           167               0x16c
+
+HardwareSerial.cpp                           168               0x16e
+
+HardwareSerial.cpp                           169               0x17e
+
+HardwareSerial.cpp                           172               0x184
+
+HardwareSerial.cpp                           173               0x186
+
+HardwareSerial.cpp                           176               0x18e
+
+HardwareSerial.cpp                           174               0x19a
+
+HardwareSerial.cpp                           178               0x19e
+
+HardwareSerial.cpp                           181               0x1a0
+
+HardwareSerial.cpp                           183               0x1a2
+
+HardwareSerial.cpp                           186               0x1aa
+
+HardwareSerial.cpp                           187               0x1b6
+
+HardwareSerial.cpp                           188               0x1be
+
+HardwareSerial.cpp                           184               0x1c2
+
+HardwareSerial.cpp                           190               0x1c6
+
+HardwareSerial.cpp                           193               0x1c8
+
+HardwareSerial.cpp                           198               0x1c8
+
+HardwareSerial.cpp                           199               0x1cc
+
+HardwareSerial.cpp                           201               0x1d6
+
+HardwareSerial.cpp                           201               0x1de
+
+HardwareSerial.cpp                           202               0x1e2
+
+HardwareSerial.cpp                           203               0x1e4
+
+HardwareSerial.cpp                            65               0x1e6
+
+HardwareSerial.cpp                            67               0x1e6
+
+HardwareSerial.cpp                            67               0x1ee
+
+HardwareSerial.cpp                            67               0x1f6
+
+HardwareSerial.cpp                            67               0x1fc
+
+HardwareSerial.cpp                            78               0x200
+
+HardwareSerial.cpp                            90               0x202
+
+HardwareSerial.cpp                            93               0x204
+
+HardwareSerial.cpp                            94               0x212
+
+HardwareSerial.cpp                            96               0x21e
+
+HardwareSerial.cpp                           104               0x224
+
+HardwareSerial.cpp                           109               0x230
+
+HardwareSerial.cpp                           111               0x238
+
+HardwareSerial.cpp                           113               0x244
+
+HardwareSerial.cpp                           206               0x246
+
+HardwareSerial.cpp                           210               0x24c
+
+HardwareSerial.cpp                           213               0x252
+
+HardwareSerial.cpp                           214               0x266
+
+HardwareSerial.cpp                           218               0x272
+
+HardwareSerial.cpp                           219               0x278
+
+HardwareSerial.cpp                           223               0x280
+
+HardwareSerial.cpp                           226               0x286
+
+HardwareSerial.cpp                           227               0x294
+
+HardwareSerial.cpp                           232               0x298
+
+HardwareSerial.cpp                           232               0x2a0
+
+HardwareSerial.cpp                           241               0x2aa
+
+
+{ARDUINO15}/packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include\util/atomic.h:
+atomic.h                                      50               0x2ac
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial.cpp:
+HardwareSerial.cpp                           242               0x2ae
+
+HardwareSerial.cpp                           244               0x2b4
+
+HardwareSerial.cpp                           275               0x2be
+
+
+{ARDUINO15}/packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include\util/atomic.h:
+atomic.h                                      70               0x2c0
+
+atomic.h                                      71               0x2c2
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial.cpp:
+HardwareSerial.cpp                           279               0x2c2
+
+HardwareSerial.cpp                           251               0x2d6
+
+HardwareSerial.cpp                           255               0x2e4
+
+HardwareSerial.cpp                           256               0x2ea
+
+HardwareSerial.cpp                           261               0x2f0
+
+HardwareSerial.cpp                           262               0x2fa
+
+HardwareSerial.cpp                           268               0x302
+
+HardwareSerial.cpp                           273               0x310
+
+
+{ARDUINO15}/packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include\util/atomic.h:
+atomic.h                                      50               0x312
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial.cpp:
+HardwareSerial.cpp                           274               0x314
+
+HardwareSerial.cpp                           275               0x316
+
+HardwareSerial.cpp                           118               0x320
+
+HardwareSerial.cpp                           121               0x336
+
+HardwareSerial.cpp                           128               0x33e
+
+HardwareSerial.cpp                           120               0x34a
+
+HardwareSerial.cpp                           128               0x36a
+
+HardwareSerial.cpp                           130               0x372
+
+HardwareSerial.cpp                           131               0x378
+
+HardwareSerial.cpp                           135               0x398
+
+HardwareSerial.cpp                           136               0x39e
+
+HardwareSerial.cpp                           138               0x3a4
+
+HardwareSerial.cpp                           144               0x3a6
+
+HardwareSerial.cpp                           146               0x3ac
+
+HardwareSerial.cpp                           147               0x3b6
+
+HardwareSerial.cpp                           148               0x3c0
+
+HardwareSerial.cpp                           149               0x3ca
+
+HardwareSerial.cpp                           150               0x3d4
+
+HardwareSerial.cpp                           153                   0
+
+HardwareSerial.cpp                           155                   0
+
+HardwareSerial.cpp                           157                   0
+
+HardwareSerial.cpp                           158                   0
+
+HardwareSerial.cpp                           159                   0
+
+HardwareSerial.cpp                           160                   0
+
+HardwareSerial.cpp                           163                   0
+
+HardwareSerial.cpp                           164                   0
+
+
+HardwareSerial0.cpp:
+File name                            Line number    Starting address
+HardwareSerial0.cpp                           48               0x3e4
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial_private.h:
+HardwareSerial_private.h                     103               0x3f8
+
+HardwareSerial_private.h                     106               0x40e
+
+HardwareSerial_private.h                     107               0x410
+
+HardwareSerial_private.h                     113               0x418
+
+HardwareSerial_private.h                     114               0x420
+
+HardwareSerial_private.h                     115               0x42c
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial0.cpp:
+HardwareSerial0.cpp                           50               0x430
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial_private.h:
+HardwareSerial_private.h                     119               0x444
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial0.cpp:
+HardwareSerial0.cpp                           50               0x446
+
+HardwareSerial0.cpp                           63               0x448
+
+HardwareSerial0.cpp                           64               0x46a
+
+HardwareSerial0.cpp                           65               0x472
+
+HardwareSerial0.cpp                           75               0x494
+
+HardwareSerial0.cpp                           76               0x494
+
+HardwareSerial0.cpp                           77               0x4a4
+
+HardwareSerial0.cpp                           77               0x4a8
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.h:
+Print.h                                       46               0x4a8
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Stream.h:
+Stream.h                                      63               0x4b0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial_private.h:
+HardwareSerial_private.h                      95               0x4c0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/HardwareSerial0.cpp:
+HardwareSerial0.cpp                           77               0x500
+
+
+Print.h:
+File name                            Line number    Starting address
+Print.h                                       63                   0
+
+Print.h                                       63                   0
+
+Print.h                                       90                   0
+
+Print.h                                       90                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     35               0x502
+
+Print.cpp                                     35               0x520
+
+Print.cpp                                     37               0x528
+
+Print.cpp                                     38               0x52e
+
+Print.cpp                                     42               0x544
+
+Print.h                                       52               0x55c
+
+Print.h                                       54               0x55c
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     45                   0
+
+Print.cpp                                     47                   0
+
+Print.cpp                                     49                   0
+
+Print.cpp                                     50                   0
+
+Print.cpp                                     51                   0
+
+Print.cpp                                     51                   0
+
+Print.cpp                                     53                   0
+
+Print.cpp                                     55                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     58                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.h:
+Print.h                                       58                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     63                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.h:
+Print.h                                       53                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     65                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     68                   0
+
+Print.cpp                                     69                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    122                   0
+
+Print.cpp                                    123                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    127               0x57a
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    115                   0
+
+Print.cpp                                    115                   0
+
+Print.cpp                                    116                   0
+
+Print.cpp                                    117                   0
+
+Print.cpp                                    119                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    132                   0
+
+Print.cpp                                    133                   0
+
+Print.cpp                                    134                   0
+
+Print.cpp                                    136                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    139               0x582
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.h:
+Print.h                                       53               0x58c
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    141               0x59c
+
+Print.cpp                                    143               0x5a2
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    146                   0
+
+Print.cpp                                    147                   0
+
+Print.cpp                                    148                   0
+
+Print.cpp                                    150                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    195                   0
+
+Print.cpp                                    196                   0
+
+Print.cpp                                    197                   0
+
+Print.cpp                                    199                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    204                   0
+
+Print.cpp                                    208                   0
+
+Print.cpp                                    211                   0
+
+Print.cpp                                    214                   0
+
+Print.cpp                                    215                   0
+
+Print.cpp                                    217                   0
+
+Print.cpp                                    217                   0
+
+Print.cpp                                    217                   0
+
+Print.cpp                                    218                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.h:
+Print.h                                       53                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    221                   0
+
+Print.cpp                                    217                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     88                   0
+
+Print.cpp                                     89                   0
+
+Print.cpp                                     90                   0
+
+Print.cpp                                    101                   0
+
+Print.cpp                                     90                   0
+
+Print.cpp                                     91                   0
+
+Print.cpp                                     97                   0
+
+Print.cpp                                     92                   0
+
+Print.cpp                                     93                   0
+
+Print.cpp                                     94                   0
+
+Print.cpp                                     95                   0
+
+Print.cpp                                    101                   0
+
+Print.cpp                                     99                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     78                   0
+
+Print.cpp                                     79                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    160                   0
+
+Print.cpp                                    161                   0
+
+Print.cpp                                    162                   0
+
+Print.cpp                                    164                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    174                   0
+
+Print.cpp                                    175                   0
+
+Print.cpp                                    176                   0
+
+Print.cpp                                    178                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    104                   0
+
+Print.cpp                                    105                   0
+
+Print.cpp                                    106                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     73                   0
+
+Print.cpp                                     74                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    153                   0
+
+Print.cpp                                    154                   0
+
+Print.cpp                                    155                   0
+
+Print.cpp                                    157                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                     83                   0
+
+Print.cpp                                     84                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    167                   0
+
+Print.cpp                                    168                   0
+
+Print.cpp                                    169                   0
+
+Print.cpp                                    171                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    181                   0
+
+Print.cpp                                    182                   0
+
+Print.cpp                                    183                   0
+
+Print.cpp                                    185                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    224                   0
+
+Print.cpp                                    227                   0
+
+Print.cpp                                    228                   0
+
+Print.cpp                                    229                   0
+
+Print.cpp                                    266                   0
+
+Print.cpp                                    230                   0
+
+Print.cpp                                    233                   0
+
+Print.cpp                                    225                   0
+
+Print.cpp                                    233                   0
+
+Print.cpp                                    235                   0
+
+Print.cpp                                    236                   0
+
+Print.cpp                                    241                   0
+
+Print.cpp                                    240                   0
+
+Print.cpp                                    241                   0
+
+Print.cpp                                    242                   0
+
+Print.cpp                                    241                   0
+
+Print.cpp                                    244                   0
+
+Print.cpp                                    247                   0
+
+Print.cpp                                    106                   0
+
+Print.cpp                                    249                   0
+
+Print.cpp                                    252                   0
+
+Print.cpp                                    248                   0
+
+Print.cpp                                    253                   0
+
+Print.cpp                                    257                   0
+
+Print.cpp                                    259                   0
+
+Print.cpp                                    260                   0
+
+Print.cpp                                    261                   0
+
+Print.cpp                                    262                   0
+
+Print.cpp                                    266                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    110                   0
+
+Print.cpp                                    111                   0
+
+
+{ARDUINO15}/packages\arduino\hardware\avr\1.8.7\cores\arduino/Print.cpp:
+Print.cpp                                    188                   0
+
+Print.cpp                                    111                   0
+
+Print.cpp                                    190                   0
+
+Print.cpp                                    192                   0
+
+
+main.cpp:
+File name                            Line number    Starting address
+main.cpp                                      23                   0
+
+main.cpp                                      23                   0
+
+main.cpp                                      28               0x5b0
+
+main.cpp                                      28               0x5b0
+
+main.cpp                                      34               0x5b2
+
+main.cpp                                      35               0x5b2
+
+main.cpp                                      37               0x5b6
+
+main.cpp                                      43               0x5ba
+
+main.cpp                                      47               0x5be
+
+main.cpp                                      46               0x5c2
+
+main.cpp                                      47               0x5c6
+
+main.cpp                                      47               0x5ca
+
+
+wiring.c:
+File name                            Line number    Starting address
+wiring.c                                      47               0x5d0
+
+wiring.c                                      50               0x5e6
+
+wiring.c                                      51               0x5f6
+
+wiring.c                                      54               0x5fa
+
+wiring.c                                      55               0x5fe
+
+wiring.c                                      53               0x602
+
+wiring.c                                      60               0x608
+
+wiring.c                                      61               0x60c
+
+wiring.c                                      62               0x61c
+
+wiring.c                                      63               0x642
+
+wiring.c                                      56               0x658
+
+wiring.c                                      57               0x65c
+
+wiring.c                                      66                   0
+
+wiring.c                                      68                   0
+
+wiring.c                                      72                   0
+
+wiring.c                                      73                   0
+
+wiring.c                                      74                   0
+
+wiring.c                                      77                   0
+
+wiring.c                                      79               0x664
+
+wiring.c                                      81               0x664
+
+wiring.c                                      83               0x666
+
+wiring.c                                      84               0x668
+
+wiring.c                                      86               0x678
+
+wiring.c                                      94               0x67a
+
+wiring.c                                      94               0x67e
+
+wiring.c                                      95               0x682
+
+wiring.c                                     101               0x688
+
+wiring.c                                     103               0x68a
+
+wiring.c                                     104               0x6ac
+
+wiring.c                                     107               0x6ae
+
+wiring.c                                     108               0x6c2
+
+wiring.c                                     110               0x6ca
+
+wiring.c                                     111               0x6d4
+
+wiring.c                                     112               0x6d8
+
+wiring.c                                     113               0x6ee
+
+wiring.c                                     114               0x6f8
+
+wiring.c                                     112               0x704
+
+wiring.c                                     117               0x70e
+
+wiring.c                                     121                   0
+
+wiring.c                                     170                   0
+
+wiring.c                                     175                   0
+
+wiring.c                                     180                   0
+
+wiring.c                                     234                   0
+
+wiring.c                                     239                   0
+
+wiring.c                                     242               0x720
+
+wiring.c                                     245               0x720
+
+wiring.c                                     251               0x722
+
+wiring.c                                     252               0x728
+
+wiring.c                                     265               0x72e
+
+wiring.c                                     266               0x734
+
+wiring.c                                     279               0x73a
+
+wiring.c                                     290               0x744
+
+wiring.c                                     293               0x74a
+
+wiring.c                                     295               0x750
+
+wiring.c                                     305               0x756
+
+wiring.c                                     312               0x760
+
+wiring.c                                     321               0x76a
+
+wiring.c                                     356               0x774
+
+wiring.c                                     357               0x77e
+
+wiring.c                                     358               0x784
+
+wiring.c                                     381               0x78a
+
+wiring.c                                     390               0x790
+
+wiring.c                                     392               0x794
+
+
+wiring_digital.c:
+File name                            Line number    Starting address
+wiring_digital.c                              76               0x796
+
+wiring_digital.c                              77               0x796
+
+wiring_digital.c                              83               0x7b2
+
+wiring_digital.c                              80               0x7ba
+
+wiring_digital.c                              83               0x7c0
+
+wiring_digital.c                              94               0x7c6
+
+wiring_digital.c                              98               0x7ca
+
+wiring_digital.c                             101               0x7d4
+
+wiring_digital.c                             104               0x7da
+
+wiring_digital.c                             136               0x7de
+
+wiring_digital.c                             104               0x7e0
+
+wiring_digital.c                              30               0x7e8
+
+wiring_digital.c                              31               0x7ec
+
+wiring_digital.c                              32               0x7f6
+
+wiring_digital.c                              35               0x7fe
+
+wiring_digital.c                              38               0x802
+
+wiring_digital.c                              39               0x812
+
+wiring_digital.c                              41               0x81c
+
+wiring_digital.c                              42               0x820
+
+wiring_digital.c                              43               0x822
+
+wiring_digital.c                              44               0x824
+
+wiring_digital.c                              45               0x82c
+
+wiring_digital.c                              51               0x830
+
+wiring_digital.c                              52               0x832
+
+wiring_digital.c                              59               0x834
+
+wiring_digital.c                              47               0x83a
+
+wiring_digital.c                              48               0x83e
+
+wiring_digital.c                              49               0x840
+
+wiring_digital.c                              50               0x842
+
+wiring_digital.c                              51               0x84c
+
+wiring_digital.c                              54               0x852
+
+wiring_digital.c                              55               0x854
+
+wiring_digital.c                              56               0x856
+
+wiring_digital.c                              57               0x85c
+
+wiring_digital.c                             139               0x860
+
+wiring_digital.c                             140               0x866
+
+wiring_digital.c                             141               0x872
+
+wiring_digital.c                             142               0x87a
+
+wiring_digital.c                             145               0x882
+
+wiring_digital.c                             149               0x888
+
+wiring_digital.c                             149               0x88a
+
+wiring_digital.c                             151               0x88e
+
+wiring_digital.c                             153               0x89e
+
+wiring_digital.c                             154               0x8a0
+
+wiring_digital.c                             157               0x8a2
+
+wiring_digital.c                             156               0x8a4
+
+wiring_digital.c                             157               0x8a8
+
+wiring_digital.c                             159               0x8ac
+
+wiring_digital.c                             162               0x8ae
+
+wiring_digital.c                             163               0x8b0
+
+wiring_digital.c                             159               0x8b8
+
+wiring_digital.c                             166                   0
+
+wiring_digital.c                             167                   0
+
+wiring_digital.c                             168                   0
+
+wiring_digital.c                             169                   0
+
+wiring_digital.c                             171                   0
+
+wiring_digital.c                             175                   0
+
+wiring_digital.c                             175                   0
+
+wiring_digital.c                             177                   0
+
+wiring_digital.c                             179                   0
+
+wiring_digital.c                             171                   0
+
+
+hooks.c:
+File name                            Line number    Starting address
+hooks.c                                       28               0x8bc
+
+hooks.c                                       30               0x8bc
+
+
+CU: ../../../../gcc/libgcc/config/avr/lib1funcs.S:
+File name                            Line number    Starting address
+lib1funcs.S                                 1638               0x8be
+
+lib1funcs.S                                 1639               0x8c0
+
+lib1funcs.S                                 1640               0x8c2
+
+lib1funcs.S                                 1641               0x8c4
+
+lib1funcs.S                                 1642               0x8c6
+
+lib1funcs.S                                 1644               0x8c8
+
+lib1funcs.S                                 1646               0x8ca
+
+lib1funcs.S                                 1647               0x8cc
+
+lib1funcs.S                                 1648               0x8ce
+
+lib1funcs.S                                 1649               0x8d0
+
+lib1funcs.S                                 1650               0x8d2
+
+lib1funcs.S                                 1651               0x8d4
+
+lib1funcs.S                                 1652               0x8d6
+
+lib1funcs.S                                 1653               0x8d8
+
+lib1funcs.S                                 1654               0x8da
+
+lib1funcs.S                                 1655               0x8dc
+
+lib1funcs.S                                 1656               0x8de
+
+lib1funcs.S                                 1657               0x8e0
+
+lib1funcs.S                                 1658               0x8e2
+
+lib1funcs.S                                 1660               0x8e4
+
+lib1funcs.S                                 1661               0x8e6
+
+lib1funcs.S                                 1662               0x8e8
+
+lib1funcs.S                                 1663               0x8ea
+
+lib1funcs.S                                 1664               0x8ec
+
+lib1funcs.S                                 1665               0x8ee
+
+lib1funcs.S                                 1667               0x8f0
+
+lib1funcs.S                                 1668               0x8f2
+
+lib1funcs.S                                 1669               0x8f4
+
+lib1funcs.S                                 1670               0x8f6
+
+lib1funcs.S                                 1672               0x8f8
+
+lib1funcs.S                                 1674               0x8fa
+
+lib1funcs.S                                 1676               0x8fc
+
+lib1funcs.S                                 1678               0x8fe
+
+lib1funcs.S                                 1680               0x900
+
+
+CU: ../../../../gcc/libgcc/config/avr/lib1funcs.S:
+File name                            Line number    Starting address
+lib1funcs.S                                 2278               0x90e
+
+lib1funcs.S                                 2280               0x910
+
+
+CU: ../../../../gcc/libgcc/config/avr/lib1funcs.S:
+File name                            Line number    Starting address
+lib1funcs.S                                 2409                0xc6
+
+lib1funcs.S                                 2410                0xc8
+
+lib1funcs.S                                 2411                0xca
+
+lib1funcs.S                                 2412                0xcc
+
+lib1funcs.S                                 2413                0xce
+
+lib1funcs.S                                 2414                0xd0
+
+lib1funcs.S                                 2417                0xd2
+
+lib1funcs.S                                 2422                0xd4
+
+lib1funcs.S                                 2424                0xd6
+
+lib1funcs.S                                 2425                0xd8
+
+lib1funcs.S                                 2426                0xda
+
+
+CU: ../../../../gcc/libgcc/config/avr/lib1funcs.S:
+File name                            Line number    Starting address
+lib1funcs.S                                 2441                0xdc
+
+lib1funcs.S                                 2442                0xde
+
+lib1funcs.S                                 2443                0xe0
+
+lib1funcs.S                                 2444                0xe2
+
+lib1funcs.S                                 2446                0xe4
+
+lib1funcs.S                                 2448                0xe6
+
+lib1funcs.S                                 2449                0xe8
+
+lib1funcs.S                                 2450                0xea
+
+
+CU: ../../../../gcc/libgcc/config/avr/lib1funcs.S:
+File name                            Line number    Starting address
+lib1funcs.S                                 2466                0xec
+
+lib1funcs.S                                 2467                0xee
+
+lib1funcs.S                                 2468                0xf0
+
+lib1funcs.S                                 2472                0xf2
+
+lib1funcs.S                                 2474                0xf4
+
+lib1funcs.S                                 2480                0xf6
+
+lib1funcs.S                                 2481                0xf8
+
+lib1funcs.S                                 2483                0xfc
+
+lib1funcs.S                                 2484                0xfe
+
+lib1funcs.S                                 2489               0x100
+
+
+CU: ../../../../gcc/libgcc/config/avr/lib1funcs.S:
+File name                            Line number    Starting address
+lib1funcs.S                                 2296               0x902
+
+lib1funcs.S                                 2297               0x904
+
+lib1funcs.S                                 2328               0x906
+
+lib1funcs.S                                 2329               0x908
+
+lib1funcs.S                                 2330               0x90a
+
+lib1funcs.S                                 2331               0x90c
+
+
