@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { LineEntry } from '../build/compiler/types';
+import type { CircuitSpec, PartInstance, Wire } from '../circuit/types';
 import { parseIntelHex } from './avr/hex';
 import { MAX_DEBT_MS, SimEngine } from './simEngine';
 
@@ -97,5 +98,72 @@ describe('SimEngine: the chip on its own thread', { timeout: 60_000 }, () => {
     play(e, 0, 100);
     e.stop();
     expect(e.snapshot().running).toBe(false);
+  });
+});
+
+describe('SimEngine with a circuit', { timeout: 60_000 }, () => {
+  const w = (from: string, to: string): Wire => ({ id: `${from}-${to}`, from, to, color: '#000' });
+  const led: PartInstance = { id: 'led1', type: 'led', params: { color: 'red' }, at: { col: 10, row: 'a' } };
+  const r220: PartInstance = { id: 'r1', type: 'resistor', params: { ohms: 220 }, at: { col: 11, row: 'b' } };
+  const blinkCircuit: CircuitSpec = { parts: [led, r220], wires: [w('uno.D13', 'bb.10c'), w('bb.15c', 'uno.GND')] };
+
+  it("with LED + 220 Ω on D13, the LED's brightness follows blink", () => {
+    const e = new SimEngine();
+    e.setCircuit(blinkCircuit);
+    const { flash, lines } = prog('blink');
+    e.load(flash, lines, 0);
+    play(e, 0, 500);
+    expect(e.snapshot().circuit!.parts.led1.brightness).toBeCloseTo(0.6, 1);
+    play(e, 500, 1000);
+    expect(e.snapshot().circuit!.parts.led1.brightness).toBe(0);
+  });
+
+  it("the button fixture sees the circuit's button (wired between D2 and GND)", () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [{ id: 'b1', type: 'button', params: {}, at: { col: 20, row: 'e' } }], wires: [w('uno.D2', 'bb.20a'), w('bb.22a', 'uno.GND')] });
+    const { flash, lines } = prog('button');
+    e.load(flash, lines, 0);
+    play(e, 0, 50);
+    expect(e.snapshot().pin13).toBe(false); // pull-up: not pressed reads HIGH, D13 = !HIGH
+    e.setInput('b1', 'pressed', 1);
+    play(e, 50, 50);
+    expect(e.snapshot().pin13).toBe(true);
+  });
+
+  it('the analog fixture prints the pot position × 1023 (±2)', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [{ id: 'p1', type: 'pot', params: {}, at: { col: 5, row: 'a' } }], wires: [w('uno.5V', 'bb.5c'), w('bb.7c', 'uno.A0'), w('bb.9c', 'uno.GND')] });
+    e.setInput('p1', 'position', 0.25);
+    const { flash, lines } = prog('analog');
+    e.load(flash, lines, 0);
+    play(e, 0, 250);
+    const values = e.snapshot().serial.trim().split(/\r\n/).map(Number);
+    expect(values.length).toBeGreaterThanOrEqual(2);
+    for (const v of values) expect(Math.abs(v - 0.25 * 1023)).toBeLessThanOrEqual(2);
+  });
+
+  it('wiring 5V to GND stops the program with a short', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [], wires: [w('uno.5V', 'uno.GND')] });
+    const { flash, lines } = prog('blink');
+    e.load(flash, lines, 0);
+    play(e, 0, 100);
+    const s = e.snapshot();
+    expect(s.running).toBe(false);
+    expect(s.circuit!.board.shorted).toBe(true);
+  });
+
+  it('replace clears the burn', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [led], wires: [w('uno.D13', 'bb.10c'), w('bb.11c', 'uno.GND')] }); // no resistor
+    const { flash, lines } = prog('blink');
+    e.load(flash, lines, 0);
+    play(e, 0, 300);
+    expect(e.snapshot().circuit!.parts.led1.burnt).toBe(true);
+    e.setCircuit(blinkCircuit); // the learner adds the resistor…
+    e.replace('led1');          // …and replaces the LED
+    play(e, 300, 400);
+    expect(e.snapshot().circuit!.parts.led1.burnt).toBeFalsy();
+    expect(e.snapshot().circuit!.burns).toEqual([]);
   });
 });

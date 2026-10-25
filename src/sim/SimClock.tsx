@@ -5,6 +5,8 @@ import { UPLOAD_S, uploadLeds } from '../screens/explorer/programTimeline';
 import { useWorkbenchStore } from '../state/workbenchStore';
 import { isTestMode } from '../three/shared/motion';
 import type { LineEntry, Program } from '../build/compiler/types';
+import type { InputValues } from '../circuit/evaluate';
+import type { CircuitSpec } from '../circuit/types';
 import type { SimSnapshot } from './simEngine';
 import type { SimCommand, SimMessage } from './sim.worker';
 import { shownSpeed } from './simSpeed';
@@ -21,7 +23,8 @@ const FIXTURE_LINES = import.meta.glob('./avr/fixtures/*.lines.json', { import: 
 // Drives the simulated UNO each frame. The upload animation and the reset button's bootloader flashes play here;
 // the compiled program itself runs on the simulated ATmega328P in its own worker (sim.worker.ts), whose latest
 // snapshot — pins, running line, serial output — flows into the store that the 3D board and the panels read.
-export function SimClock() {
+// Build passes the learner's circuit and input values; Home passes nothing (the chip runs on its own).
+export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: InputValues } = {}) {
   const worker = useRef<Worker | null>(null);
   const gen = useRef(0);              // generation of the loaded program: older snapshots are ignored
   const loaded = useRef<Program | null>(null);
@@ -33,6 +36,7 @@ export function SimClock() {
   const wasBooting = useRef(false);
   const rxUntil = useRef(0);
   const slowFor = useRef(0);
+  const sentInputs = useRef<InputValues>({});
 
   useEffect(() => {
     const w = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
@@ -46,6 +50,17 @@ export function SimClock() {
     return () => { w.terminate(); worker.current = null; loaded.current = null; snap.current = null; };
   }, []);
 
+  // the circuit and the inputs follow the props (sent only when they change)
+  useEffect(() => { worker.current?.postMessage({ t: 'circuit', spec: circuit ?? null } satisfies SimCommand); }, [circuit]);
+  useEffect(() => {
+    const w = worker.current;
+    if (!w || !inputs) return;
+    for (const [partId, values] of Object.entries(inputs)) for (const [key, value] of Object.entries(values)) {
+      if (sentInputs.current[partId]?.[key] === value) continue;
+      w.postMessage({ t: 'input', partId, key, value } satisfies SimCommand);
+      (sentInputs.current[partId] ??= {})[key] = value;
+    }
+  }, [inputs]);
   useEffect(() => {
     if (!isTestMode()) return;
     const debug = (window.__rq ??= { debug: {} }).debug;
@@ -109,6 +124,8 @@ export function SimClock() {
     const tx = chip.simMs - chip.lastTxSimMs < TX_LIT_MS, rx = performance.now() < rxUntil.current;
     if (tx !== s.txLed || rx !== s.rxLed) s.setSerialLeds(rx, tx);
     if (chip.line !== s.line) s.setLine(chip.line);
+    if (chip.circuit !== s.circuitState) s.setCircuitState(chip.circuit ?? null);
+    if (chip.circuit?.board.shorted && s.running) s.setRunning(false); // a short stops the board
     if (isTestMode()) (window.__rq ??= { debug: {} }).debug.sim = { simMs: chip.simMs, pin13: chip.pin13, speed: chip.speed };
   });
   return null;

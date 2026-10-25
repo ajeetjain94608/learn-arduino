@@ -1,9 +1,15 @@
 import type { LineEntry } from '../build/compiler/types';
+import { evaluate, type Burn, type InputValues, type PartState, type PinDrive } from '../circuit/evaluate';
+import type { CircuitSpec } from '../circuit/types';
 import { AvrRunner } from './avr/AvrRunner';
 import { currentLine } from './avr/sourceLine';
 
 export const MAX_DEBT_MS = 200;  // after a slow stretch, catch up at most this much (no fast-forward bursts)
 const SPEED_WINDOW_MS = 500;     // speed = chip time ÷ wall time over windows this long
+const CIRCUIT_SLICE_MS = 1;      // with a circuit, the chip runs in slices this long and the circuit follows its pins
+const HIGH_VOLTS = 2.5;          // a digital input reads HIGH above this
+
+export type CircuitSnapshot = { parts: Record<string, PartState>; burns: Burn[]; board: { shorted: boolean; burntPins: number[] } };
 
 // What the page needs from the chip each frame.
 export type SimSnapshot = {
@@ -15,6 +21,7 @@ export type SimSnapshot = {
   serial: string;        // printed since the last snapshot
   lastTxSimMs: number;
   speed: number;         // chip time ÷ real time (1 = keeping up)
+  circuit?: CircuitSnapshot; // the learner's circuit, when one is attached (Build)
 };
 
 // The simulated chip, paced to real time. Runs in the simulation worker (sim.worker.ts), where it can use a whole
@@ -30,6 +37,13 @@ export class SimEngine {
   private lastChar = '';
   private speed = 1;
   private window = { wall: 0, sim: 0 };
+  private spec: CircuitSpec | null = null;
+  private inputs: InputValues = {};
+  private burnt = new Set<string>();
+  private burns: Burn[] = [];
+  private circuitState: CircuitSnapshot | null = null;
+  private signature = '';      // the chip's pin drives last time the circuit was solved
+  private dirty = true;        // the circuit or an input changed: solve again
 
   load(flash: Uint8Array, lines: LineEntry[], now: number): void {
     this.chip = new AvrRunner(flash);
@@ -49,7 +63,39 @@ export class SimEngine {
     this.speed = 1;
   }
 
-  stop(): void { this.chip = null; }
+  stop(): void { this.chip = null; this.circuitState = null; this.signature = ''; }
+
+  // The learner's circuit around the UNO (null = none: the chip runs on its own, as on Home).
+  setCircuit(spec: CircuitSpec | null): void {
+    this.spec = spec;
+    this.dirty = true;
+    if (!spec) { this.circuitState = null; this.chip && this.releasePins(this.chip); }
+  }
+  setInput(partId: string, key: string, value: number): void { (this.inputs[partId] ??= {})[key] = value; this.dirty = true; }
+  // "Replace part" / "Replace board": forget a burn ('uno' also clears the short and every burnt pin).
+  replace(id: string): void {
+    for (const b of [...this.burnt]) if (b === id || (id === 'uno' && b.startsWith('uno'))) this.burnt.delete(b);
+    this.burns = this.burns.filter((b) => this.burnt.has(b.id));
+    this.dirty = true;
+  }
+  private releasePins(chip: AvrRunner) { for (let n = 0; n < 20; n++) chip.setInput(n, null); }
+
+  // Solve the circuit for the chip's pins as they are now and feed the voltages back to its inputs and ADC.
+  private applyCircuit(chip: AvrRunner) {
+    const drives: PinDrive[] = Array.from({ length: 20 }, (_, n) => { const p = chip.pin(n); return { mode: p.mode, high: p.high, duty: chip.pwmDuty(n) }; });
+    const signature = drives.map((d) => `${d.mode[0]}${d.high ? 1 : 0}${d.duty === null ? '' : d.duty.toFixed(3)}`).join();
+    if (!this.dirty && signature === this.signature) return;
+    this.signature = signature;
+    this.dirty = false;
+    const r = evaluate(this.spec!, drives, this.inputs, this.burnt);
+    for (const b of r.newBurns) { this.burnt.add(b.id); this.burns.push(b); }
+    this.circuitState = { parts: r.parts, burns: [...this.burns], board: r.board };
+    drives.forEach((d, n) => {
+      if (d.mode !== 'output') chip.setInput(n, r.pinVolts[n] > HIGH_VOLTS);
+      if (n >= 14) chip.setAnalog(n - 14, r.pinVolts[n]);
+    });
+  }
+  private get shorted() { return this.burnt.has('uno'); }
   setHold(on: boolean): void { this.hold = on; }
   serialWrite(text: string): void { this.chip?.serialWrite(text); }
 
@@ -60,7 +106,7 @@ export class SimEngine {
   // before the next step (0 = the chip is behind, step again at once).
   step(now: number, budgetMs = 12): number {
     const chip = this.chip;
-    if (!chip || this.paused || this.holding()) { this.speed = 1; return 16; }
+    if (!chip || this.paused || this.holding() || this.shorted) { this.speed = 1; return 16; }
     let target = this.anchorSim + (now - this.anchorWall);
     if (target - chip.simMs > MAX_DEBT_MS) { // too far behind: let real time go, don't race
       target = chip.simMs + MAX_DEBT_MS;
@@ -68,7 +114,15 @@ export class SimEngine {
       this.anchorWall = now;
     }
     if (target <= chip.simMs) return Math.max(1, Math.min(16, chip.simMs - target));
-    chip.runFor(target - chip.simMs, budgetMs);
+    if (this.spec) {
+      const until = performance.now() + budgetMs;
+      this.applyCircuit(chip);
+      while (chip.simMs < target && !this.shorted) {
+        chip.runFor(Math.min(CIRCUIT_SLICE_MS, target - chip.simMs), Math.max(0, until - performance.now()));
+        this.applyCircuit(chip);
+        if (performance.now() >= until) break;
+      }
+    } else chip.runFor(target - chip.simMs, budgetMs);
     const out = chip.takeSerial();
     if (out) { this.serial += out; this.lastChar = out[out.length - 1]; }
     if (now - this.window.wall >= SPEED_WINDOW_MS) {
@@ -82,11 +136,13 @@ export class SimEngine {
     const chip = this.chip;
     const serial = this.serial;
     this.serial = '';
-    if (!chip) return { running: false, simMs: 0, levels: 0, pin13: false, line: null, serial, lastTxSimMs: -Infinity, speed: 1 };
+    const circuit = this.spec && this.circuitState ? this.circuitState : undefined;
+    if (!chip) return { running: false, simMs: 0, levels: 0, pin13: false, line: null, serial, lastTxSimMs: -Infinity, speed: 1, circuit };
     let levels = 0;
     for (let n = 0; n < 20; n++) if (chip.pin(n).high) levels |= 1 << n;
     return {
-      running: true,
+      running: !this.shorted,
+      circuit,
       simMs: chip.simMs,
       levels,
       pin13: (levels & (1 << 13)) !== 0,

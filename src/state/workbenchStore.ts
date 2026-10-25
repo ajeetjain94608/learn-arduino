@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getCompiler } from '../build/compiler/compiler';
 import type { Diagnostic, Program } from '../build/compiler/types';
+import type { CircuitSnapshot } from '../sim/simEngine';
 import { BLINK } from '../content/sketches/blink';
 import type { View } from '../three/workbench/cameraViews';
 
@@ -28,6 +29,7 @@ type WorkbenchState = {
   diagnostics: Diagnostic[]; // the last compile's errors and warnings
   compileSeq: number;        // bumped by every compile and by Stop: a result for an older seq is ignored
   simSpeed: number;          // simulated time ÷ real time (below 1 on a slow device)
+  circuitState: CircuitSnapshot | null; // the learner's circuit as the simulator last solved it (Build)
   rxLed: boolean; txLed: boolean;
   setView(v: View): void;
   resetView(): void;
@@ -41,6 +43,7 @@ type WorkbenchState = {
   takeSerialInput(): string;            // the board takes what was sent
   loadProgram(p: Program): void;        // upload and run another program
   setSimSpeed(x: number): void;
+  setCircuitState(c: CircuitSnapshot | null): void;
   clearSerial(): void;
   setSerialLeds(rx: boolean, tx: boolean): void;
   resetBoard(): void; // the board's reset button: reboot, then restart the program from the beginning
@@ -84,6 +87,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   diagnostics: [],
   compileSeq: 0,
   simSpeed: 1,
+  circuitState: null,
   rxLed: false,
   txLed: false,
   setView: (view) => set({ view }),
@@ -129,6 +133,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   takeSerialInput: () => { const t = get().serialInput; if (t) set({ serialInput: '' }); return t; },
   loadProgram: (program) => { set({ program }); startUpload(set); },
   setSimSpeed: (simSpeed) => set({ simSpeed }),
+  setCircuitState: (circuitState) => set({ circuitState }),
   clearSerial: () => set({ serial: [], serialOpen: false }),
   setSerialLeds: (rxLed, txLed) => set({ rxLed, txLed }),
   resetBoard: () => set({ booting: true, pinHigh: false, resetCount: get().resetCount + 1 }),
