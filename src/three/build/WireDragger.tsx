@@ -65,9 +65,10 @@ export function WireDragger({ targets, color, onWire }: { targets: PinRef[]; col
     const onPart = (x: number, y: number) => {
       const r = el.getBoundingClientRect();
       ray.setFromCamera(new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1), camera);
-      const first = ray.intersectObjects(scene.children, true).find((h) => h.object.visible && h.object.type !== 'Line');
-      for (let o: THREE.Object3D | null = first?.object ?? null; o; o = o.parent) if (o.userData?.buildPart) return true; // the learner's parts only (the UNO's pieces are tagged partId for Home's inspect)
-      return false;
+      const tagOf = (o: THREE.Object3D | null) => { for (; o; o = o.parent) { if (o.userData?.buildPart) return 'part'; if (o.userData?.buildWire) return 'wire'; } return null; };
+      // the first thing under the pointer, looking through wires (a wire arching in front of a knob doesn't take the knob's press)
+      const first = ray.intersectObjects(scene.children, true).find((h) => h.object.visible && h.object.type !== 'Line' && tagOf(h.object) !== 'wire');
+      return tagOf(first?.object ?? null) === 'part'; // the learner's parts only (the UNO's pieces are tagged partId for Home's inspect)
     };
     // The wire follows one pointer only (its pointerId); another finger landing ends it, so pinch still works.
     const drag = (start: { ref: PinRef; world: THREE.Vector3 }, pointerId: number, afterwards: () => void) => {
