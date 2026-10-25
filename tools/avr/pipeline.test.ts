@@ -36,3 +36,18 @@ describe.skipIf(!nativeAvailable())('the compile pipeline (native tools standing
     expect(r.diagnostics).toEqual([expect.objectContaining({ line: 2, severity: 'warning' })]);
   });
 });
+
+describe.skipIf(!nativeAvailable())('our libraries compile with a sketch', { timeout: 120_000 }, () => {
+  const sketches: Record<string, string> = {
+    Servo: '#include <Servo.h>\nServo arm;\nvoid setup() {\n  arm.attach(9);\n}\nvoid loop() {\n  arm.write(90);\n  delay(20);\n}\n',
+    Stepper: '#include <Stepper.h>\nStepper wheel(2048, 8, 10, 9, 11);\nvoid setup() {\n  wheel.setSpeed(10);\n}\nvoid loop() {\n  wheel.step(256);\n}\n',
+    OLED: '#include <OLED.h>\nOLED screen;\nvoid setup() {\n  screen.begin();\n}\nvoid loop() {\n  screen.clearDisplay();\n  screen.setTextSize(2);\n  screen.print("Hi");\n  screen.drawRect(0, 28, 128, 8, WHITE);\n  screen.display();\n  delay(500);\n}\n',
+  };
+  for (const [name, code] of Object.entries(sketches)) {
+    it(`${name}.h`, async () => {
+      const r = await compileSketch(code, nativeEnv);
+      expect(r.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+      expect(r.ok).toBe(true);
+    });
+  }
+});

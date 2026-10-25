@@ -18,7 +18,7 @@ const TOOLS: Record<ToolName, string> = {
 const slashes = (p: string) => p.split('\\').join('/');
 
 export const nativeEnv: ToolEnv = {
-  roots: { SYSROOT: slashes(GCC_DIR), CORE: slashes(CORE_DIR), CORE_A: slashes(resolve('public/avr/uno/core.a')) },
+  roots: { SYSROOT: slashes(GCC_DIR), CORE: slashes(CORE_DIR), CORE_A: slashes(resolve('public/avr/uno/core.a')), LIBS: slashes(resolve('tools/avr-wasm/libraries')) },
   async run(tool, args, inputs, outputs) {
     const dir = mkdtempSync(join(tmpdir(), `rq-${tool}-`));
     try {

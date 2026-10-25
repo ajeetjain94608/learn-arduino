@@ -17,9 +17,9 @@ export type ToolFactory = (opts: {
 export type LoadedTool = { factory: ToolFactory; module: WebAssembly.Module };
 
 // Which parts of the sysroot each tool reads (cc1plus: headers; ld: libraries and the core). Keys of `sysroot`
-// are archive paths: sysroot/…, core/…, core.a.
+// are archive paths: sysroot/…, core/…, libraries/…, core.a.
 const NEEDS: Partial<Record<ToolName, (path: string) => boolean>> = {
-  cc1plus: (p) => p.startsWith('core/') || p.startsWith('sysroot/lib/gcc/avr/7.3.0/include') || p.startsWith('sysroot/avr/include/'),
+  cc1plus: (p) => p.startsWith('core/') || p.startsWith('libraries/') || p.startsWith('sysroot/lib/gcc/avr/7.3.0/include') || p.startsWith('sysroot/avr/include/'),
   ld: (p) => p === 'core.a' || p.endsWith('.a') || p.endsWith('.o') || p.includes('/ldscripts/'),
 };
 
@@ -27,7 +27,7 @@ const NEEDS: Partial<Record<ToolName, (path: string) => boolean>> = {
 // sysroot files it needs, the step's inputs in /work, and its outputs read back.
 export function createWasmEnv(load: (tool: ToolName) => Promise<LoadedTool>, sysroot: Record<string, Uint8Array>): ToolEnv {
   return {
-    roots: { SYSROOT: '/sysroot', CORE: '/core', CORE_A: '/core.a' },
+    roots: { SYSROOT: '/sysroot', CORE: '/core', CORE_A: '/core.a', LIBS: '/libraries' },
     async run(tool, args, inputs, outputs) {
       const { factory, module } = await load(tool);
       let stdout = '', stderr = '';

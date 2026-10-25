@@ -1,6 +1,6 @@
 // Records the exact cc1plus / as / ld argument lists that avr-g++ runs (via `-###`), so the WASM toolchain — which
 // has no gcc driver — runs the same steps. Paths become placeholders: {SYSROOT} toolchain root, {CORE} Arduino core
-// root, {IN} / {OUT} the step's input and output, {CORE_A} the precompiled core archive.
+// root, {IN} / {OUT} the step's input and output, {CORE_A} the precompiled core archive, {LIBS} our libraries.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -49,5 +49,7 @@ const out = {
   ld: ld.slice(1).filter((a) => !/^-plugin|liblto_plugin|^-fresolution|^-plugin-opt/.test(a))
     .map((a) => (a === 'IN.o' ? '{IN}' : a === 'OUT.elf' ? '{OUT}' : a === 'core.a' ? '{CORE_A}' : generic(a, []))),
 };
+// our own libraries (tools/avr-wasm/libraries) are found after the core's headers
+out.cc1plus.splice(out.cc1plus.indexOf('{CORE}/variants/standard') + 1, 0, '-I', '{LIBS}');
 writeFileSync('src/build/compiler/commands.json', JSON.stringify(out, null, 2) + '\n');
 console.log(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.length])));

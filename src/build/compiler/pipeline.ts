@@ -11,12 +11,12 @@ export type ToolRun = { code: number; stdout: string; stderr: string; files: Rec
 // Where the tools run: the WebAssembly toolchain in a worker (the app), or native tools (tests). `roots` are
 // the paths the recorded command lines' placeholders stand for in that environment.
 export interface ToolEnv {
-  roots: { SYSROOT: string; CORE: string; CORE_A: string };
+  roots: { SYSROOT: string; CORE: string; CORE_A: string; LIBS: string };
   run(tool: ToolName, args: string[], inputs: Record<string, Uint8Array>, outputs: string[]): Promise<ToolRun>;
 }
 
 const fill = (args: string[], env: ToolEnv, io: { IN: string; OUT: string }) =>
-  args.map((a) => a.replace('{SYSROOT}', env.roots.SYSROOT).replace('{CORE_A}', env.roots.CORE_A).replace('{CORE}', env.roots.CORE)
+  args.map((a) => a.replace('{SYSROOT}', env.roots.SYSROOT).replace('{CORE_A}', env.roots.CORE_A).replace('{CORE}', env.roots.CORE).replace('{LIBS}', env.roots.LIBS)
     .replace('{IN}', io.IN).replace('{OUT}', io.OUT));
 const text = (b: Uint8Array) => new TextDecoder().decode(b);
 

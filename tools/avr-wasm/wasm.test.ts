@@ -46,6 +46,24 @@ describe.skipIf(!built)('the WebAssembly toolchain', { timeout: 300_000 }, () =>
     expect(Math.abs(r.program.flashBytes - BLINK.program.flashBytes)).toBeLessThanOrEqual(BLINK.program.flashBytes * 0.02);
   });
 
+  it('our libraries are in the sysroot: a servo + OLED sketch compiles in the browser toolchain', async () => {
+    const r = await compileSketch(`#include <Servo.h>
+#include <OLED.h>
+Servo arm;
+OLED screen;
+void setup() {
+  arm.attach(9);
+  screen.begin();
+}
+void loop() {
+  screen.print(arm.read());
+  screen.display();
+}
+`, env());
+    expect(r.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+
   it('errors come back as diagnostics', async () => {
     const r = await compileSketch(BLINK.code.replace('digitalWrite(13, HIGH);', 'digitalWrite(13, HIGH)'), env());
     expect(r.ok).toBe(false);

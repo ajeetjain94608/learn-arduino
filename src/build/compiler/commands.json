@@ -5,6 +5,8 @@
     "{CORE}/cores/arduino",
     "-I",
     "{CORE}/variants/standard",
+    "-I",
+    "{LIBS}",
     "-imultilib",
     "avr5",
     "-iprefix",

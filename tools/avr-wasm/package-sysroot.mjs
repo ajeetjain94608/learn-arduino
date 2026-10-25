@@ -2,6 +2,7 @@
 //   sysroot/…  — mirrors the toolchain's own layout (configured --prefix=/sysroot), so cc1plus's built-in include
 //                paths and ld's -L paths resolve: GCC's headers, AVR-LibC headers, ATmega328P libraries.
 //   core/…     — the Arduino core and Uno variant headers;  core.a — the precompiled core (npm run avr:core).
+//   libraries/… — our own header-only libraries (tools/avr-wasm/libraries).
 // Only the UNO's own chip header (avr/iom328p.h) is kept out of AVR-LibC's per-chip headers.
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -29,6 +30,8 @@ add('public/avr/toolchain', 'ldscripts', 'sysroot/avr/lib');
 add(CORE_DIR, 'cores/arduino', 'core', (rel) => rel.endsWith('.h') || !rel.includes('.'));
 add(CORE_DIR, 'variants/standard', 'core');
 files['core.a'] = readFileSync('public/avr/uno/core.a');
+// our own header-only libraries (Servo, Stepper, Wire, OLED)
+for (const f of readdirSync('tools/avr-wasm/libraries').filter((n) => n.endsWith('.h'))) files[`libraries/${f}`] = readFileSync(join('tools/avr-wasm/libraries', f));
 
 const tar = makeTar(files);
 writeFileSync('public/avr/uno/sysroot.tar', tar);
