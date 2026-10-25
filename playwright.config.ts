@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,
+  // each test browser runs a 3D view, a simulated chip thread and sometimes the compiler: 3 at a time on this 6-core PC
+  workers: 3,
   // 10 s: several 3D browsers start at once during a test run on this PC; real start-up is measured on the phone.
   expect: { timeout: 10_000, toHaveScreenshot: { maxDiffPixelRatio: 0.02 } },
   use: { baseURL: 'http://localhost:5180' },

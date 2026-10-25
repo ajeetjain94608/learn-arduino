@@ -5,14 +5,12 @@ import { UPLOAD_S, uploadLeds } from '../screens/explorer/programTimeline';
 import { useWorkbenchStore } from '../state/workbenchStore';
 import { isTestMode } from '../three/shared/motion';
 import type { LineEntry, Program } from '../build/compiler/types';
-import { AvrRunner } from './avr/AvrRunner';
-import { parseIntelHex } from './avr/hex';
-import { currentLine } from './avr/sourceLine';
+import type { SimSnapshot } from './simEngine';
+import type { SimCommand, SimMessage } from './sim.worker';
 import { shownSpeed } from './simSpeed';
 
 const TX_LIT_MS = 30;  // the TX LED stays visibly lit this long (sim time) after each byte
 const RX_LIT_MS = 60;  // the RX LED blinks this long (real time) when text is sent to the board
-const BUDGET_MS = 8;   // wall time per frame the chip may use, so the page stays smooth
 // ?test&hold: stop the clock once pin 13 is HIGH and the line it prints is complete (deterministic screenshots)
 const HOLD = isTestMode() && new URLSearchParams(location.search).has('hold');
 
@@ -20,17 +18,33 @@ const HOLD = isTestMode() && new URLSearchParams(location.search).has('hold');
 const FIXTURE_HEX = import.meta.glob('./avr/fixtures/*.hex', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
 const FIXTURE_LINES = import.meta.glob('./avr/fixtures/*.lines.json', { import: 'default' }) as Record<string, () => Promise<LineEntry[]>>;
 
-// Drives the simulated UNO each frame: the upload animation, then the real compiled program on the simulated
-// ATmega328P (avr8js). Its pins, serial output and running line flow into the store, which the 3D board,
-// the status pill, the code card and the serial monitor read.
+// Drives the simulated UNO each frame. The upload animation and the reset button's bootloader flashes play here;
+// the compiled program itself runs on the simulated ATmega328P in its own worker (sim.worker.ts), whose latest
+// snapshot — pins, running line, serial output — flows into the store that the 3D board and the panels read.
 export function SimClock() {
-  const runner = useRef<{ program: Program; chip: AvrRunner } | null>(null);
+  const worker = useRef<Worker | null>(null);
+  const gen = useRef(0);              // generation of the loaded program: older snapshots are ignored
+  const loaded = useRef<Program | null>(null);
+  const snap = useRef<SimSnapshot | null>(null);
+  const serialIn = useRef('');        // printed text received since the last frame
   const phaseT = useRef(0);
   const seenReset = useRef(useWorkbenchStore.getState().resetCount);
   const wasUploading = useRef(false);
+  const wasBooting = useRef(false);
   const rxUntil = useRef(0);
-  const speed = useRef(1);
   const slowFor = useRef(0);
+
+  useEffect(() => {
+    const w = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (e: MessageEvent<SimMessage>) => {
+      if (e.data.gen !== gen.current) return;
+      snap.current = e.data.snap;
+      serialIn.current += e.data.snap.serial;
+    };
+    if (HOLD) w.postMessage({ t: 'hold', on: true } satisfies SimCommand);
+    worker.current = w;
+    return () => { w.terminate(); worker.current = null; loaded.current = null; snap.current = null; };
+  }, []);
 
   useEffect(() => {
     if (!isTestMode()) return;
@@ -46,10 +60,14 @@ export function SimClock() {
   useFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.1);
     const s = useWorkbenchStore.getState();
+    const w = worker.current;
+    if (!w) return;
+    const send = (c: SimCommand) => w.postMessage(c);
+    const unload = () => { if (loaded.current) { send({ t: 'stop' }); loaded.current = null; snap.current = null; serialIn.current = ''; gen.current++; } };
 
-    if (s.uploading && !wasUploading.current) { phaseT.current = 0; runner.current = null; }
+    if (s.uploading && !wasUploading.current) { phaseT.current = 0; unload(); }
     wasUploading.current = s.uploading;
-    if (s.resetCount !== seenReset.current) { seenReset.current = s.resetCount; phaseT.current = 0; runner.current?.chip.reset(); }
+    if (s.resetCount !== seenReset.current) { seenReset.current = s.resetCount; phaseT.current = 0; send({ t: 'reset' }); serialIn.current = ''; }
 
     if (s.uploading) {
       phaseT.current += dt;
@@ -60,6 +78,7 @@ export function SimClock() {
       return;
     }
     if (s.booting) { // the reset button: the bootloader flashes the L LED, then the program starts over
+      wasBooting.current = true;
       phaseT.current += dt;
       const led = bootLed(phaseT.current);
       if (led !== s.bootLed) s.setBootLed(led);
@@ -67,31 +86,30 @@ export function SimClock() {
       if (phaseT.current >= BOOT_S) s.setBooting(false);
       return;
     }
-    if (!s.running) { runner.current = null; return; }
-    if (runner.current?.program !== s.program) runner.current = { program: s.program, chip: new AvrRunner(parseIntelHex(s.program.hex)) };
-    const chip = runner.current.chip;
+    if (wasBooting.current) { wasBooting.current = false; send({ t: 'resume' }); }
+    if (!s.running) { unload(); return; }
+    if (loaded.current !== s.program) {
+      gen.current++;
+      snap.current = null;
+      serialIn.current = '';
+      send({ t: 'load', gen: gen.current, hex: s.program.hex, lines: s.program.lines });
+      loaded.current = s.program;
+    }
 
     const input = s.takeSerialInput();
-    if (input) { chip.serialWrite(input); rxUntil.current = performance.now() + RX_LIT_MS; }
+    if (input) { send({ t: 'serial', text: input }); rxUntil.current = performance.now() + RX_LIT_MS; }
 
-    const holding = HOLD && chip.pin(13).high && s.serial.length > 0 && !s.serialOpen;
-    if (!holding) {
-      const advanced = chip.runFor(dt * 1000, BUDGET_MS);
-      speed.current += ((dt > 0 ? advanced / (dt * 1000) : 1) - speed.current) * 0.1;
-    }
-    const slow = shownSpeed(slowFor.current, speed.current, dt, holding);
+    const chip = snap.current;
+    if (!chip) return; // the first snapshot is on its way
+    const slow = shownSpeed(slowFor.current, chip.speed, dt, false);
     slowFor.current = slow.slowFor;
     if (slow.shown !== s.simSpeed) s.setSimSpeed(slow.shown);
-
-    const high = chip.pin(13).high;
-    if (high !== s.pinHigh) s.setPinHigh(high);
-    const out = chip.takeSerial();
-    if (out) s.appendSerialText(out);
+    if (chip.pin13 !== s.pinHigh) s.setPinHigh(chip.pin13);
+    if (serialIn.current) { s.appendSerialText(serialIn.current); serialIn.current = ''; }
     const tx = chip.simMs - chip.lastTxSimMs < TX_LIT_MS, rx = performance.now() < rxUntil.current;
     if (tx !== s.txLed || rx !== s.rxLed) s.setSerialLeds(rx, tx);
-    const line = currentLine(chip.pc, chip.returnAddresses(), s.program.lines);
-    if (line !== s.line) s.setLine(line);
-    if (isTestMode()) (window.__rq ??= { debug: {} }).debug.sim = { simMs: chip.simMs, pin13: high, speed: speed.current };
+    if (chip.line !== s.line) s.setLine(chip.line);
+    if (isTestMode()) (window.__rq ??= { debug: {} }).debug.sim = { simMs: chip.simMs, pin13: chip.pin13, speed: chip.speed };
   });
   return null;
 }
