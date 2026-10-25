@@ -21,7 +21,8 @@ export function CalloutProjector({ hotspots, bridge }: { hotspots: Hotspot[]; br
   const p = useMemo(() => new THREE.Vector3(), []);
 
   useFrame(() => {
-    const view = useWorkbenchStore.getState().view;
+    const { view, assembled } = useWorkbenchStore.getState();
+    let entering = 0; // labels that appear this frame fade in one after another
     // 1) preferred spot for each visible label, 2) push overlapping cards apart, 3) move the DOM.
     const shown: { i: number; x: number; y: number; w: number; h: number; cx: number; cy: number }[] = [];
     hotspots.forEach((h, i) => {
@@ -31,7 +32,11 @@ export function CalloutProjector({ hotspots, bridge }: { hotspots: Hotspot[]; br
       const x = (p.x * 0.5 + 0.5) * size.width, y = (-p.y * 0.5 + 0.5) * size.height;
       const w = card.offsetWidth, hgt = card.offsetHeight;
       const r = layoutCallout({ anchor: { x, y }, offset: h.offset, card: { w, h: hgt }, viewport: { w: size.width, h: size.height }, top: TOP_BAR, bottom: DOCK });
-      const show = r.visible && (!h.view || h.view === view);
+      const show = r.visible && (!h.view || h.view === view) && (h.view !== 'circuit' || assembled);
+      if (show && card.style.display === 'none') {
+        for (const el of [card, dot, line]) el.style.setProperty('--i', String(entering));
+        entering++;
+      }
       card.style.display = dot.style.display = line.style.display = show ? '' : 'none';
       if (show) shown.push({ i, x, y, w, h: hgt, cx: r.cx, cy: r.cy });
     });

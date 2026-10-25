@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useWorkbenchStore } from '../../state/workbenchStore';
 import { UnoBoard } from '../boards/uno/UnoBoard';
 import { BB, holeLocal } from '../breadboard/breadboardGeometry';
 import { Breadboard } from '../breadboard/Breadboard';
@@ -7,6 +9,9 @@ import { PartGroup } from '../inspect/Inspectable';
 import { Jumper } from '../parts/Jumper';
 import { Led5mm } from '../parts/Led5mm';
 import { Resistor } from '../parts/Resistor';
+import { isTestMode, useReducedMotion } from '../shared/motion';
+import { Arrive } from './Arrive';
+import { ASSEMBLY, ASSEMBLY_DONE, AssemblyContext, slotProgress, type AssemblyClock } from './assembly';
 import { BLINK, blinkWires } from './blinkLayout';
 
 type Props = {
@@ -17,9 +22,31 @@ type Props = {
   showCurrent: boolean;   // current animation on the wires
 };
 
+// Tests see the finished circuit at once unless they ask for the animation with ?anim.
+const ANIMATE_IN_TESTS = new URLSearchParams(location.search).has('anim');
+
 // Lesson 2 circuit: pin 13 → 5 mm LED → 220 Ω → GND, on a half breadboard. Every part is inspectable.
+// Each time the circuit is shown it builds itself (see assembly.ts); reduced motion shows it built.
 export function BlinkCircuit({ pinHigh, bootLed = false, rx = false, tx = false, showCircuit, showCurrent }: Props) {
   const wires = useMemo(() => blinkWires(), []);
+  const reduced = useReducedMotion();
+  const assembled = useWorkbenchStore((s) => s.assembled);
+  const clock = useMemo<AssemblyClock>(() => ({ t: Infinity }), []);
+  useEffect(() => {
+    const instant = reduced || (isTestMode() && !ANIMATE_IN_TESTS);
+    clock.t = showCircuit && !instant ? 0 : Infinity;
+    useWorkbenchStore.getState().setAssembled(showCircuit && instant);
+  }, [showCircuit, reduced, clock]);
+  useFrame((_, dt) => {
+    if (showCircuit && clock.t < ASSEMBLY_DONE) {
+      clock.t += Math.min(dt, 0.1); // a long first frame (shader warm-up) must not skip the build
+      if (clock.t >= ASSEMBLY_DONE) useWorkbenchStore.getState().setAssembled(true);
+    }
+    if (isTestMode()) {
+      const built = Object.values(ASSEMBLY).filter((s) => slotProgress(clock.t, s) >= 1).length;
+      (window.__rq ??= { debug: {} }).debug.assembly = { t: clock.t, built: showCircuit ? built : 0 };
+    }
+  });
   const [ax, , az] = holeLocal(...BLINK.ledAnode), [kx] = holeLocal(...BLINK.ledCathode);
   const [r1] = holeLocal(...BLINK.resistorFrom), [r2, , rz] = holeLocal(...BLINK.resistorTo);
   const ledX = (ax + kx) / 2;
@@ -27,25 +54,29 @@ export function BlinkCircuit({ pinHigh, bootLed = false, rx = false, tx = false,
   return (
     <>
       <UnoBoard position={BLINK.board} pin13={pinHigh || bootLed} rx={rx} tx={tx} />
+      <AssemblyContext.Provider value={clock}>
       <group visible={showCircuit}>
         <PartGroup id="breadboard" kind="breadboard" center={BLINK.breadboard}>
-          <Breadboard position={BLINK.breadboard}>
-            <PartGroup id="led" kind="led" center={[ledX, BB.H, az]}>
-              <Led5mm position={[ledX, 0, az]} lit={pinHigh ? 1 : 0} />
-            </PartGroup>
-            <PartGroup id="resistor" kind="resistor" center={[(r1 + r2) / 2, BB.H, rz]}>
-              <Resistor from={BLINK.resistorFrom} to={BLINK.resistorTo} />
-            </PartGroup>
-          </Breadboard>
+          <Arrive step="breadboard" from="right">
+            <Breadboard position={BLINK.breadboard}>
+              <PartGroup id="led" kind="led" center={[ledX, BB.H, az]}>
+                <Arrive step="led" from="above"><Led5mm position={[ledX, 0, az]} lit={pinHigh ? 1 : 0} /></Arrive>
+              </PartGroup>
+              <PartGroup id="resistor" kind="resistor" center={[(r1 + r2) / 2, BB.H, rz]}>
+                <Arrive step="resistor" from="above"><Resistor from={BLINK.resistorFrom} to={BLINK.resistorTo} /></Arrive>
+              </PartGroup>
+            </Breadboard>
+          </Arrive>
         </PartGroup>
         <PartGroup id="wire-signal" kind="wire-signal" center={mid(wires.signal)}>
-          <Jumper a={wires.signal.a} b={wires.signal.b} color={wires.signal.color} lift={wires.signal.lift} />
+          <Jumper a={wires.signal.a} b={wires.signal.b} color={wires.signal.color} lift={wires.signal.lift} step="signal" />
         </PartGroup>
         <PartGroup id="wire-ground" kind="wire-ground" center={mid(wires.ground)}>
-          <Jumper a={wires.ground.a} b={wires.ground.b} color={wires.ground.color} lift={wires.ground.lift} />
+          <Jumper a={wires.ground.a} b={wires.ground.b} color={wires.ground.color} lift={wires.ground.lift} step="ground" fromB />
         </PartGroup>
       </group>
-      <CurrentFlow wires={[wires.signal, wires.ground]} active={showCircuit && showCurrent && pinHigh} />
+      </AssemblyContext.Provider>
+      <CurrentFlow wires={[wires.signal, wires.ground]} active={showCircuit && assembled && showCurrent && pinHigh} />
     </>
   );
 }

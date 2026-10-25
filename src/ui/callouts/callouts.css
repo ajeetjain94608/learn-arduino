@@ -19,3 +19,8 @@
   .callouts__card::after { content: ''; position: absolute; inset: -8px -4px; } /* keeps the tap target ≥ 48 px */
   .callouts__card b { font-size: 14px; }
 }
+/* A label fades in (one after another, via --i) each time it appears: after a project's circuit has built,
+   or when switching projects. Opacity + the `translate` property only: `transform` is written every frame. */
+.callouts__card, .callouts__anchor, .callouts__leaders line { animation: callout-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 110ms); }
+@keyframes callout-in { from { opacity: 0; translate: 0 6px; } }
+@media (prefers-reduced-motion: reduce) { .callouts__card, .callouts__anchor, .callouts__leaders line { animation: none; } }

@@ -9,6 +9,7 @@ type WorkbenchState = {
   pinHigh: boolean;
   resetTick: number; // bumped by resetView(); the camera re-applies the current view preset
   booting: boolean;  // the board was just reset and its bootloader is running
+  assembled: boolean; // the open project's circuit has finished building (labels and current wait for it)
   bootLed: boolean;  // the L LED's bootloader flashes
   resetCount: number;
   cameraCmd: { kind: 'rotate' | 'zoom'; amount: number; seq: number } | null; // toolbar rotate/zoom buttons
@@ -28,6 +29,7 @@ type WorkbenchState = {
   setSerialLeds(rx: boolean, tx: boolean): void;
   resetBoard(): void; // the board's reset button: reboot, then restart the program from the beginning
   setBooting(b: boolean): void;
+  setAssembled(b: boolean): void;
   setBootLed(on: boolean): void;
   toggleLabels(): void;
   toggleCurrent(): void;
@@ -43,6 +45,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   pinHigh: false,
   resetTick: 0,
   booting: false,
+  assembled: false,
   bootLed: false,
   resetCount: 0,
   cameraCmd: null,
@@ -62,6 +65,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   clearSerial: () => set({ serial: [] }),
   setSerialLeds: (rxLed, txLed) => set({ rxLed, txLed }),
   resetBoard: () => set({ booting: true, pinHigh: false, resetCount: get().resetCount + 1 }),
+  setAssembled: (assembled) => { if (get().assembled !== assembled) set({ assembled }); },
   setBooting: (booting) => set(booting ? { booting } : { booting, bootLed: false }),
   setBootLed: (bootLed) => set({ bootLed }),
   toggleLabels: () => set({ labels: !get().labels }),
