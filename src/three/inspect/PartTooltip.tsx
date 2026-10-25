@@ -1,16 +1,39 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { t, type StringKey } from '../../i18n/en';
 import { useInspectStore } from '../../state/inspectStore';
 import { kindOf } from './partCatalog';
+import { placeTooltip } from './tooltipPlacement';
 
-// Small name card next to the pointer (hover) or the tap point (selection).
+const TOOLBAR_SPACE = 66; // the 3D card's toolbar along its bottom edge
+
+// Name card for the hovered (beside the pointer) or tapped part (centred at the bottom of the 3D view).
 export function PartTooltip() {
   const { hovered, pointer, selected, selectedAt } = useInspectStore();
-  const id = hovered ?? selected;
-  const at = hovered ? pointer : selectedAt;
+  const ref = useRef<HTMLDivElement>(null);
+  const [, relayout] = useState(0);
+  // A clicked/tapped part keeps its centred card even while the mouse still rests on it.
+  const showHover = hovered !== null && hovered !== selected;
+  const id = showHover ? hovered : selected;
+  const mode = showHover ? 'hover' : 'selected';
+  const at = showHover ? pointer : selectedAt;
   const kind = id ? kindOf(id) : null;
-  if (!id || !at || !kind) return null;
+
+  useLayoutEffect(() => {
+    const el = ref.current, view = el?.parentElement;
+    if (!el || !view) return;
+    const p = placeTooltip({ mode, at, card: { w: el.offsetWidth, h: el.offsetHeight }, viewport: { w: view.clientWidth, h: view.clientHeight }, reserveBottom: TOOLBAR_SPACE });
+    el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+  });
+
+  useLayoutEffect(() => {
+    const onResize = () => relayout((n) => n + 1);
+    addEventListener('resize', onResize);
+    return () => removeEventListener('resize', onResize);
+  }, []);
+
+  if (!id || !kind) return null;
   return (
-    <div className="part-tooltip" data-testid="part-tooltip" style={{ transform: `translate(${at.x + 14}px, ${at.y + 14}px)` }} role="tooltip">
+    <div ref={ref} className={`part-tooltip part-tooltip--${mode}`} data-testid="part-tooltip" role="tooltip">
       <b>{t(`part.${kind}.name` as StringKey)}</b>
       <span>{t(`part.${kind}.line` as StringKey)}</span>
     </div>

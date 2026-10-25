@@ -87,3 +87,21 @@ test('pressing the 3D reset button reboots the board and restarts the program', 
   await expect(page.getByTestId('part-tooltip')).toContainText('Reset button');
   await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 1500 });
 });
+
+test('a tapped part’s card sits fully inside the 3D view, centred above the toolbar', async ({ page }) => {
+  await page.goto('/?test');
+  await page.getByRole('button', { name: 'Labels' }).click();
+  const p = await chip(page);
+  await page.mouse.click(p.x, p.y);
+  const tip = page.getByTestId('part-tooltip');
+  await expect(tip).toContainText('ATmega328P');
+  await page.waitForTimeout(200);
+  const v = (await page.getByTestId('viewer').boundingBox())!;
+  const t = (await tip.boundingBox())!;
+  const bar = (await page.getByRole('toolbar', { name: '3D view' }).boundingBox())!;
+  expect(t.x).toBeGreaterThanOrEqual(v.x);
+  expect(t.x + t.width).toBeLessThanOrEqual(v.x + v.width);
+  expect(t.y).toBeGreaterThanOrEqual(v.y);
+  expect(t.y + t.height).toBeLessThanOrEqual(bar.y);
+  expect(Math.abs((t.x + t.width / 2) - (v.x + v.width / 2))).toBeLessThan(3);
+});
