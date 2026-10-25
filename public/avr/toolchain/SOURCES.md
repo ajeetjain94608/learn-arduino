@@ -1,5 +1,7 @@
 # Corresponding source — AVR toolchain (WebAssembly)
 
+**All archives below, the patch, the build scripts and the licence texts:** https://github.com/ajeetjain94608/avr-toolchain-wasm
+
 The files in this folder are GNU GCC 7.3.0 (cc1plus, with Arduino's `atmel-patches-gcc.7.3.0-arduino2.patch` from
 arduino/toolchain-avr tag 7.3.0-atmel3.6.1-arduino7) and GNU binutils 2.42 (as, ld, objcopy, readelf), licensed under the
 GNU General Public License version 3, compiled to WebAssembly with Emscripten 4.0.10 by

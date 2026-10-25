@@ -3,6 +3,7 @@ export const en = {
   'app.name': 'RoboQuest',
   'credits.boardLayout': 'Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)',
   'credits.avr8js': 'Chip simulation: avr8js, Copyright (c) 2019-2025 Uri Shaked (MIT licence; notice in licenses/avr8js.txt)',
+  'credits.source': 'Source code of the compiler we ship (GPL): github.com/ajeetjain94608/avr-toolchain-wasm',
   'credits.gcc': 'Compiler: GNU GCC 7.3.0 and GNU binutils 2.42 (GPL 3), with GMP, MPFR and MPC (LGPL 3); licence texts and source list in avr/toolchain/',
   'credits.core': 'Arduino AVR core 1.8.7 (GNU LGPL 2.1), precompiled for the UNO',
   'credits.avrlibc': 'AVR-LibC (Modified BSD licence) and libgcc (GPL 3 with the GCC Runtime Library Exception)',

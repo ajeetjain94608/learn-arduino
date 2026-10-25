@@ -117,6 +117,8 @@ stage_install() {
   {
     echo "# Corresponding source — AVR toolchain (WebAssembly)"
     echo
+    echo "**All archives below, the patch, the build scripts and the licence texts:** https://github.com/ajeetjain94608/avr-toolchain-wasm"
+    echo
     echo "The files in this folder are GNU GCC $GCC_V (cc1plus, with Arduino's \`$ARDUINO_PATCH\` from"
     echo "arduino/toolchain-avr tag $ARDUINO_TAG) and GNU binutils $BINUTILS_V (as, ld, objcopy, readelf), licensed under the"
     echo "GNU General Public License version 3, compiled to WebAssembly with Emscripten $EMSDK_VERSION by"
