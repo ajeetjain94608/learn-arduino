@@ -15,7 +15,7 @@ import { partBodies } from './partBodies';
 import { routeWires, type Route } from './wireRoute';
 
 type Props = {
-  burns: { id: string }[];
+  burns: { id: string; supply?: string }[];
   parts: PartInstance[];
   wires: Wire[];
   inputs: InputValues;
@@ -54,9 +54,9 @@ function WireModel({ wire, route, onPick }: { wire: Wire; route: Route; onPick(i
 }
 
 // The Build bench: the UNO and the breadboard where they sit in the Blink project, the learner's parts and wires.
-// Where to show a burn: on the LED, on the damaged pin, or over the UNO's power section for a short.
-function burnPosition(id: string, parts: PartInstance[]): [number, number, number] | null {
-  if (id === 'uno') return [BENCH.board[0] - 18, 14, BENCH.board[2] + 14];
+// Where to show a burn: on the LED, on the damaged pin, or on the supply pin that was shorted.
+function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number, number, number] | null {
+  if (id === 'uno') return pinWorld(`uno.${supply}`).add(new THREE.Vector3(0, 4, 0)).toArray() as [number, number, number];
   if (id.startsWith('uno.')) return pinWorld(id).add(new THREE.Vector3(0, 4, 0)).toArray() as [number, number, number];
   const p = parts.find((x) => x.id === id);
   if (!p) return null;
@@ -78,7 +78,7 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, pin13, rx,
         ))}
       </Breadboard>
       {wires.map((w) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} onPick={onPick} />)}
-      {burns.map((b) => { const at = burnPosition(b.id, parts); return at && <BurnEffect key={b.id} position={at} />; })}
+      {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} />; })}
     </>
   );
 }

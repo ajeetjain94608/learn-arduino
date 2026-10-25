@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PinRef } from '../../circuit/types';
+import { disposeOwned } from '../shared/geometry';
 import { noOutline } from '../shared/layers';
 import { isTestMode } from '../shared/motion';
 import { pinWorld } from './pinPoints';
@@ -34,7 +35,7 @@ export function WireDragger({ targets, color, onWire }: { targets: PinRef[]; col
     ring.visible = false;
     return { line, ring, geo };
   }, [color]);
-  useEffect(() => () => { fx.geo.dispose(); }, [fx]);
+  useEffect(() => () => { disposeOwned(fx.line); disposeOwned(fx.ring); }, [fx]);
 
   useEffect(() => {
     const el = gl.domElement;

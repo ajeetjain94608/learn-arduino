@@ -230,3 +230,61 @@ test.describe('review fix: touch — quick drags orbit, press-and-hold starts a 
     await expect.poll(wires).toBe(1);
   });
 });
+
+test.describe('B3: the build as it really is', () => {
+  test.describe.configure({ timeout: 120_000 });
+  const nav = (page: Page, name: string) => page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name }).click();
+
+  test('the build is still there after closing and reopening the page', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('button', { name: 'Add LED' }).click();
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.D13', 'bb.1c');
+    await page.reload();
+    await nav(page, 'Build');
+    await expect(page.getByRole('list', { name: 'On the bench' })).toContainText('LED 1');
+    expect((await build(page)).wires).toHaveLength(1);
+  });
+
+  test('a partly damaged save opens with what is still good', async ({ page }) => {
+    await page.goto('/?test');
+    await page.evaluate(() => localStorage.setItem('rq-build-v1', JSON.stringify({ v: 1, code: 'void setup() {}\nvoid loop() {}\n', inputs: 3,
+      parts: [{ id: 'led1', type: 'led', params: {}, at: { col: 4, row: 'b' } }, { id: 'zz1', type: 'warp-drive', params: {}, at: { col: 1, row: 'a' } }],
+      wires: [{ id: 'w1', from: 'uno.D13', to: 'bb.4d', color: '#000' }, { id: 'w2', from: 'uno.D77', to: 'bb.9d', color: '#000' }] })));
+    await page.reload();
+    await nav(page, 'Build');
+    await expect(page.getByRole('list', { name: 'On the bench' })).toContainText('LED 1');
+    expect((await build(page)).parts).toHaveLength(1);
+    expect((await build(page)).wires).toHaveLength(1);
+  });
+
+  test('the board has power while stopped: an LED on 5 V through 220 Ω lights without Run', async ({ page }) => {
+    await openBuild(page);
+    await ledAndResistor(page);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.5V', 'bb.1c');
+    await connect(page, 'bb.6c', 'uno.GND'); // the resistor's far leg is at 6b
+    await expect.poll(async () => (await store(page)).circuitState?.parts.led1?.brightness ?? 0, { timeout: 10_000 }).toBeGreaterThan(0.3);
+    await expect(page.getByTestId('status')).toHaveText('Program stopped');
+  });
+
+  test('a burnt LED is still burnt after visiting Home and coming back', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('button', { name: 'Add LED' }).click();
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await connect(page, 'uno.D13', 'bb.1c');
+    await connect(page, 'bb.2c', 'uno.GND');
+    await runSketch(page, BLINK_CODE);
+    await expect(page.getByTestId('burn-card')).toContainText('The LED burnt out', { timeout: 10_000 });
+    await nav(page, 'Home');
+    await nav(page, 'Build');
+    await expect(page.getByTestId('burn-card')).toContainText('The LED burnt out');
+  });
+
+  test('a refused action says why, whichever tab is open', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('tab', { name: 'Code' }).click();
+    await dbg(page, 'addWire', 'uno.D13', 'uno.D13');
+    await expect(page.getByRole('status').filter({ hasText: /two different ends/ })).toBeVisible();
+  });
+});

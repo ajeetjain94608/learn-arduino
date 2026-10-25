@@ -8,16 +8,17 @@ const SUPPLY_WORDS: Record<string, string> = { '5V': '5 V', '3V3': '3.3 V', GND:
 
 // What burnt, in plain words, and the way back: Replace part (an LED) or Replace board (a short or a damaged pin).
 export function BurnCard() {
-  const circuitState = useWorkbenchStore((s) => s.circuitState); // (a selector returning a fresh [] would re-render forever)
-  const burns = circuitState?.burns ?? [];
-  const replace = useWorkbenchStore((s) => s.replacePart);
+  const burns = useBuildStore((s) => s.burns);
+  const replaceInSim = useWorkbenchStore((s) => s.replacePart);
+  const replaceBurn = useBuildStore((s) => s.replaceBurn);
+  const replace = (id: string) => { replaceBurn(id); replaceInSim(id); };
   const parts = useBuildStore((s) => s.parts);
   const wires = useBuildStore((s) => s.wires);
   const warnings = useMemo(() => checkWiring({ parts, wires }), [parts, wires]);
   if (!burns.length) return null;
   const lines = burns.map((b) => {
     if (b.reason === 'led-overcurrent') return { key: b.id, text: t('burn.led'), action: { label: t('burn.replacePart'), id: b.id } };
-    if (b.reason === 'short') return { key: b.id, text: t('burn.short'), action: { label: t('burn.replaceBoard'), id: 'uno' } };
+    if (b.reason === 'short') return { key: b.id, text: t('burn.short').replace('{supply}', SUPPLY_WORDS[b.supply ?? '5V']), action: { label: t('burn.replaceBoard'), id: 'uno' } };
     const pin = b.id.slice(4);
     const to = warnings.find((w) => w.kind === 'pin' && w.pin === pin);
     const text = t('burn.pin').replace('{pin}', pin).replace('{to}', to && to.kind === 'pin' ? SUPPLY_WORDS[to.to] : t('burn.pinOther'));

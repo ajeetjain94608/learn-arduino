@@ -117,3 +117,39 @@ describe('review fixes: the build store', () => {
     expect(s.code).toBe('void setup() {}\nvoid loop() {}\n');
   });
 });
+
+describe('B3: the build store', () => {
+  it('a successful action clears the last refusal message', () => {
+    const s = fresh();
+    const id = s().addPart('led')!;
+    expect(s().movePart(id, { col: 40, row: 'a' })).toBe(false);
+    expect(s().message).not.toBeNull();
+    expect(s().movePart(id, { col: 5, row: 'a' })).toBe(true);
+    expect(s().message).toBeNull();
+    s().addWire('uno.D13', 'uno.D13');
+    expect(s().message).not.toBeNull();
+    s().removePart(id);
+    expect(s().message).toBeNull();
+  });
+
+  it('canMove says which way a part can go (a push button only fits row e)', () => {
+    const s = fresh();
+    const b = s().addPart('button')!;
+    const at = s().parts.find((p) => p.id === b)!.at;
+    expect(s().canMove(b, { col: at.col + 1, row: 'e' })).toBe(true);
+    expect(s().canMove(b, { col: at.col, row: 'd' })).toBe(false);
+    expect(s().canMove(b, { col: at.col, row: 'f' })).toBe(false);
+  });
+
+  it('burns are kept with the build (screen switch, reload) until replaced', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const s = createBuildStore(storage).getState;
+    const id = s().addPart('led')!;
+    s().setBurns([{ id, reason: 'led-overcurrent' }, { id: 'uno.D13', reason: 'pin-overcurrent' }]);
+    expect(createBuildStore(storage).getState().burns).toHaveLength(2);
+    s().replaceBurn(id);
+    expect(s().burns).toEqual([{ id: 'uno.D13', reason: 'pin-overcurrent' }]);
+    s().replaceBurn('uno'); // a new board: every damaged pin and the short go
+    expect(s().burns).toEqual([]);
+  });
+});

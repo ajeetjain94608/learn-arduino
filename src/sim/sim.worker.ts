@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import type { LineEntry } from '../build/compiler/types';
+import type { Burn } from '../circuit/evaluate';
 import type { CircuitSpec } from '../circuit/types';
 import { parseIntelHex } from './avr/hex';
 import { SimEngine, type SimSnapshot } from './simEngine';
@@ -13,7 +14,8 @@ export type SimCommand =
   | { t: 'hold'; on: boolean }
   | { t: 'circuit'; spec: CircuitSpec | null }
   | { t: 'input'; partId: string; key: string; value: number }
-  | { t: 'replace'; id: string };
+  | { t: 'replace'; id: string }
+  | { t: 'burns'; burns: Burn[] };
 export type SimMessage = { gen: number; snap: SimSnapshot };
 
 const engine = new SimEngine();
@@ -51,6 +53,7 @@ self.onmessage = (e: MessageEvent<SimCommand>) => {
   else if (m.t === 'circuit') engine.setCircuit(m.spec);
   else if (m.t === 'input') engine.setInput(m.partId, m.key, m.value);
   else if (m.t === 'replace') engine.replace(m.id);
+  else if (m.t === 'burns') engine.setBurns(m.burns);
   if (m.t === 'stop') self.postMessage({ gen, snap: engine.snapshot() } satisfies SimMessage);
   schedule(0);
 };

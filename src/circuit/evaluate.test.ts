@@ -33,7 +33,7 @@ describe('evaluating a circuit', () => {
   it('5V wired to GND shorts the board', () => {
     const r = evaluate({ parts: [], wires: [w('uno.5V', 'uno.GND')] }, pins(), {}, new Set());
     expect(r.board.shorted).toBe(true);
-    expect(r.newBurns).toEqual([{ id: 'uno', reason: 'short' }]);
+    expect(r.newBurns).toEqual([{ id: 'uno', reason: 'short', supply: '5V' }]);
   });
 
   it('button with a 10k pull-down: pin 2 reads 5 V pressed, 0 V released', () => {
@@ -66,5 +66,12 @@ describe('evaluating a circuit', () => {
     const r = evaluate(blink, HIGH13, {}, new Set(['led1']));
     expect(r.parts.led1).toMatchObject({ burnt: true, brightness: 0 });
     expect(r.newBurns).toEqual([]);
+  });
+});
+
+describe('B3: a short says which supply', () => {
+  it('3.3 V wired to GND is a short of the 3.3 V supply', () => {
+    const r = evaluate({ parts: [], wires: [{ id: 'w', from: 'uno.3V3', to: 'uno.GND', color: '#000' }] }, Array.from({ length: 20 }, () => ({ mode: 'input' as const, high: false, duty: null })), {}, new Set());
+    expect(r.newBurns).toEqual([{ id: 'uno', reason: 'short', supply: '3V3' }]);
   });
 });

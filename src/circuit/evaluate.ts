@@ -7,7 +7,7 @@ import type { CircuitSpec, PartInstance } from './types';
 export type PinDrive = { mode: 'output' | 'input' | 'input-pullup'; high: boolean; duty: number | null };
 export type InputValues = Record<string, Record<string, number>>;
 export type PartState = { brightness?: number; burnt?: boolean; current?: number };
-export type Burn = { id: string; reason: 'led-overcurrent' | 'pin-overcurrent' | 'short' };
+export type Burn = { id: string; reason: 'led-overcurrent' | 'pin-overcurrent' | 'short'; supply?: string }; // supply: which one was shorted
 export type CircuitResult = {
   pinVolts: number[];
   parts: Record<string, PartState>;
@@ -28,9 +28,10 @@ const netCache = new WeakMap<CircuitSpec, ReturnType<typeof buildNets>>();
 const legs = (p: PartInstance): Record<string, string> =>
   Object.fromEntries(Object.entries(PART_DEFS[p.type].footprint(p.at, p.params) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
 
-// Solves the circuit for the chip's current pin states and the learner's inputs, applying the burn rules.
-// `burnt` holds everything already burnt: part ids, 'uno.D<n>' pins, 'uno' (a shorted board).
-export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>): CircuitResult {
+// Solves the circuit for the chip's current pin states and the learner's inputs, applying the burn rules (unless
+// `burnRules` is false: the board stopped, nothing burns until Run). `burnt` holds everything already burnt: part ids,
+// 'uno.D<n>' pins, 'uno' (a shorted board).
+export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>, burnRules = true): CircuitResult {
   let nets = netCache.get(spec);
   if (!nets) { nets = buildNets(spec, legs); netCache.set(spec, nets); }
   const net = (ref: string) => nets.netOf(ref);
@@ -71,16 +72,15 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
 
   // burn rules, most fragile first; each burn changes the circuit, so solve again
   let s = run();
-  for (let guard = 0; guard < 20; guard++) {
+  for (let guard = 0; burnRules && guard < 20; guard++) {
     const led = s.t.find((x) => x.tag.startsWith('led:') && currentOf(s, x.tag) > LED_BURN_A);
     if (led) { const id = led.tag.slice(4); burns.add(id); newBurns.push({ id, reason: 'led-overcurrent' }); s = run(); continue; }
     const pin = s.t.find((x) => x.tag.startsWith('pin:') && Math.abs(currentOf(s, x.tag)) > PIN_BURN_A);
     if (pin && !SUPPLIES.some((sp) => Math.abs(currentOf(s, `supply:${sp.pin}`)) > SHORT_A)) {
       const id = `uno.${unoPinName(Number(pin.tag.slice(4)))}`; burns.add(id); newBurns.push({ id, reason: 'pin-overcurrent' }); s = run(); continue;
     }
-    if (!burns.has('uno') && SUPPLIES.some((sp) => Math.abs(currentOf(s, `supply:${sp.pin}`)) > SHORT_A)) {
-      burns.add('uno'); newBurns.push({ id: 'uno', reason: 'short' }); s = run(); continue;
-    }
+    const shorted = burns.has('uno') ? undefined : SUPPLIES.find((sp) => Math.abs(currentOf(s, `supply:${sp.pin}`)) > SHORT_A);
+    if (shorted) { burns.add('uno'); newBurns.push({ id: 'uno', reason: 'short', supply: shorted.pin }); s = run(); continue; }
     break;
   }
 

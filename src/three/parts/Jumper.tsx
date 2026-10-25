@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { castAll } from '../shared/geometry';
+import { castAll, disposeOwned } from '../shared/geometry';
 import { MATERIALS, std } from '../shared/materials';
 import { HOUSING_H, jumperCurves } from './jumperCurves';
 import { ASSEMBLY, slotProgress, useAssemblyClock, type AssemblyStep } from '../scenes/assembly';
@@ -42,6 +42,8 @@ export function Jumper({ a, b, color, lift = 22, step, fromB = false, route }: {
     });
     return { group: castAll(g), tube, start: ends[fromB ? 1 : 0], end: ends[fromB ? 0 : 1], total: tube.geometry.index!.count };
   }, [a, b, color, lift, fromB, route]);
+
+  useEffect(() => () => disposeOwned(fx.group, new Set<object>([housingGeo, MATERIALS.black, MATERIALS.metal])), [fx]); // a rerouted wire frees its old tube
 
   useFrame(() => {
     if (!step) return;

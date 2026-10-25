@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BB_HOLES, UNO_PINS } from '../../circuit/board';
 import type { PinRef } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
@@ -39,12 +39,12 @@ function PointSelect({ label, value, onChange, used }: { label: string; value: s
 export function WiringTable() {
   const wires = useBuildStore((s) => s.wires);
   const selected = useBuildStore((s) => s.selected);
-  const message = useBuildStore((s) => s.message);
   const addWire = useBuildStore((s) => s.addWire);
   const removeWire = useBuildStore((s) => s.removeWire);
   const setWireColor = useBuildStore((s) => s.setWireColor);
   const select = useBuildStore((s) => s.select);
-  const used = useBuildStore((s) => s.usedPins)();
+  const parts = useBuildStore((s) => s.parts);
+  const used = useMemo(() => useBuildStore.getState().usedPins(), [parts, wires]); // in-use marks follow the parts and wires
   const [from, setFrom] = useState(''), [to, setTo] = useState('');
   const connect = () => { if (from && to && addWire(from, to)) { setFrom(''); setTo(''); } };
   return (
@@ -55,7 +55,6 @@ export function WiringTable() {
         <PointSelect label={t('build.wiring.to')} value={to} onChange={setTo} used={used} />
         <button type="button" className="wiring__connect" disabled={!from || !to} onClick={connect}>{t('build.wiring.connect')}</button>
       </div>
-      {message && <p className="build-message" role="status">{message}</p>}
       {wires.length === 0 ? <p className="build-note">{t('build.wiring.none')}</p> : (
         <ul className="wiring__list" aria-label={t('build.wiring.list')}>
           {wires.map((w) => (

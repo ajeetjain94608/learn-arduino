@@ -1,7 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { makeCanvasTexture } from '../shared/canvasTexture';
+import { disposeOwned } from '../shared/geometry';
 import { noOutline } from '../shared/layers';
 import { useReducedMotion } from '../shared/motion';
 
@@ -35,6 +36,8 @@ export function BurnEffect({ position }: { position: [number, number, number] })
     for (const o of group.children) o.raycast = () => {}; // decoration: never in the way of taps
     return { group, puffs, flash };
   }, []);
+
+  useEffect(() => () => disposeOwned(fx.group), [fx]);
 
   useFrame((_, dt) => {
     if (reduced || t.current > PUFF_S + 1) { fx.flash.visible = false; for (const p of fx.puffs) p.visible = false; return; }

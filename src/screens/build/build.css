@@ -40,6 +40,9 @@
 .part-window__place b { color: var(--ink); }
 .part-window__moves { display: flex; gap: 4px; margin-left: auto; }
 .part-window__moves button { appearance: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 16px; cursor: pointer; }
+.part-window__moves button:disabled { opacity: .35; cursor: default; }
+.part-window:focus { outline: none; }
+.part-window:focus-visible { outline: 2px solid var(--primary-bg); outline-offset: 2px; }
 /* wiring tab */
 .wiring { display: flex; flex-direction: column; gap: 10px; }
 .wiring__new { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }

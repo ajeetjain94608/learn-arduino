@@ -26,3 +26,18 @@ export function castAll<T extends THREE.Object3D>(o: T): T {
   o.traverse((m) => { if ((m as THREE.Mesh).isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   return o;
 }
+
+// Frees the GPU memory of what an object owns: its geometries, materials and their textures — except shared ones
+// (the MATERIALS palette and module-level geometries, listed in `keep`).
+export function disposeOwned(root: THREE.Object3D, keep: Set<object> = new Set()): void {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.geometry && !keep.has(m.geometry)) m.geometry.dispose();
+    const mats = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : [];
+    for (const mat of mats) {
+      if (keep.has(mat)) continue;
+      for (const v of Object.values(mat)) if (v instanceof THREE.Texture && !keep.has(v)) v.dispose();
+      mat.dispose();
+    }
+  });
+}

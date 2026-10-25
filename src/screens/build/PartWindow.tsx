@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
 import type { Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
@@ -37,19 +37,21 @@ function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
   );
 }
 
-// On/off inputs (a push button): hold to press, or keep it pressed.
+// On/off inputs (a push button): hold to press, or keep it pressed. The switch shows the button as it is, however it
+// was pressed (here, in 3D or by the switch).
 function PressInput({ partId }: { partId: string }) {
   const pressed = useBuildStore((s) => (s.inputs[partId]?.pressed ?? 0) >= 0.5);
   const setInput = useBuildStore((s) => s.setInput);
-  const [kept, setKept] = useState(false);
-  const press = (on: boolean) => { if (!kept) setInput(partId, 'pressed', on ? 1 : 0); };
+  const press = (on: boolean) => setInput(partId, 'pressed', on ? 1 : 0);
+  const holding = useRef(false);
+  const hold = (on: boolean) => { if (on || holding.current) press(on); holding.current = on; };
   return (
     <div className="part-window__press">
       <button type="button" className={`part-window__hold${pressed ? ' is-on' : ''}`}
-        onPointerDown={() => press(true)} onPointerUp={() => press(false)} onPointerLeave={() => press(false)}
-        onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') press(true); }} onKeyUp={() => press(false)}>{t('build.input.hold')}</button>
+        onPointerDown={() => hold(true)} onPointerUp={() => hold(false)} onPointerLeave={() => hold(false)}
+        onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') hold(true); }} onKeyUp={() => hold(false)}>{t('build.input.hold')}</button>
       <label className="part-window__keep">
-        <input type="checkbox" role="switch" checked={kept} onChange={(e) => { setKept(e.target.checked); setInput(partId, 'pressed', e.target.checked ? 1 : 0); }} />
+        <input type="checkbox" role="switch" checked={pressed} onChange={(e) => press(e.target.checked)} />
         {t('build.input.keep')}
       </label>
     </div>
@@ -63,6 +65,11 @@ export function PartWindow() {
   const part = useBuildStore((s) => s.parts.find((p) => p.id === s.selected));
   const setParam = useBuildStore((s) => s.setParam);
   const movePart = useBuildStore((s) => s.movePart);
+  const canMove = useBuildStore((s) => s.canMove);
+  useBuildStore((s) => s.parts); // the arrows' state follows every part (another part may free or take a spot)
+  const ref = useRef<HTMLElement>(null);
+  // opening the window moves focus into it (keyboard and screen readers follow); Escape closes it
+  useEffect(() => { if (selected && part) ref.current?.focus(); }, [selected, !!part]); // eslint-disable-line react-hooks/exhaustive-deps
   const removePart = useBuildStore((s) => s.removePart);
   const select = useBuildStore((s) => s.select);
   if (!selected || !part) return null;
@@ -70,7 +77,8 @@ export function PartWindow() {
   const params = paramsOf(part.type, part.params);
   const name = `${t(`build.part.${part.type}` as StringKey)} ${part.id.slice(part.type.length)}`;
   return (
-    <section className="part-window" role="dialog" aria-label={name} data-testid="part-window">
+    <section className="part-window" role="dialog" aria-label={name} data-testid="part-window" ref={ref} tabIndex={-1}
+      onKeyDown={(e) => { if (e.key === 'Escape') select(null); }}>
       <header className="part-window__head">
         <b>{name}</b>
         <button type="button" className="part-window__close" aria-label={t('build.close')} onClick={() => select(null)}>×</button>
@@ -78,12 +86,16 @@ export function PartWindow() {
       <div className="part-window__place">
         <span>{t('build.legs')} <b>{Object.values(def.footprint(part.at, part.params) ?? {}).join(' · ')}</b></span>
         <div className="part-window__moves">
-          {MOVES.map(([dir, dc, dr]) => (
-            <button key={dir} type="button" aria-label={t(`build.move.${dir}` as StringKey)}
-              onClick={() => { const r = ROWS.indexOf(part.at.row) + dr; if (r >= 0 && r < ROWS.length) movePart(part.id, { col: part.at.col + dc, row: ROWS[r] }); }}>
-              {{ left: '◀', right: '▶', up: '▲', down: '▼' }[dir]}
-            </button>
-          ))}
+          {MOVES.map(([dir, dc, dr]) => {
+            const r = ROWS.indexOf(part.at.row) + dr;
+            const to = r >= 0 && r < ROWS.length ? { col: part.at.col + dc, row: ROWS[r] } : null;
+            return (
+              <button key={dir} type="button" aria-label={t(`build.move.${dir}` as StringKey)} disabled={!to || !canMove(part.id, to)}
+                onClick={() => { if (to) movePart(part.id, to); }}>
+                {{ left: '◀', right: '▶', up: '▲', down: '▼' }[dir]}
+              </button>
+            );
+          })}
         </div>
       </div>
       {def.params.map((p) => (

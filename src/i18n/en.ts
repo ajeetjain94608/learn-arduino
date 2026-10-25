@@ -35,7 +35,7 @@ export const en = {
   'burn.led': 'The LED burnt out: too much current. Add a resistor in series (220 Ω).',
   'burn.pin': 'Pin {pin} was damaged: it was wired straight to {to}. Remove that wire.',
   'burn.pinOther': 'a supply or another pin',
-  'burn.short': 'Short circuit! 5 V is wired straight to GND. Remove that wire, then replace the board.',
+  'burn.short': 'Short circuit! {supply} is wired straight to GND. Remove that wire, then replace the board.',
   'burn.replacePart': 'Replace part', 'burn.replaceBoard': 'Replace board',
   'build.warnings': 'Wiring warnings',
   'warn.short.5V': '5 V and GND are connected — this will short the board.',

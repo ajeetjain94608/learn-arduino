@@ -219,3 +219,66 @@ describe('review fixes: the page re-renders only when the circuit changed', () =
     expect(circuitChanged(null, null)).toBe(false);       // Home: nothing to do every frame
   });
 });
+
+describe('B3: the board as it really is', { timeout: 60_000 }, () => {
+  const w = (from: string, to: string): Wire => ({ id: `${from}-${to}`, from, to, color: '#000' });
+  const led: PartInstance = { id: 'led1', type: 'led', params: { color: 'red' }, at: { col: 10, row: 'a' } };
+  const r220: PartInstance = { id: 'r1', type: 'resistor', params: { ohms: 220 }, at: { col: 11, row: 'b' } };
+
+  it('with no program the board is still powered: an LED from 5 V through 220 Ω lights', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [led, r220], wires: [w('uno.5V', 'bb.10c'), w('bb.15c', 'uno.GND')] });
+    play(e, 0, 50);
+    const s = e.snapshot();
+    expect(s.running).toBe(false);
+    expect(s.circuit!.parts.led1.brightness).toBeGreaterThan(0.5);
+  });
+
+  it('with no program nothing burns yet (warnings first; Run is plugging the board in)', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [led], wires: [w('uno.5V', 'bb.10c'), w('bb.11c', 'uno.GND'), w('uno.3V3', 'uno.GND')] });
+    play(e, 0, 50);
+    const s = e.snapshot().circuit!;
+    expect(s.burns).toEqual([]);
+    expect(s.board.shorted).toBe(false);
+    expect(s.parts.led1.burnt).toBeFalsy();
+  });
+
+  it('burns handed back to the engine (after a screen switch) stay burnt', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [led, r220], wires: [w('uno.5V', 'bb.10c'), w('bb.15c', 'uno.GND')] });
+    e.setBurns([{ id: 'led1', reason: 'led-overcurrent' }]);
+    play(e, 0, 50);
+    expect(e.snapshot().circuit!.parts.led1.burnt).toBe(true);
+    expect(e.snapshot().circuit!.burns).toEqual([{ id: 'led1', reason: 'led-overcurrent' }]);
+  });
+
+  it("analogWrite(9, 64) gives the LED a quarter of its full brightness", () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [led, r220], wires: [w('uno.D9', 'bb.10c'), w('bb.15c', 'uno.GND')] });
+    const { flash, lines } = prog('fade');
+    e.load(flash, lines, 0);
+    play(e, 0, 300);
+    const full = (5 - 1.9) / (25 + 220 + 15) / 0.02; // pin 25 Ω + 220 Ω + the LED's 15 Ω, at 20 mA = full
+    expect(e.snapshot().circuit!.parts.led1.brightness).toBeCloseTo((64 / 255) * full, 2);
+  });
+
+  it('a pin driven HIGH straight into GND burns that pin (and the program keeps running)', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [], wires: [w('uno.D13', 'uno.GND')] });
+    const { flash, lines } = prog('blink');
+    e.load(flash, lines, 0);
+    play(e, 0, 300);
+    const s = e.snapshot();
+    expect(s.circuit!.burns).toEqual([{ id: 'uno.D13', reason: 'pin-overcurrent' }]);
+    expect(s.circuit!.board.burntPins).toEqual([13]);
+    expect(s.running).toBe(true);
+  });
+
+  it('snapshots say how many replace requests were handled (no flicker of an old burn)', () => {
+    const e = new SimEngine();
+    expect(e.snapshot().replaced).toBe(0);
+    e.replace('led1'); e.replace('uno');
+    expect(e.snapshot().replaced).toBe(2);
+  });
+});

@@ -1,5 +1,5 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
-import type { InputValues } from '../circuit/evaluate';
+import type { Burn, InputValues } from '../circuit/evaluate';
 import { BB_HOLES, UNO_PINS } from '../circuit/board';
 import { PART_DEFS, paramsOf } from '../circuit/parts';
 import type { CircuitSpec, PartInstance, PartType, PinRef, Placement, Row, Wire } from '../circuit/types';
@@ -12,7 +12,8 @@ const ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 
 // counters: the highest number each part type has used, so an id is never given out twice (a new LED must never
 // inherit an old one's burn)
-type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number> };
+// burns: what is burnt stays burnt (across screen switches and reloads) until the learner replaces it
+type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number>; burns?: Burn[] };
 
 export type BuildState = {
   counters: Record<string, number>;
@@ -21,9 +22,11 @@ export type BuildState = {
   inputs: InputValues;
   code: string;
   selected: string | null;   // a part id or wire id
-  message: string | null;    // why the last action was refused
+  message: string | null;    // why the last action was refused (cleared by the next action that works)
+  burns: Burn[];
   addPart(type: PartType): string | null;
   movePart(id: string, at: Placement): boolean;
+  canMove(id: string, at: Placement): boolean;
   removePart(id: string): void;
   setParam(id: string, key: string, value: string | number): void;
   setInput(id: string, key: string, value: number): void;
@@ -35,6 +38,8 @@ export type BuildState = {
   reset(): void;
   spec(): CircuitSpec;
   usedPins(): Set<PinRef>;
+  setBurns(burns: Burn[]): void;
+  replaceBurn(id: string): void; // 'uno' = a new board: every damaged pin and the short go
 };
 
 const coveredHoles = (p: PartInstance, at = p.at) => PART_DEFS[p.type].covers(at, p.params).map((h) => `bb.${h}`);
@@ -45,6 +50,8 @@ const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'obj
 const validPart = (p: unknown): p is PartInstance =>
   isObject(p) && typeof p.id === 'string' && typeof p.type === 'string' && p.type in PART_DEFS && isObject(p.params) && isObject(p.at)
   && PART_DEFS[p.type as PartType].footprint(p.at as Placement, p.params as Record<string, string | number>) !== null;
+const BURN_REASONS = ['led-overcurrent', 'pin-overcurrent', 'short'];
+const validBurn = (b: unknown): b is Burn => isObject(b) && typeof b.id === 'string' && BURN_REASONS.includes(b.reason as string);
 const validWire = (w: unknown): w is Wire =>
   isObject(w) && typeof w.id === 'string' && typeof w.color === 'string' && POINTS.has(w.from as string) && POINTS.has(w.to as string);
 
@@ -63,7 +70,8 @@ function load(storage: Storage | undefined): Saved | null {
       if (ids.has(id) && isObject(v)) inputs[id] = Object.fromEntries(Object.entries(v).filter(([, n]) => typeof n === 'number' && Number.isFinite(n))) as Record<string, number>;
     }
     const counters = isObject(s.counters) ? Object.fromEntries(Object.entries(s.counters).filter(([, n]) => typeof n === 'number')) as Record<string, number> : {};
-    return { v: 1, parts, wires: s.wires.filter(validWire), inputs, code: s.code, counters };
+    const burns = Array.isArray(s.burns) ? s.burns.filter(validBurn).filter((b) => b.id.startsWith('uno') || ids.has(b.id)) : [];
+    return { v: 1, parts, wires: s.wires.filter(validWire), inputs, code: s.code, counters, burns };
   } catch { return null; }
 }
 
@@ -94,6 +102,7 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       code: saved?.code ?? FRESH_CODE,
       selected: null,
       message: null,
+      burns: saved?.burns ?? [],
 
       addPart(type) {
         const n = 1 + Math.max(get().counters[type] ?? 0, ...get().parts.filter((p) => p.type === type).map((p) => Number(p.id.slice(type.length)) || 0));
@@ -111,14 +120,15 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
         const p = get().parts.find((x) => x.id === id);
         if (!p) return false;
         if (!fits(p, at, id)) { set({ message: t('build.msg.cantMove') }); return false; }
-        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)) });
+        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)), message: null });
         return true;
       },
+      canMove(id, at) { const p = get().parts.find((x) => x.id === id); return !!p && fits(p, at, id); },
       removePart(id) {
         const { [id]: _gone, ...inputs } = get().inputs;
-        set({ parts: get().parts.filter((p) => p.id !== id), inputs, selected: get().selected === id ? null : get().selected });
+        set({ parts: get().parts.filter((p) => p.id !== id), inputs, selected: get().selected === id ? null : get().selected, burns: get().burns.filter((b) => b.id !== id), message: null });
       },
-      setParam(id, key, value) { set({ parts: get().parts.map((p) => (p.id === id ? { ...p, params: { ...p.params, [key]: value } } : p)) }); },
+      setParam(id, key, value) { set({ parts: get().parts.map((p) => (p.id === id ? { ...p, params: { ...p.params, [key]: value } } : p)), message: null }); },
       setInput(id, key, value) {
         const p = get().parts.find((x) => x.id === id);
         const def = p && PART_DEFS[p.type].inputs.find((i) => i.key === key);
@@ -137,21 +147,23 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
         set({ wires: [...get().wires, { id, from, to, color: color ?? WIRE_COLORS[get().wires.length % WIRE_COLORS.length] }], message: null });
         return id;
       },
-      removeWire(id) { set({ wires: get().wires.filter((w) => w.id !== id), selected: get().selected === id ? null : get().selected }); },
+      removeWire(id) { set({ wires: get().wires.filter((w) => w.id !== id), selected: get().selected === id ? null : get().selected, message: null }); },
       setWireColor(id, color) { set({ wires: get().wires.map((w) => (w.id === id ? { ...w, color } : w)) }); },
       select(selected) { set({ selected }); },
       setCode(code) { set({ code }); },
-      reset() { set({ parts: [], wires: [], inputs: {}, code: FRESH_CODE, selected: null, message: null }); }, // counters stay: ids are never reused
+      reset() { set({ parts: [], wires: [], inputs: {}, code: FRESH_CODE, selected: null, message: null, burns: get().burns.filter((b) => b.id.startsWith('uno')) }); }, // counters stay: ids are never reused
       spec() { return { parts: get().parts, wires: get().wires }; },
       usedPins() {
         const used = taken();
         for (const w of get().wires) { used.add(w.from); used.add(w.to); }
         return used;
       },
+      setBurns(burns) { set({ burns }); },
+      replaceBurn(id) { set({ burns: get().burns.filter((b) => (id === 'uno' ? !b.id.startsWith('uno') : b.id !== id)) }); },
     };
   });
   store.subscribe((s) => {
-    try { storage?.setItem(KEY, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters } satisfies Saved)); } catch { /* storage full or blocked */ }
+    try { storage?.setItem(KEY, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns } satisfies Saved)); } catch { /* storage full or blocked */ }
   });
   return store;
 }

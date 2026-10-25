@@ -39,6 +39,9 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
   const select = useBuildStore((s) => s.select);
   const setInput = useBuildStore((s) => s.setInput);
   const addWire = useBuildStore((s) => s.addWire);
+  const burns = useBuildStore((s) => s.burns);
+  const setBurns = useBuildStore((s) => s.setBurns);
+  const message = useBuildStore((s) => s.message);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const rxLed = useWorkbenchStore((s) => s.rxLed);
@@ -82,9 +85,9 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
       <section className="viewer" data-testid="viewer" aria-label={t('viewer.toolbar')}>
         <GlErrorBoundary onReload={guard.reload}>
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
-            <SimClock circuit={circuit} inputs={inputs} />
+            <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} />
             <WireDragger targets={targets} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
-            <BuildScene burns={circuitState?.burns ?? []} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
+            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />
@@ -93,6 +96,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
       </section>
       <div className="side build-side" data-expand={panel ?? undefined}>
         <BurnCard />
+        {message && <p className="build-message" role="status">{message}</p>}
         <PartWindow />
         <section className={`card build-card${tab === 'code' ? ' build-card--tabs-only' : ''}`}>
           <div className="tabs" role="tablist" aria-label={t('build.tabs')}>
@@ -116,7 +120,6 @@ function PartsPanel() {
   const addPart = useBuildStore((s) => s.addPart);
   const removePart = useBuildStore((s) => s.removePart);
   const select = useBuildStore((s) => s.select);
-  const message = useBuildStore((s) => s.message);
   return (
     <div className="parts-panel">
       <h3>{t('build.library')}</h3>
@@ -128,7 +131,6 @@ function PartsPanel() {
           </li>
         ))}
       </ul>
-      {message && <p className="build-message" role="status">{message}</p>}
       <h3>{t('build.bench')}</h3>
       <ul className="bench-list" aria-label={t('build.bench')}>
         <li>{t('build.uno')}</li>

@@ -5,9 +5,9 @@ import { UPLOAD_S, uploadLeds } from '../screens/explorer/programTimeline';
 import { useWorkbenchStore } from '../state/workbenchStore';
 import { isTestMode } from '../three/shared/motion';
 import type { LineEntry, Program } from '../build/compiler/types';
-import type { InputValues } from '../circuit/evaluate';
+import type { Burn, InputValues } from '../circuit/evaluate';
 import type { CircuitSpec } from '../circuit/types';
-import { circuitChanged, type SimSnapshot } from './simEngine';
+import { circuitChanged, type CircuitSnapshot, type SimSnapshot } from './simEngine';
 import type { SimCommand, SimMessage } from './sim.worker';
 import { shownSpeed } from './simSpeed';
 
@@ -23,8 +23,11 @@ const FIXTURE_LINES = import.meta.glob('./avr/fixtures/*.lines.json', { import: 
 // Drives the simulated UNO each frame. The upload animation and the reset button's bootloader flashes play here;
 // the compiled program itself runs on the simulated ATmega328P in its own worker (sim.worker.ts), whose latest
 // snapshot — pins, running line, serial output — flows into the store that the 3D board and the panels read.
-// Build passes the learner's circuit and input values; Home passes nothing (the chip runs on its own).
-export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: InputValues } = {}) {
+// Build passes the learner's circuit, input values and what is burnt (kept with the build: `onBurns` reports changes);
+// Home passes nothing (the chip runs on its own). The circuit is live even with no program: the board has power.
+type Props = { circuit?: CircuitSpec; inputs?: InputValues; burns?: Burn[]; onBurns?(burns: Burn[]): void };
+const burnsKey = (b: Burn[]) => b.map((x) => `${x.id}:${x.reason}`).join();
+export function SimClock({ circuit, inputs, burns, onBurns }: Props = {}) {
   const worker = useRef<Worker | null>(null);
   const gen = useRef(0);              // generation of the loaded program: older snapshots are ignored
   const loaded = useRef<Program | null>(null);
@@ -37,10 +40,16 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
   const rxUntil = useRef(0);
   const slowFor = useRef(0);
   const sentInputs = useRef<InputValues>({});
+  const circuitSnap = useRef<{ circuit: CircuitSnapshot | null; replaced: number }>({ circuit: null, replaced: 0 });
+  const replacesSent = useRef(0);     // until the worker has handled them all, its snapshots may show an old burn
+  const burnsSent = useRef(false);
+  const latest = useRef({ burns, onBurns });
+  latest.current = { burns, onBurns };
 
   useEffect(() => {
     const w = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
     w.onmessage = (e: MessageEvent<SimMessage>) => {
+      circuitSnap.current = { circuit: e.data.snap.circuit ?? null, replaced: e.data.snap.replaced }; // with or without a program
       if (e.data.gen !== gen.current) return;
       snap.current = e.data.snap;
       serialIn.current += e.data.snap.serial;
@@ -51,7 +60,11 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
   }, []);
 
   // the circuit and the inputs follow the props (sent only when they change)
-  useEffect(() => { worker.current?.postMessage({ t: 'circuit', spec: circuit ?? null } satisfies SimCommand); }, [circuit]);
+  useEffect(() => {
+    worker.current?.postMessage({ t: 'circuit', spec: circuit ?? null } satisfies SimCommand);
+    // the build's burns, once, after its first circuit (a circuit drops the burns of parts it doesn't have)
+    if (!burnsSent.current && circuit && latest.current.burns) { burnsSent.current = true; worker.current?.postMessage({ t: 'burns', burns: latest.current.burns } satisfies SimCommand); }
+  }, [circuit]);
   useEffect(() => {
     const w = worker.current;
     if (!w || !inputs) return;
@@ -62,7 +75,11 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
     }
   }, [inputs]);
   const replaceRequest = useWorkbenchStore((s) => s.replaceRequest);
-  useEffect(() => { if (replaceRequest) worker.current?.postMessage({ t: 'replace', id: replaceRequest.id } satisfies SimCommand); }, [replaceRequest]);
+  useEffect(() => {
+    if (!replaceRequest) return;
+    replacesSent.current++;
+    worker.current?.postMessage({ t: 'replace', id: replaceRequest.id } satisfies SimCommand);
+  }, [replaceRequest]);
   useEffect(() => {
     if (!isTestMode()) return;
     const debug = (window.__rq ??= { debug: {} }).debug;
@@ -80,6 +97,13 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
     const w = worker.current;
     if (!w) return;
     const send = (c: SimCommand) => w.postMessage(c);
+    // the circuit (lit parts, burns) — also while stopped; skipped until the worker has handled every replace
+    const cs = circuitSnap.current;
+    if (cs.replaced >= replacesSent.current) {
+      if (circuitChanged(s.circuitState, cs.circuit)) s.setCircuitState(cs.circuit);
+      const { burns: kept, onBurns: report } = latest.current;
+      if (cs.circuit && kept && report && burnsKey(cs.circuit.burns) !== burnsKey(kept)) report(cs.circuit.burns);
+    }
     const unload = () => { if (loaded.current) { send({ t: 'stop' }); loaded.current = null; snap.current = null; serialIn.current = ''; gen.current++; } };
 
     if (s.uploading && !wasUploading.current) { phaseT.current = 0; unload(); }
@@ -126,7 +150,6 @@ export function SimClock({ circuit, inputs }: { circuit?: CircuitSpec; inputs?: 
     const tx = chip.simMs - chip.lastTxSimMs < TX_LIT_MS, rx = performance.now() < rxUntil.current;
     if (tx !== s.txLed || rx !== s.rxLed) s.setSerialLeds(rx, tx);
     if (chip.line !== s.line) s.setLine(chip.line);
-    if (circuitChanged(s.circuitState, chip.circuit ?? null)) s.setCircuitState(chip.circuit ?? null);
     if (chip.circuit?.board.shorted && s.running) s.setRunning(false); // a short stops the board
     if (isTestMode()) (window.__rq ??= { debug: {} }).debug.sim = { simMs: chip.simMs, pin13: chip.pin13, speed: chip.speed };
   });
