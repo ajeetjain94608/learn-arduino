@@ -49,7 +49,7 @@ test('projects open their scene; the info tabs explain the board', async ({ page
   await page.goto('/?test');
   const info = page.getByTestId('info-card');
   await expect(info).toContainText('UNO');
-  await info.getByRole('tab', { name: 'Specs' }).click();
+  await info.getByRole('tab', { name: 'Specifications' }).click();
   await expect(info).toContainText('16 MHz');
   const projects = page.getByTestId('projects');
   await projects.scrollIntoViewIfNeeded();
@@ -113,4 +113,36 @@ test('the side rail shows icons only; its arrow expands it to show names', async
   await expect(nav.getByText('Settings', { exact: true })).toBeVisible();
   await nav.getByRole('button', { name: 'Collapse sidebar' }).click();
   await expect(label).toBeHidden();
+});
+
+test('each project explains itself in four formats: overview, pinout table, code steps, spec cards', async ({ page }) => {
+  await page.goto('/?test');
+  const info = page.getByTestId('info-card');
+  const tab = (name: string) => info.getByRole('tab', { name }).click();
+  const projects = page.getByTestId('projects');
+  await projects.scrollIntoViewIfNeeded();
+  await projects.getByRole('button', { name: /Blink an LED/ }).click();
+  await info.scrollIntoViewIfNeeded();
+
+  await expect(info.getByRole('heading', { name: 'Blink an LED' })).toBeVisible();
+  await expect(info.locator('.overview__point')).toHaveCount(3);
+
+  await tab('Pinout');
+  const table = info.getByRole('table');
+  for (const h of ['Pin', 'Connects to', 'What it does']) await expect(table.getByRole('columnheader', { name: h })).toBeVisible();
+  await expect(table.getByRole('row', { name: /D13/ })).toBeVisible();
+  await expect(table.getByRole('row', { name: /GND/ })).toBeVisible();
+
+  await tab('Example');
+  await expect(info.getByRole('heading', { name: 'How the code works' })).toBeVisible();
+  await expect(info.getByRole('listitem')).toHaveCount(4);
+  await expect(info.locator('code').first()).toBeVisible();
+
+  await tab('Specifications');
+  await expect(info.locator('.spec-card')).toHaveCount(5);
+  await expect(info.locator('.spec-card', { hasText: 'LED current' })).toContainText('14 mA');
+
+  await projects.getByRole('button', { name: /Meet the board/ }).click();
+  await tab('Pinout');
+  await expect(info.getByRole('row', { name: /A0–A5/ })).toBeVisible();
 });

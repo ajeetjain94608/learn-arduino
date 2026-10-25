@@ -74,7 +74,7 @@ export function ExplorerScreen() {
       </section>
       <div className="side">
         <ProjectsRow />
-        <InfoCard focus={focus} />
+        <InfoCard project={view} focus={focus} />
         <CodeCard />
         <p className="credit">{t('credits.boardLayout')}</p>
       </div>

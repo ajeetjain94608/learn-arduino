@@ -54,12 +54,35 @@
   letter-spacing: 0.06em; text-transform: uppercase; min-height: 48px; padding: 0 10px; border-bottom: 3px solid transparent; cursor: pointer; flex: none; }
 .tabs button.is-on { color: var(--ink); border-bottom-color: var(--accent); }
 .info-card__body h2 { margin: 0 0 6px; font-size: 18px; text-transform: none; letter-spacing: 0; }
-.info-card__body p, .points li { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
-.points { margin: 10px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
-.specs { margin: 0; display: grid; }
-.specs div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
-.specs dt { color: var(--ink-2); }
-.specs dd { margin: 0; font-weight: 800; text-align: right; }
+.info-card__body p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.info-card__body code { font: 700 14px/1.4 ui-monospace, 'Cascadia Code', Consolas, monospace; background: var(--chip, rgba(127,127,127,0.14));
+  border-radius: 6px; padding: 1px 6px; color: var(--ink); white-space: nowrap; }
+.info-card__sub { margin-bottom: 10px !important; }
+.overview__points { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.overview__point { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.45; color: var(--ink); }
+.overview__icon { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.pinout { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pinout th { text-align: left; font-size: 14px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2);
+  padding: 6px 8px 8px 0; border-bottom: 1px solid var(--line); }
+.pinout td { padding: 9px 8px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.4; color: var(--ink-2); }
+.pinout td:first-child { white-space: nowrap; }
+.pinout__pin { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; color: var(--ink); }
+.pinout__pin i { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--line); }
+.steps { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+.steps code { white-space: normal; }
+.steps__no { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 800;
+  background: var(--accent); color: var(--on-accent, #fff); margin-top: 1px; }
+.spec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.spec-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.spec-card small { font-size: 14px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); }
+.spec-card b { font-size: 15px; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+
+/* content rises in item by item when the project, tab or tapped part changes */
+.reveal { animation: reveal-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 55ms); }
+@keyframes reveal-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
 
 .code-card__head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .code-card__head h2 { flex: 1; }
