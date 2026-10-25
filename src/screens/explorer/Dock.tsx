@@ -18,28 +18,25 @@ export function StatusPill() {
   );
 }
 
-export function Dock({ onResetView }: { onResetView(): void }) {
-  const { running, showCurrent, labels, setRunning, toggleCurrent, toggleLabels } = useWorkbenchStore();
+const Icon = ({ d }: { d: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
+);
+const STEP = Math.PI / 6; // 30° per rotate press
+
+// The toolbar inside the 3D card (camera + what the scene shows). Run lives on the code card.
+export function ViewerToolbar() {
+  const { showCurrent, labels, toggleCurrent, toggleLabels, resetView, nudgeCamera } = useWorkbenchStore();
   return (
-    <nav className="dock">
-      <button type="button" className={`primary${running ? ' is-on' : ''}`} onClick={() => setRunning(!running)}>
-        {running
-          ? <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
-          : <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M7 5v14l12-7z" /></svg>}
-        <span>{running ? t('dock.stop') : t('dock.run')}</span>
-      </button>
-      <button type="button" aria-label={t('dock.current')} aria-pressed={showCurrent} className={showCurrent ? 'is-on' : ''} onClick={toggleCurrent}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
-        <span>{t('dock.current')}</span>
-      </button>
-      <button type="button" aria-label={t('dock.labels')} aria-pressed={labels} className={labels ? 'is-on' : ''} onClick={toggleLabels}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 12 12 20l-9-9V3h8z" /><circle cx="7.5" cy="7.5" r="1.5" /></svg>
-        <span>{t('dock.labels')}</span>
-      </button>
-      <button type="button" aria-label={t('dock.reset')} onClick={onResetView}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
-        <span>{t('dock.reset')}</span>
-      </button>
-    </nav>
+    <div className="viewer-toolbar" role="toolbar" aria-label={t('viewer.toolbar')}>
+      <button type="button" aria-label={t('viewer.rotateLeft')} onClick={() => nudgeCamera('rotate', -STEP)}><Icon d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5" /></button>
+      <button type="button" aria-label={t('viewer.rotateRight')} onClick={() => nudgeCamera('rotate', STEP)}><Icon d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></button>
+      <span className="viewer-toolbar__sep" aria-hidden />
+      <button type="button" aria-label={t('viewer.zoomOut')} onClick={() => nudgeCamera('zoom', 1 / 1.25)}><Icon d="M5 12h14" /></button>
+      <button type="button" aria-label={t('viewer.zoomIn')} onClick={() => nudgeCamera('zoom', 1.25)}><Icon d="M12 5v14M5 12h14" /></button>
+      <button type="button" aria-label={t('dock.reset')} onClick={resetView}><Icon d="M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" /></button>
+      <span className="viewer-toolbar__sep" aria-hidden />
+      <button type="button" aria-label={t('dock.current')} aria-pressed={showCurrent} className={showCurrent ? 'is-on' : ''} onClick={toggleCurrent}><Icon d="M13 2 4 14h7l-1 8 9-12h-7z" /></button>
+      <button type="button" aria-label={t('dock.labels')} aria-pressed={labels} className={labels ? 'is-on' : ''} onClick={toggleLabels}><Icon d="M20 12 12 20l-9-9V3h8zM7.5 6v.01" /></button>
+    </div>
   );
 }

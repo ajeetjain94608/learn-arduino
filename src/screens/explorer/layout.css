@@ -1,0 +1,93 @@
+/* Home layout. Landscape phones and desktops: icon rail | 3D card | scrolling side column.
+   Phones held upright: one scrolling page (header, 3D card, projects, info, code) above a bottom nav bar. */
+.layout {
+  display: grid; gap: 12px; padding: 12px; padding-left: 0;
+  grid-template-columns: 76px minmax(0, 1fr) minmax(300px, 38%);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "nav viewer header" "nav viewer side";
+  height: 100%; overflow: hidden;
+}
+.navbar { grid-area: nav; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px;
+  background: var(--card); border-right: 1px solid var(--line); margin: -12px 0; padding-top: calc(12px + env(safe-area-inset-top)); }
+.navbar button { appearance: none; border: 0; background: transparent; color: var(--ink-2); font: inherit; font-weight: 700;
+  min-height: 56px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+.navbar button span { font-size: 14px; }
+.navbar button.is-on { color: var(--accent); background: var(--accent-soft); }
+.header { grid-area: header; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.header .brand { display: flex; align-items: center; gap: 10px; }
+.header h1 { margin: 0; font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; }
+.header p { margin: 1px 0 0; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+.viewer { grid-area: viewer; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--line);
+  background: var(--paper); box-shadow: 0 6px 24px rgba(0,0,0,0.06); min-height: 0; }
+.side { grid-area: side; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 2px; min-height: 0; }
+
+.viewer-toolbar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 1;
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 16px; background: var(--card); border: 1px solid var(--line);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.10); max-width: calc(100% - 20px); overflow-x: auto; }
+.viewer-toolbar button { appearance: none; border: 0; background: transparent; color: var(--ink); width: 48px; height: 48px; flex: none;
+  border-radius: 12px; display: grid; place-items: center; cursor: pointer; }
+.viewer-toolbar button svg { width: 20px; height: 20px; }
+.viewer-toolbar button.is-on { background: var(--accent-soft); color: var(--accent); }
+.viewer-toolbar__sep { width: 1px; height: 26px; background: var(--line); margin: 0 2px; flex: none; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }
+.card h2, .projects h2 { margin: 0; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; }
+.projects h2 { margin-bottom: 8px; }
+.projects__row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+.project { appearance: none; flex: none; scroll-snap-align: start; width: 210px; min-height: 72px; display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 16px; border: 2px solid var(--line); background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.project.is-on { border-color: var(--accent); }
+.project:disabled { cursor: default; opacity: .62; }
+.project__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+.project__text { display: flex; flex-direction: column; gap: 2px; }
+.project__text b { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
+.project__text small { font-size: 14px; color: var(--ink-2); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px -4px 10px; overflow-x: auto; }
+.tabs button { appearance: none; border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 800;
+  letter-spacing: 0.06em; text-transform: uppercase; min-height: 48px; padding: 0 10px; border-bottom: 3px solid transparent; cursor: pointer; flex: none; }
+.tabs button.is-on { color: var(--ink); border-bottom-color: var(--accent); }
+.info-card__body h2 { margin: 0 0 6px; font-size: 18px; text-transform: none; letter-spacing: 0; }
+.info-card__body p, .points li { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.points { margin: 10px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.specs { margin: 0; display: grid; }
+.specs div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.specs dt { color: var(--ink-2); }
+.specs dd { margin: 0; font-weight: 800; text-align: right; }
+
+.code-card__head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.code-card__head h2 { flex: 1; }
+.run-btn { appearance: none; min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--primary-bg); color: var(--primary-fg);
+  font: inherit; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.run-btn.is-on { background: var(--reward); color: #1B1B1B; }
+.code { margin: 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--paper) 70%, var(--card)); border: 1px solid var(--line);
+  font: 500 14px/1.6 ui-monospace, Consolas, monospace; overflow-x: auto; color: var(--ink); }
+.code__line { display: block; white-space: pre; }
+.code__no { display: inline-block; width: 2ch; margin-right: 12px; text-align: right; color: var(--ink-2); opacity: .7; user-select: none; }
+.credit { margin: 0; font-size: 14px; color: var(--ink-2); }
+
+.toast { position: fixed; z-index: 7; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--primary-bg); color: var(--primary-fg); padding: 12px 18px; border-radius: 14px; font-size: 15px; font-weight: 800; }
+
+/* Phone held upright: one scrolling column, bottom navigation. */
+@media (orientation: portrait) and (max-width: 760px) {
+  .layout { display: flex; flex-direction: column; padding: 12px 12px calc(88px + env(safe-area-inset-bottom)); height: auto; min-height: 100%; }
+  .app.layout { overflow-y: auto; }
+  .header { order: 1; padding-top: env(safe-area-inset-top); }
+  .viewer { order: 2; height: 58vh; min-height: 320px; flex: none; }
+  .side { order: 3; overflow: visible; }
+  .navbar { order: 4; position: fixed; z-index: 4; left: 0; right: 0; bottom: 0; margin: 0; flex-direction: row; justify-content: space-around;
+    border-right: 0; border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+  .navbar button { flex: 1; }
+  .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
+}
+/* Short landscape phones: icons only in the rail. */
+@media (max-height: 460px) {
+  .navbar button span { display: none; }
+  .header p { display: none; }
+}
+/* Narrow cards: keep all seven 48 px toolbar buttons visible. */
+@media (max-width: 420px) {
+  .viewer-toolbar { gap: 0; padding: 3px; }
+  .viewer-toolbar__sep { display: none; }
+}

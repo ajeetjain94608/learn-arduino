@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { t } from '../../i18n/en';
 import { useQualityStore } from '../../state/qualityStore';
-import { useWorkbenchStore } from '../../state/workbenchStore';
 import { useThemeStore } from '../../theme/themeStore';
 import type { ThemeName } from '../../theme/themes';
 
@@ -20,29 +19,23 @@ function FpsChip() {
   return <button type="button" className="fps" onClick={cycle} title="Quality tier (tap to change)"><span id="fps">-- fps</span> · {tier}</button>;
 }
 
-// Only the brand and a menu button sit over the 3D view; every other option lives in the side menu.
-export function TopBar({ onMenu }: { onMenu(): void }) {
+export function Header() {
   return (
-    <header className="topbar">
+    <header className="header">
       <div className="brand">
         <div className="brand__logo" aria-hidden>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="7" width="14" height="11" rx="3" /><path d="M12 7V4M9 12h.01M15 12h.01M9.5 15.5h5" /></svg>
         </div>
         <div><h1>{t('app.name')}</h1><p>{t('app.tagline')}</p></div>
       </div>
-      <div className="topbar__right">
-        {SHOW_FPS && <FpsChip />}
-        <button type="button" className="icon-btn" aria-label={t('menu.open')} onClick={onMenu}>
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-        </button>
-      </div>
+      {SHOW_FPS && <FpsChip />}
     </header>
   );
 }
 
-export function SideMenu({ open, onClose, onAbout }: { open: boolean; onClose(): void; onAbout(): void }) {
+// Settings slides in from the side: themes and About.
+export function SettingsPanel({ open, onClose, onAbout }: { open: boolean; onClose(): void; onAbout(): void }) {
   const { theme, setTheme } = useThemeStore();
-  const { view, setView } = useWorkbenchStore();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -56,21 +49,13 @@ export function SideMenu({ open, onClose, onAbout }: { open: boolean; onClose():
   if (!open) return null;
   return (
     <div className="side-menu__backdrop" onClick={onClose}>
-      <aside className="side-menu" role="dialog" aria-modal="true" aria-label={t('menu.open')} onClick={(e) => e.stopPropagation()}>
+      <aside className="side-menu" role="dialog" aria-modal="true" aria-label={t('settings.title')} onClick={(e) => e.stopPropagation()}>
         <div className="side-menu__head">
-          <h2>{t('menu.open')}</h2>
+          <h2>{t('settings.title')}</h2>
           <button ref={closeRef} type="button" className="icon-btn" aria-label={t('menu.close')} onClick={onClose}>
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
-
-        <h3>{t('menu.view')}</h3>
-        <div className="seg" role="group">
-          {(['board', 'circuit'] as const).map((v) => (
-            <button key={v} type="button" aria-pressed={view === v} className={view === v ? 'is-on' : ''} onClick={() => { setView(v); onClose(); }}>{t(`view.${v}`)}</button>
-          ))}
-        </div>
-
         <h3>{t('menu.theme')}</h3>
         <div className="side-menu__themes">
           {SWATCHES.map((s) => (
@@ -81,7 +66,6 @@ export function SideMenu({ open, onClose, onAbout }: { open: boolean; onClose():
             </button>
           ))}
         </div>
-
         <button type="button" className="side-menu__item" onClick={() => { onClose(); onAbout(); }}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5h.01" /></svg>
           {t('about.open')}

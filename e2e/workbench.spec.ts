@@ -27,12 +27,13 @@ test('the 3D workbench renders without console errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('the canvas follows viewport changes (rotation / resize)', async ({ page }) => {
+test('the canvas follows its card when the screen rotates or resizes', async ({ page }) => {
   await page.setViewportSize({ width: 1036, height: 647 });
   await page.goto('/?test');
   await expect(page.locator('canvas[data-engine]')).toBeVisible();
   await page.setViewportSize({ width: 844, height: 390 });
-  await expect.poll(async () => { const s = await canvasStats(page); return s && `${s.cssW}x${s.cssH}`; }).toBe('844x390');
+  const card = async () => { const b = (await page.getByTestId('viewer').boundingBox())!; return `${Math.round(b.width - 2)}x${Math.round(b.height - 2)}`; };
+  await expect.poll(async () => { const s = await canvasStats(page); return s && `${s.cssW}x${s.cssH}`; }).toBe(await card());
 });
 
 type RenderInfo = { tier: string; samples: number[]; surfacePx: number };

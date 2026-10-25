@@ -4,10 +4,10 @@ import * as THREE from 'three';
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import type { Hotspot } from './hotspots';
-import { layoutCallout } from './layoutCallout';
+import { layoutCallout, separateCards } from './layoutCallout';
 import './callouts.css';
 
-const TOP_BAR = 100, DOCK = 84;
+const TOP_BAR = 56, DOCK = 66; // room for the status pill and the toolbar inside the 3D card
 
 // The DOM labels (outside the Canvas) and the projector (inside it) share element refs through this bridge.
 export type CalloutBridge = { cards: (HTMLButtonElement | null)[]; dots: (HTMLDivElement | null)[]; lines: (SVGLineElement | null)[] };
@@ -22,19 +22,27 @@ export function CalloutProjector({ hotspots, bridge }: { hotspots: Hotspot[]; br
 
   useFrame(() => {
     const view = useWorkbenchStore.getState().view;
+    // 1) preferred spot for each visible label, 2) push overlapping cards apart, 3) move the DOM.
+    const shown: { i: number; x: number; y: number; w: number; h: number; cx: number; cy: number }[] = [];
     hotspots.forEach((h, i) => {
       const card = bridge.cards[i], dot = bridge.dots[i], line = bridge.lines[i];
       if (!card || !dot || !line) return;
       p.copy(anchors[i]).project(camera);
       const x = (p.x * 0.5 + 0.5) * size.width, y = (-p.y * 0.5 + 0.5) * size.height;
-      const r = layoutCallout({ anchor: { x, y }, offset: h.offset, card: { w: card.offsetWidth, h: card.offsetHeight }, viewport: { w: size.width, h: size.height }, top: TOP_BAR, bottom: DOCK });
+      const w = card.offsetWidth, hgt = card.offsetHeight;
+      const r = layoutCallout({ anchor: { x, y }, offset: h.offset, card: { w, h: hgt }, viewport: { w: size.width, h: size.height }, top: TOP_BAR, bottom: DOCK });
       const show = r.visible && (!h.view || h.view === view);
       card.style.display = dot.style.display = line.style.display = show ? '' : 'none';
-      if (!show) return;
-      dot.style.transform = `translate(${x}px, ${y}px)`;
-      card.style.transform = `translate(${r.cx}px, ${r.cy}px) translate(-50%, -50%)`;
-      line.setAttribute('x1', String(x)); line.setAttribute('y1', String(y));
-      line.setAttribute('x2', String(r.cx)); line.setAttribute('y2', String(r.cy));
+      if (show) shown.push({ i, x, y, w, h: hgt, cx: r.cx, cy: r.cy });
+    });
+    const placed = separateCards(shown.map(({ cx, cy, w, h }) => ({ cx, cy, w, h })), { top: TOP_BAR, bottom: size.height - DOCK });
+    shown.forEach((s, k) => {
+      const { cx, cy } = placed[k];
+      const card = bridge.cards[s.i]!, dot = bridge.dots[s.i]!, line = bridge.lines[s.i]!;
+      dot.style.transform = `translate(${s.x}px, ${s.y}px)`;
+      card.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+      line.setAttribute('x1', String(s.x)); line.setAttribute('y1', String(s.y));
+      line.setAttribute('x2', String(cx)); line.setAttribute('y2', String(cy));
     });
   });
   return null;

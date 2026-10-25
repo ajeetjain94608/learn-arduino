@@ -6,8 +6,8 @@ import * as THREE from 'three';
 type OrbitControlsImpl = ComponentRef<typeof OrbitControls>;
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { LAYER_NO_OUTLINE } from '../shared/layers';
-import { useReducedMotion } from '../shared/motion';
-import { fitOrtho, VIEW_DIR, VIEWS } from './cameraViews';
+import { isTestMode, useReducedMotion } from '../shared/motion';
+import { clampZoom, fitOrtho, MAX_ZOOM, MIN_ZOOM, orbitAround, VIEW_DIR, VIEWS } from './cameraViews';
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const TWEEN_S = 0.9;
@@ -21,6 +21,7 @@ export function CameraRig() {
   const controls = useRef<OrbitControlsImpl>(null);
   const view = useWorkbenchStore((s) => s.view);
   const resetTick = useWorkbenchStore((s) => s.resetTick);
+  const cameraCmd = useWorkbenchStore((s) => s.cameraCmd);
   const reduced = useReducedMotion();
   const tween = useRef<Tween | null>(null);
   const first = useRef(true);
@@ -52,6 +53,25 @@ export function CameraRig() {
     tween.current = { t: 0, fromP: camera.position.clone(), fromT: c.target.clone(), fromZ: camera.zoom, toP, toT, toZ: to.zoom };
   }, [view, resetTick, reduced, camera]);
 
+  // Toolbar rotate / zoom buttons: ease from where the camera is now.
+  useEffect(() => {
+    const c = controls.current;
+    if (!c || !cameraCmd) return;
+    const t = c.target.toArray() as [number, number, number];
+    const toP = cameraCmd.kind === 'rotate' ? new THREE.Vector3(...orbitAround(camera.position.toArray() as [number, number, number], t, cameraCmd.amount)) : camera.position.clone();
+    const toZ = cameraCmd.kind === 'zoom' ? clampZoom(camera.zoom * cameraCmd.amount) : camera.zoom;
+    if (reduced) { camera.position.copy(toP); camera.zoom = toZ; camera.updateProjectionMatrix(); c.update(); return; }
+    tween.current = { t: 0, fromP: camera.position.clone(), fromT: c.target.clone(), fromZ: camera.zoom, toP, toT: c.target.clone(), toZ };
+  }, [cameraCmd, camera, reduced]);
+
+  useEffect(() => {
+    if (!isTestMode()) return;
+    (window.__rq ??= { debug: {} }).debug.camera = () => {
+      const t = controls.current?.target ?? new THREE.Vector3();
+      return { azimuth: Math.atan2(camera.position.x - t.x, camera.position.z - t.z), zoom: camera.zoom };
+    };
+  }, [camera]);
+
   useFrame((_, dt) => {
     const tw = tween.current, c = controls.current;
     if (!tw || !c) return;
@@ -70,8 +90,8 @@ export function CameraRig() {
       makeDefault
       enableDamping
       dampingFactor={0.08}
-      minZoom={0.7}
-      maxZoom={7}
+      minZoom={MIN_ZOOM}
+      maxZoom={MAX_ZOOM}
       maxPolarAngle={1.3}
       screenSpacePanning
       zoomToCursor

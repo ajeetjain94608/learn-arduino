@@ -13,3 +13,12 @@ export function fitOrtho(aspect: number): { halfW: number; halfH: number } {
   const halfH = Math.max(128, 190 / aspect) / 2;
   return { halfH, halfW: halfH * aspect };
 }
+
+export const MIN_ZOOM = 0.7, MAX_ZOOM = 7;
+export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+
+// Camera position after orbiting `angle` radians about the target's vertical axis (height unchanged).
+export function orbitAround(pos: Vec3, target: Vec3, angle: number): Vec3 {
+  const dx = pos[0] - target[0], dz = pos[2] - target[2], c = Math.cos(angle), s = Math.sin(angle);
+  return [target[0] + dx * c + dz * s, pos[1], target[2] - dx * s + dz * c];
+}

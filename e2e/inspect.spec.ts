@@ -6,6 +6,8 @@ const rq = () => (window as unknown as { __rq?: { debug: Debug } }).__rq?.debug;
 const screenPos = (page: Page) => page.evaluate(`(${rq})()?.partScreenPos?.('ZU4') ?? null`) as Promise<{ x: number; y: number } | null>;
 const lift = (page: Page, id = 'ZU4') => page.evaluate(`(${rq})()?.lift?.('${id}') ?? 0`) as Promise<number>;
 const posOf = (page: Page, id: string) => page.evaluate(`(${rq})()?.partScreenPos?.('${id}') ?? null`) as Promise<{ x: number; y: number } | null>;
+// A spot on empty bench inside the 3D card (the screen edge may be the navigation rail).
+const bench = async (page: Page) => { const b = (await page.getByTestId('viewer').boundingBox())!; return { x: b.x + 14, y: b.y + b.height * 0.55 }; };
 const chip = async (page: Page) => {
   await expect.poll(() => screenPos(page)).not.toBeNull();
   return (await screenPos(page))!;
@@ -19,7 +21,7 @@ test('hovering a part lifts it and shows its name; moving away puts it back', as
   await page.mouse.move(p.x, p.y);
   await expect(page.getByTestId('part-tooltip')).toContainText('ATmega328P');
   await expect.poll(() => lift(page)).toBeGreaterThan(2);
-  await page.mouse.move(20, 300);
+  { const e = await bench(page); await page.mouse.move(e.x, e.y); }
   await expect(page.getByTestId('part-tooltip')).toBeHidden();
   await expect.poll(() => lift(page)).toBeLessThan(0.1);
 });
@@ -32,7 +34,7 @@ test('tapping a part lifts it and explains it; tapping the bench puts it back', 
   await expect(page.getByTestId('info-sheet')).toContainText('brain of the board');
   await expect(page.getByTestId('part-tooltip')).toContainText('ATmega328P');
   await expect.poll(() => lift(page)).toBeGreaterThan(2);
-  await page.mouse.click(20, 300);
+  { const e = await bench(page); await page.mouse.click(e.x, e.y); }
   await expect(page.getByTestId('info-sheet')).toBeHidden();
   await expect.poll(() => lift(page)).toBeLessThan(0.1);
 });
@@ -60,7 +62,8 @@ test('tapping empty bench in board view clears a selection, even where hidden ci
   await expect(page.getByTestId('info-sheet')).toBeVisible();
   // the (hidden) breadboard lies under the right half of the board view
   const bb = (await posOf(page, 'breadboard'))!;
-  await page.mouse.click(Math.min(bb.x, 1000), bb.y);
+  const v = (await page.getByTestId('viewer').boundingBox())!;
+  await page.mouse.click(Math.min(bb.x, v.x + v.width - 20), Math.min(bb.y, v.y + v.height - 80));
   await expect(page.getByTestId('info-sheet')).toBeHidden();
 });
 

@@ -47,3 +47,12 @@ test('resetting the board starts a boot: pin 13 drops LOW and the reset counter 
   s.resetBoard();
   expect(useWorkbenchStore.getState()).toMatchObject({ booting: true, pinHigh: false, running: true, resetCount: 1 });
 });
+
+test('toolbar camera commands are queued with an increasing sequence number', () => {
+  const s = useWorkbenchStore.getState();
+  s.nudgeCamera('rotate', 0.5);
+  const first = useWorkbenchStore.getState().cameraCmd!;
+  expect(first).toMatchObject({ kind: 'rotate', amount: 0.5 });
+  s.nudgeCamera('zoom', 1.25);
+  expect(useWorkbenchStore.getState().cameraCmd).toMatchObject({ kind: 'zoom', amount: 1.25, seq: first.seq + 1 });
+});

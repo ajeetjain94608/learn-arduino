@@ -21,3 +21,25 @@ export function layoutCallout({ anchor, offset, card, viewport, top, bottom }: I
     cy: clamp(anchor.y + offset[1] * s, top + card.h / 2 + EDGE, vh - bottom - card.h / 2 - EDGE),
   };
 }
+
+type Card = { cx: number; cy: number; w: number; h: number };
+const GAP = 6;
+const hit = (a: Card, b: Card) => Math.abs(a.cx - b.cx) * 2 < a.w + b.w && Math.abs(a.cy - b.cy) * 2 < a.h + b.h + GAP * 2;
+
+// Places cards in order; a card that would overlap an earlier one moves to the nearest free spot
+// directly above or below an obstacle, staying within [top, bottom]. Cards with no free spot keep their place.
+export function separateCards(cards: Card[], bounds: { top: number; bottom: number }): Card[] {
+  const placed: Card[] = [];
+  for (const c of cards) {
+    const fits = (cy: number) => cy - c.h / 2 >= bounds.top && cy + c.h / 2 <= bounds.bottom && placed.every((p) => !hit({ ...c, cy }, p));
+    let best = c.cy;
+    if (!fits(c.cy)) {
+      const candidates = placed.flatMap((p) => [p.cy + (p.h + c.h) / 2 + GAP, p.cy - (p.h + c.h) / 2 - GAP])
+        .filter(fits)
+        .sort((a, b) => Math.abs(a - c.cy) - Math.abs(b - c.cy));
+      if (candidates.length) best = candidates[0];
+    }
+    placed.push({ ...c, cy: best });
+  }
+  return placed;
+}

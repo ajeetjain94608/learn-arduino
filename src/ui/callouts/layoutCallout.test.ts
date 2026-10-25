@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { layoutCallout } from './layoutCallout';
+import { layoutCallout, separateCards } from './layoutCallout';
 
 const base = { card: { w: 120, h: 40 }, viewport: { w: 1036, h: 647 }, top: 100, bottom: 84 };
 
@@ -27,4 +27,22 @@ test('shrinks offsets on small screens', () => {
   const r = layoutCallout({ ...base, viewport: { w: 390, h: 844 }, anchor: { x: 200, y: 400 }, offset: [-62, 62] });
   expect(r.cx).toBeCloseTo(200 - 62 * (390 / 620), 6);
   expect(r.cy).toBeCloseTo(400 + 62 * (390 / 620), 6);
+});
+
+const overlaps = (a: { x: number; y: number; w: number; h: number }, b: typeof a) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+test('overlapping label cards are pushed apart vertically', () => {
+  const placed = separateCards([
+    { cx: 200, cy: 300, w: 140, h: 48 },
+    { cx: 230, cy: 310, w: 140, h: 48 },
+    { cx: 210, cy: 305, w: 140, h: 48 },
+  ], { top: 56, bottom: 500 });
+  const rects = placed.map((p) => ({ x: p.cx - 70, y: p.cy - 24, w: 140, h: 48 }));
+  for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(overlaps(rects[i], rects[j]), `${i}-${j}`).toBe(false);
+  for (const p of placed) { expect(p.cy - 24).toBeGreaterThanOrEqual(56); expect(p.cy + 24).toBeLessThanOrEqual(500); }
+});
+
+test('cards that do not overlap stay where they are', () => {
+  const input = [{ cx: 100, cy: 100, w: 80, h: 40 }, { cx: 300, cy: 100, w: 80, h: 40 }];
+  expect(separateCards(input, { top: 0, bottom: 400 }).map((p) => p.cy)).toEqual([100, 100]);
 });

@@ -30,6 +30,7 @@ export function Inspectable({ children, onEmptyTap }: { children: ReactNode; onE
   const root = useRef<THREE.Group>(null);
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
+  const gl = useThree((s) => s.gl);
   const reduced = useReducedMotion();
   const pivots = useRef<Map<string, THREE.Object3D>>(new Map());
   // Animation state lives here, not in userData: React re-renders may replace a pivot's userData.
@@ -47,11 +48,12 @@ export function Inspectable({ children, onEmptyTap }: { children: ReactNode; onE
         const p = map.get(id);
         if (!p) return null;
         p.getWorldPosition(v).project(camera);
-        return { x: (v.x * 0.5 + 0.5) * size.width, y: (-v.y * 0.5 + 0.5) * size.height };
+        const r = gl.domElement.getBoundingClientRect(); // page coordinates: the canvas sits inside a card
+        return { x: r.left + (v.x * 0.5 + 0.5) * size.width, y: r.top + (-v.y * 0.5 + 0.5) * size.height };
       };
       debug.lift = (id: string) => { const p = map.get(id); return (p && motion.current.get(p)?.lift) ?? 0; };
     }
-  }, [camera, size.width, size.height]);
+  }, [camera, gl, size.width, size.height]);
 
   useFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.1);

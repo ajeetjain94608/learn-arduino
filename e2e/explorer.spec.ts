@@ -4,11 +4,12 @@ const status = (page: Page) => page.getByTestId('status');
 const card = (page: Page, id: string) => page.locator(`[data-hotspot="${id}"]`);
 const electronsVisible = (page: Page) => page.evaluate(() => Boolean(window.__rq?.debug.electronsVisible));
 const canvas = (page: Page) => page.locator('canvas[data-engine]');
-// Themes, Board/Circuit and About live in the side menu (keeps the top of the screen clear for the 3D view).
-const menu = async (page: Page, name: string, exact = false) => {
-  await page.getByRole('button', { name: 'Menu' }).click();
-  await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name, exact }).click();
+// Themes and About live in Settings (main navigation); the project cards switch Board / Circuit.
+const settings = async (page: Page, name: string) => {
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name }).click();
 };
+const project = (page: Page, name: RegExp) => page.getByTestId('projects').getByRole('button', { name }).click();
 
 test('Run starts the blink program', async ({ page }) => {
   await page.goto('/?test');
@@ -21,7 +22,7 @@ test('Run starts the blink program', async ({ page }) => {
 
 test('the chosen theme survives a reload', async ({ page }) => {
   await page.goto('/?test');
-  await menu(page, 'Night Workshop theme');
+  await settings(page, 'Night Workshop theme');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'night');
 });
@@ -29,7 +30,7 @@ test('the chosen theme survives a reload', async ({ page }) => {
 test('circuit view shows circuit labels and hides board-only ones', async ({ page }) => {
   await page.goto('/?test');
   await expect(card(page, 'usb')).toBeVisible();
-  await menu(page, 'Circuit');
+  await project(page, /Blink an LED/);
   await expect(card(page, 'usb')).toBeHidden();
   await expect(card(page, 'led')).toBeVisible();
 });
@@ -44,17 +45,17 @@ test('tapping a label explains the part; tapping the bench closes it', async ({ 
 
 test('About lists the licence credits', async ({ page }) => {
   await page.goto('/?test');
-  await menu(page, 'About');
-  await expect(page.getByText('Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)')).toBeVisible();
+  await settings(page, 'About');
+  await expect(page.getByRole('dialog', { name: 'About RoboQuest' }).getByText('Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)')).toBeVisible();
 });
 
 test('current shows only in the circuit view while pin 13 is HIGH, even with rapid toggling', async ({ page }) => {
   await page.goto('/?test&hold');
   await page.getByRole('button', { name: 'Current' }).click();
-  await menu(page, 'Board', true);
+  await project(page, /Meet the board/);
   await page.waitForTimeout(400);
   expect(await electronsVisible(page)).toBe(false);
-  await menu(page, 'Circuit');
+  await project(page, /Blink an LED/);
   await expect.poll(() => electronsVisible(page)).toBe(true);
   await expect(status(page)).toHaveText('Current: pin 13 → LED → resistor → GND');
   await page.getByRole('button', { name: 'Current' }).click();
@@ -93,26 +94,15 @@ test('a lost 3D context that never returns offers a reload that works', async ({
   expect(ok).toBe(true);
 });
 
-test('the top bar stays clear: options live in a side menu that closes after choosing a view', async ({ page }) => {
+test('Settings opens from the navigation and closes with its close button or a tap outside', async ({ page }) => {
   await page.goto('/?test');
-  const top = page.locator('.topbar');
-  await expect(top.getByRole('button', { name: 'Lab theme' })).toHaveCount(0);
-  await expect(top.getByRole('button', { name: 'Circuit' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Menu' }).click();
-  const drawer = page.getByRole('dialog', { name: 'Menu' });
-  await expect(drawer.getByRole('button', { name: 'Mint theme' })).toBeVisible();
-  await expect(drawer.getByRole('button', { name: 'About' })).toBeVisible();
-  await drawer.getByRole('button', { name: 'Circuit' }).click();
-  await expect(drawer).toBeHidden();
-  await expect(card(page, 'led')).toBeVisible();
-});
-
-test('the side menu closes with its close button or by tapping outside it', async ({ page }) => {
-  await page.goto('/?test');
-  await page.getByRole('button', { name: 'Menu' }).click();
-  await page.getByRole('button', { name: 'Close menu' }).click();
-  await expect(page.getByRole('dialog', { name: 'Menu' })).toBeHidden();
-  await page.getByRole('button', { name: 'Menu' }).click();
+  const open = () => page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Settings' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await open();
+  await expect(dialog.getByRole('button', { name: 'Mint theme' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  await open();
   await page.mouse.click(30, 200); // the dimmed area outside the panel
-  await expect(page.getByRole('dialog', { name: 'Menu' })).toBeHidden();
+  await expect(dialog).toBeHidden();
 });
