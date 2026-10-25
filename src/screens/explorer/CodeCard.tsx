@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
+import { ExpandButton, type Panel } from './ExpandButton';
 
 // The sketch running on the board (Stage 2 swaps the demo clock for real execution of this code).
 export const BLINK_SKETCH = `void setup() {
@@ -18,7 +19,7 @@ void loop() {
 }`;
 const LINES = BLINK_SKETCH.split('\n');
 
-export function CodeCard() {
+export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): void }) {
   const running = useWorkbenchStore((s) => s.running);
   const uploading = useWorkbenchStore((s) => s.uploading);
   const progress = useWorkbenchStore((s) => s.uploadProgress);
@@ -34,14 +35,15 @@ export function CodeCard() {
     <section className="card code-card" data-testid="code-card" aria-label={t('code.title')}>
       <div className="code-card__head">
         <h2>{t('code.title')}</h2>
+        <ExpandButton expanded={panel === 'code'} expandLabel={t('code.expand')} shrinkLabel={t('code.shrink')} onToggle={() => onPanel(panel === 'code' ? null : 'code')} />
         <button type="button" className="icon-btn" aria-label={copied ? t('code.copied') : t('code.copy')} onClick={copy}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>
         </button>
-        <button type="button" className={`run-btn${running ? ' is-on' : ''}`} onClick={() => (running ? setRunning(false) : upload())}>
+        <button type="button" className={`run-btn${running ? ' is-on' : ''}`} aria-label={running ? t('dock.stop') : t('dock.run')} onClick={() => (running ? setRunning(false) : upload())}>
           {running
             ? <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
             : <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden><path d="M7 5v14l12-7z" /></svg>}
-          {running ? t('dock.stop') : t('dock.run')}
+          <span className="run-btn__text" aria-hidden>{running ? t('dock.stop') : t('dock.run')}</span>
         </button>
       </div>
       {uploading && (
@@ -57,12 +59,12 @@ export function CodeCard() {
           <span className="code__no" aria-hidden>{i + 1}</span>{text || ' '}{'\n'}
         </span>
       ))}</code></pre>
-      <SerialMonitor />
+      <SerialMonitor expanded={panel === 'serial'} onExpand={() => onPanel(panel === 'serial' ? null : 'serial')} />
     </section>
   );
 }
 
-function SerialMonitor() {
+function SerialMonitor({ expanded, onExpand }: { expanded: boolean; onExpand(): void }) {
   const lines = useWorkbenchStore((s) => s.serial);
   const clear = useWorkbenchStore((s) => s.clearSerial);
   const box = useRef<HTMLDivElement>(null);
@@ -73,6 +75,7 @@ function SerialMonitor() {
         <h3>{t('serial.title')}</h3>
         <span className="serial__baud">{t('serial.baud')}</span>
         <button type="button" className="serial__clear" onClick={clear}>{t('serial.clear')}</button>
+        <ExpandButton expanded={expanded} expandLabel={t('serial.expand')} shrinkLabel={t('serial.shrink')} onToggle={onExpand} />
       </div>
       <div ref={box} className="serial__out" role="log" aria-label={t('serial.title')} aria-live="polite">
         {lines.length === 0 ? <span className="serial__empty">{t('serial.empty')}</span> : lines.map((l, i) => <div key={i}>{l}</div>)}

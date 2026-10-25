@@ -146,3 +146,55 @@ test('each project explains itself in four formats: overview, pinout table, code
   await tab('Pinout');
   await expect(info.getByRole('row', { name: /A0–A5/ })).toBeVisible();
 });
+
+test('desktop and landscape: everything fits one fixed window; only panels scroll inside', async ({ page }, info) => {
+  test.skip(info.project.name === 'phone-portrait', 'phones held upright scroll the page, like the reference');
+  await page.goto('/?test');
+  await expect(page.getByTestId('viewer').locator('canvas[data-engine]')).toBeVisible();
+  const page_ = await page.evaluate(() => ({ h: document.documentElement.scrollHeight, w: document.documentElement.scrollWidth, vh: innerHeight, vw: innerWidth }));
+  expect(page_.h).toBeLessThanOrEqual(page_.vh);
+  expect(page_.w).toBeLessThanOrEqual(page_.vw);
+  // short landscape phones scroll the right column by itself (like the reference); desktop shows every panel at once
+  const inView = info.project.name === 'desktop' ? ['viewer', 'info-card', 'code-card', 'projects'] : ['viewer', 'projects'];
+  for (const id of inView) {
+    const b = await box(page.getByTestId(id));
+    expect(b.y, id).toBeGreaterThanOrEqual(0);
+    expect(b.y + b.height, id).toBeLessThanOrEqual(page_.vh + 1);
+  }
+});
+
+test('panels grow and shrink with their buttons: info, code, serial monitor', async ({ page }) => {
+  await page.goto('/?test');
+  const info = page.getByTestId('info-card'), code = page.getByTestId('code-card');
+  const serial = page.getByRole('log', { name: 'Serial monitor' });
+  await code.scrollIntoViewIfNeeded();
+  const h0 = (await box(serial)).height;
+
+  await page.getByRole('button', { name: 'Expand code' }).click();
+  await expect(page.getByRole('button', { name: 'Shrink code' })).toBeVisible();
+  await page.getByRole('button', { name: 'Shrink code' }).click();
+  await expect(info).toBeVisible();
+
+  await page.getByRole('button', { name: 'Expand serial monitor' }).click();
+  await expect.poll(async () => (await box(serial)).height).toBeGreaterThan(h0 + 40);
+  await page.getByRole('button', { name: 'Shrink serial monitor' }).click();
+  await expect.poll(async () => Math.round((await box(serial)).height)).toBe(Math.round(h0));
+
+  await info.scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: 'Expand panel' }).click();
+  await page.getByRole('button', { name: 'Shrink panel' }).click();
+  await expect(code).toBeVisible();
+});
+
+test('desktop: an expanded panel takes the whole column, like the reference', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop');
+  await page.goto('/?test');
+  const infoCard = page.getByTestId('info-card'), code = page.getByTestId('code-card');
+  const c0 = (await box(code)).height;
+  await page.getByRole('button', { name: 'Expand code' }).click();
+  await expect(infoCard).toBeHidden();
+  expect((await box(code)).height).toBeGreaterThan(c0 * 1.5);
+  await page.getByRole('button', { name: 'Shrink code' }).click();
+  await page.getByRole('button', { name: 'Expand panel' }).click();
+  await expect(code).toBeHidden();
+});

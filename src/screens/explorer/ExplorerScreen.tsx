@@ -13,6 +13,7 @@ import { CalloutLayer, CalloutProjector, createCalloutBridge } from '../../ui/ca
 import { HOTSPOTS } from '../../ui/callouts/hotspots';
 import { CodeCard } from './CodeCard';
 import { DemoClock } from './DemoClock';
+import type { Panel } from './ExpandButton';
 import { StatusPill, ViewerToolbar } from './Dock';
 import { AboutSheet, InfoCard } from './InfoSheet';
 import { NavBar } from './NavBar';
@@ -35,6 +36,7 @@ export function ExplorerScreen() {
   const [callout, setCallout] = useState<string | null>(null);
   const [about, setAbout] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null); // the side panel given extra room, if any
   const closeSettings = useCallback(() => setSettings(false), []);
   const bridge = useMemo(createCalloutBridge, []);
   const guard = useContextGuard();
@@ -72,12 +74,11 @@ export function ExplorerScreen() {
         <ViewerToolbar />
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
-      <div className="side">
-        <ProjectsRow />
-        <InfoCard project={view} focus={focus} />
-        <CodeCard />
-        <p className="credit">{t('credits.boardLayout')}</p>
+      <div className="side" data-expand={panel ?? undefined}>
+        <InfoCard project={view} focus={focus} expanded={panel === 'info'} onExpand={() => setPanel(panel === 'info' ? null : 'info')} />
+        <CodeCard panel={panel} onPanel={setPanel} />
       </div>
+      <ProjectsRow />
       <AboutSheet open={about} onClose={() => setAbout(false)} />
       <SettingsPanel open={settings} onClose={closeSettings} onAbout={() => { setCallout(null); selectPart(null); setAbout(true); }} />
     </main>

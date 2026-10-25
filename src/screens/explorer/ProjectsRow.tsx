@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { t, type StringKey } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import type { View } from '../../three/workbench/cameraViews';
@@ -19,10 +20,31 @@ const PROJECTS: { id: string; view?: View; icon: string; thumb?: string }[] = [
 export function ProjectsRow() {
   const view = useWorkbenchStore((s) => s.view);
   const setView = useWorkbenchStore((s) => s.setView);
+  const row = useRef<HTMLDivElement>(null);
+  const [ends, setEnds] = useState({ start: true, end: false }); // which arrows have nowhere to go
+  const measure = () => {
+    const el = row.current; if (!el) return;
+    setEnds({ start: el.scrollLeft <= 2, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 });
+  };
+  useEffect(() => {
+    measure();
+    if (typeof ResizeObserver === 'undefined' || !row.current) return; // jsdom
+    const ro = new ResizeObserver(measure); ro.observe(row.current);
+    return () => ro.disconnect();
+  }, []);
+  const page = (dir: number) => { const el = row.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8 }); };
+  const arrow = (dir: number) => (
+    <button type="button" className="icon-btn projects__arrow" aria-label={t(dir < 0 ? 'projects.earlier' : 'projects.more')}
+      disabled={dir < 0 ? ends.start : ends.end} onClick={() => page(dir)}>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={dir < 0 ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'} /></svg>
+    </button>
+  );
   return (
     <section className="projects" data-testid="projects" aria-label={t('projects.title')}>
-      <h2>{t('projects.title')}</h2>
-      <div className="projects__row">
+      <div className="projects__head"><h2>{t('projects.title')}</h2><p className="credit">{t('credits.boardLayout')}</p></div>
+      <div className="projects__strip">
+      {arrow(-1)}
+      <div className="projects__row" ref={row} onScroll={measure}>
         {PROJECTS.map((p, i) => {
           const playable = Boolean(p.view);
           const name = t(`project.${p.id}.name` as StringKey);
@@ -39,6 +61,8 @@ export function ProjectsRow() {
             </button>
           );
         })}
+      </div>
+      {arrow(1)}
       </div>
     </section>
   );

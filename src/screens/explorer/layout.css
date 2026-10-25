@@ -1,10 +1,11 @@
-/* Home layout. Landscape phones and desktops: icon rail | 3D card | scrolling side column.
-   Phones held upright: one scrolling page (header, 3D card, projects, info, code) above a bottom nav bar. */
+/* Home layout. Landscape phones and desktops fit one fixed window (the page never scrolls; panels scroll inside):
+     rail | header across the top | 3D card + side column (info, code) | projects strip across the bottom.
+   Phones held upright: one scrolling page (header, 3D card, info, code, projects) above a bottom nav bar. */
 .layout {
-  display: grid; gap: 12px; padding: 12px; padding-left: 0;
-  grid-template-columns: 76px minmax(0, 1fr) minmax(300px, 38%);
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas: "nav viewer header" "nav viewer side";
+  display: grid; gap: 10px 12px; padding: 12px; padding-left: 0;
+  grid-template-columns: 76px minmax(0, 1fr) minmax(320px, 36%);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "nav viewer header" "nav viewer side" "nav projects projects";
   height: 100%; overflow: hidden;
 }
 .navbar { grid-area: nav; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px;
@@ -24,11 +25,32 @@
 .header p { margin: 1px 0 0; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
 .viewer { grid-area: viewer; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--line);
   background: var(--paper); box-shadow: 0 6px 24px rgba(0,0,0,0.06); min-height: 0; }
-.side { grid-area: side; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 2px; min-height: 0; }
+.side { grid-area: side; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.projects { grid-area: projects; min-width: 0; }
+
+/* Side panels share the column and scroll inside; an expanded panel takes the whole column. */
+.info-card, .code-card { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.code-card { flex-grow: 1.5; container-type: inline-size; }
+.code-card__head h2, .serial__head h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@container (max-width: 380px) { .serial__baud, .run-btn__text { display: none; } .run-btn { width: 48px; padding: 0; justify-content: center; } }
+/* the grow button sits in the body's top-right corner, as in the reference, so all four tabs fit */
+.info-card { position: relative; }
+.info-card__head .tabs { margin: -4px -4px 10px; }
+.info-card__head .icon-btn { position: absolute; z-index: 1; right: 10px; top: 66px; background: var(--card); }
+.info-card__body > div > h2, .info-card__body > div > p:first-of-type { padding-right: 50px; }
+.info-card__body { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.code-card .code { flex: 1 1 0; min-height: 48px; overflow: auto; }
+.serial { flex: none; display: flex; flex-direction: column; margin-top: 8px !important; }
+.serial__head { margin-bottom: 4px !important; }
+.serial__out { height: clamp(56px, 9vh, 120px); }
+.side[data-expand="info"] .code-card, .side[data-expand="code"] .info-card, .side[data-expand="serial"] .info-card { display: none; }
+.side[data-expand="serial"] .code-card .code { flex: 0 1 auto; max-height: 35%; }
+.side[data-expand="serial"] .serial { flex: 1 1 auto; min-height: 0; }
+.side[data-expand="serial"] .serial__out { flex: 1; height: auto; min-height: 140px; }
 
 .viewer-toolbar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 1;
   display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 16px; background: var(--card); border: 1px solid var(--line);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.10); max-width: calc(100% - 20px); overflow-x: auto; }
+  box-shadow: 0 6px 18px rgba(0,0,0,0.10); max-width: calc(100% - 20px); overflow-x: auto; scrollbar-width: none; }
 .viewer-toolbar button { appearance: none; border: 0; background: transparent; color: var(--ink); width: 48px; height: 48px; flex: none;
   border-radius: 12px; display: grid; place-items: center; cursor: pointer; }
 .viewer-toolbar button svg { width: 20px; height: 20px; }
@@ -37,8 +59,13 @@
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; }
 .card h2, .projects h2 { margin: 0; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; }
-.projects h2 { margin-bottom: 8px; }
-.projects__row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+.projects__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.projects__head .credit { text-align: right; }
+.projects__strip { position: relative; display: flex; align-items: center; gap: 6px; }
+.projects__row { flex: 1; min-width: 0; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+.projects__row::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
+.projects__arrow { flex: none; border-radius: 50% !important; }
+.projects__arrow:disabled { opacity: .35; cursor: default; }
 .project { appearance: none; flex: none; scroll-snap-align: start; width: 240px; min-height: 80px; display: flex; align-items: center; gap: 12px;
   padding: 10px 14px; border-radius: 16px; border: 2px solid var(--line); background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .project.is-on { border-color: var(--accent); }
@@ -49,9 +76,9 @@
 .project__text b { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
 .project__text small { font-size: 14px; color: var(--ink-2); }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px -4px 10px; overflow-x: auto; }
+.tabs { scrollbar-width: none; display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: -4px -4px 10px; overflow-x: auto; }
 .tabs button { appearance: none; border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 800;
-  letter-spacing: 0.06em; text-transform: uppercase; min-height: 48px; padding: 0 10px; border-bottom: 3px solid transparent; cursor: pointer; flex: none; }
+  letter-spacing: 0.03em; text-transform: uppercase; min-height: 48px; padding: 0 8px; border-bottom: 3px solid transparent; cursor: pointer; flex: none; }
 .tabs button.is-on { color: var(--ink); border-bottom-color: var(--accent); }
 .info-card__body h2 { margin: 0 0 6px; font-size: 18px; text-transform: none; letter-spacing: 0; }
 .info-card__body p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
@@ -104,7 +131,19 @@
   .app.layout { overflow-y: auto; }
   .header { order: 1; padding-top: env(safe-area-inset-top); }
   .viewer { order: 2; height: 58vh; min-height: 320px; flex: none; }
-  .side { order: 3; overflow: visible; }
+  .projects { order: 3; }
+  .side { order: 4; }
+  .info-card, .code-card { flex: none; overflow: visible; }
+  .code-card .code { flex: none; }
+  .serial__out { height: 132px; }
+  .info-card__body { overflow: visible; }
+  .code-card .code { max-height: 260px; }
+  .side[data-expand] .info-card, .side[data-expand] .code-card { display: flex; }
+  .side[data-expand="code"] .code-card .code { max-height: none; }
+  .side[data-expand="serial"] .code-card .code { max-height: 260px; }
+  .side[data-expand="serial"] .serial__out { height: 60vh; flex: none; }
+  .projects__head { flex-direction: column; gap: 2px; }
+  .projects__head .credit { text-align: left; }
   .navbar { order: 4; position: fixed; z-index: 4; left: 0; right: 0; bottom: 0; margin: 0; flex-direction: row; justify-content: space-around;
     border-right: 0; border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
   .navbar button { flex: 1; }
@@ -112,10 +151,26 @@
   .navbar__toggle { display: none !important; }
   .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
 }
-/* Short landscape phones: icons only in the rail. */
-@media (max-height: 460px) {
+/* Short landscape phones (like the reference): the 3D card keeps the full height on the left; the header,
+   projects and panels stack in the right column, which scrolls by itself. The page itself still never scrolls. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .layout { grid-template-columns: 76px minmax(0, 1fr) minmax(290px, 40%); grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "nav viewer header" "nav viewer projects" "nav viewer side"; }
   .header p { display: none; }
   .navbar { overflow-y: auto; }
+  .projects__head { display: none; }
+  .project { width: 220px; min-height: 64px; padding: 6px 12px; }
+  .project__thumb, .project__icon { width: 64px; height: 48px; }
+  .side { overflow-y: auto; }
+  .info-card, .code-card { flex: none; overflow: visible; }
+  .info-card__body { overflow: visible; }
+  .code-card .code { flex: none; max-height: 220px; }
+  .side[data-expand="code"] .code-card .code { max-height: none; }
+  .side[data-expand="serial"] .code-card .code { max-height: 220px; }
+  .side[data-expand="serial"] .serial__out { height: 70vh; flex: none; }
+  .card { padding: 10px 12px; }
+  .viewer-toolbar { gap: 0; padding: 3px; }
+  .viewer-toolbar__sep { display: none; }
 }
 /* Narrow cards: keep all seven 48 px toolbar buttons visible. */
 @media (max-width: 420px) {
@@ -135,6 +190,6 @@
 .serial__baud { font-size: 14px; color: var(--ink-2); }
 .serial__clear { appearance: none; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: transparent;
   color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
-.serial__out { height: 132px; overflow-y: auto; padding: 8px 12px; border-radius: 12px; background: #0E1422; color: #CFE8FF;
+.serial__out { overflow-y: auto; padding: 8px 12px; border-radius: 12px; background: #0E1422; color: #CFE8FF;
   font: 500 14px/1.55 ui-monospace, Consolas, monospace; }
 .serial__empty { color: #8392AB; }
