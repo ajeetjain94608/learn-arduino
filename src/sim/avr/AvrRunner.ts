@@ -1,6 +1,6 @@
 import {
-  adcConfig, AVRADC, AVRIOPort, AVRTimer, AVRUSART, avrInstruction, CPU, PinState,
-  portBConfig, portCConfig, portDConfig, timer0Config, timer1Config, timer2Config, usart0Config,
+  adcConfig, AVRADC, AVRIOPort, AVRTimer, AVRTWI, AVRUSART, avrInstruction, CPU, NoopTWIEventHandler, PinState,
+  portBConfig, portCConfig, portDConfig, timer0Config, timer1Config, timer2Config, twiConfig, usart0Config, type TWIEventHandler,
 } from 'avr8js';
 import { pwmDuty } from './pwm';
 import { unoPin, type Port } from './unoPins';
@@ -10,7 +10,9 @@ const CYCLES_PER_MS = CPU_HZ / 1000;
 const CHUNK = 1000; // instructions between wall-clock checks
 const RAMEND = 0x8ff;
 
-type Machine = { cpu: CPU; ports: Record<Port, AVRIOPort>; usart: AVRUSART; adc: AVRADC; timers: AVRTimer[] };
+type Machine = { cpu: CPU; ports: Record<Port, AVRIOPort>; usart: AVRUSART; adc: AVRADC; timers: AVRTimer[]; twi: AVRTWI };
+export type PinWatcher = (pin: number, high: boolean) => void;
+const PORT_PINS: Record<Port, number[]> = { D: [0, 1, 2, 3, 4, 5, 6, 7], B: [8, 9, 10, 11, 12, 13], C: [14, 15, 16, 17, 18, 19] };
 export type PinMode = 'input' | 'input-pullup' | 'output';
 
 // A simulated ATmega328P running a compiled program (avr8js): the Uno's pins, Serial and analog inputs.
@@ -20,6 +22,9 @@ export class AvrRunner {
   private readonly inputs = new Map<number, boolean | null>(); // externally driven input pins (null = floating)
   private readonly analog: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
   private rxQueue: number[] = [];
+  private watchers: PinWatcher[] = [];       // told of every pin level change, the moment the program makes it
+  private levels: boolean[] = new Array(20).fill(false);
+  private twiDevice: ((twi: AVRTWI) => TWIEventHandler) | null = null; // what answers on the I²C bus (A4/A5)
   private tx = '';
   lastTxSimMs = -Infinity;
 
@@ -38,11 +43,15 @@ export class AvrRunner {
     const timers = [new AVRTimer(cpu, timer0Config), new AVRTimer(cpu, timer1Config), new AVRTimer(cpu, timer2Config)];
     const usart = new AVRUSART(cpu, usart0Config, CPU_HZ);
     const adc = new AVRADC(cpu, adcConfig);
+    const twi = new AVRTWI(cpu, twiConfig, CPU_HZ);
+    twi.eventHandler = this.twiDevice ? this.twiDevice(twi) : new NoopTWIEventHandler(twi);
     adc.channelValues.splice(0, this.analog.length, ...this.analog);
     usart.onByteTransmit = (b) => { this.tx += String.fromCharCode(b); this.lastTxSimMs = this.simMs; };
-    this.m = { cpu, ports, usart, adc, timers };
-    // when the program changes a pin's direction or pull-up, re-apply what the outside world puts on input pins
-    for (const p of Object.values(ports)) p.addListener(() => this.applyInputs());
+    this.m = { cpu, ports, usart, adc, timers, twi };
+    this.levels.fill(false);
+    // when the program changes a pin's direction or pull-up, re-apply what the outside world puts on input pins;
+    // and tell the watchers (modules timing the pins) about every level that changed
+    for (const [name, p] of Object.entries(ports) as [Port, AVRIOPort][]) p.addListener(() => { this.applyInputs(); this.emitEdges(name); });
     this.rxQueue = [];
     this.lastTxSimMs = -Infinity;
     this.applyInputs();
@@ -101,6 +110,24 @@ export class AvrRunner {
   }
 
   takeSerial(): string { const s = this.tx; this.tx = ''; return s; }
+
+  get cycles(): number { return this.m.cpu.cycles; }
+  // Calls `cb` after `cycles` CPU cycles of simulated time (a module answering at the right moment).
+  after(cycles: number, cb: () => void): void { this.m.cpu.addClockEvent(cb, Math.max(1, Math.round(cycles))); }
+  watchPins(cb: PinWatcher): () => void { this.watchers.push(cb); return () => { this.watchers = this.watchers.filter((w) => w !== cb); }; }
+  // The device on the I²C bus (null: nobody answers). Kept across resets.
+  setTwiDevice(make: ((twi: AVRTWI) => TWIEventHandler) | null): void {
+    this.twiDevice = make;
+    this.m.twi.eventHandler = make ? make(this.m.twi) : new NoopTWIEventHandler(this.m.twi);
+  }
+  private emitEdges(port: Port) {
+    for (const n of PORT_PINS[port]) {
+      const high = this.pin(n).high;
+      if (high === this.levels[n]) continue;
+      this.levels[n] = high;
+      for (const w of this.watchers) w(n, high);
+    }
+  }
 
   // A floating input reads HIGH with the internal pull-up enabled, LOW without.
   private inputLevel(n: number, mode: PinMode): boolean {

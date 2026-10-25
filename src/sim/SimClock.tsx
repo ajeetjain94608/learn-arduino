@@ -9,6 +9,7 @@ import type { Burn, InputValues } from '../circuit/evaluate';
 import type { CircuitSpec } from '../circuit/types';
 import { circuitChanged, type CircuitSnapshot, type SimSnapshot } from './simEngine';
 import type { SimCommand, SimMessage } from './sim.worker';
+import { liveDevices } from './liveDevices';
 import { shownSpeed } from './simSpeed';
 
 const TX_LIT_MS = 30;  // the TX LED stays visibly lit this long (sim time) after each byte
@@ -128,7 +129,7 @@ export function SimClock({ circuit, inputs, burns, onBurns }: Props = {}) {
       return;
     }
     if (wasBooting.current) { wasBooting.current = false; send({ t: 'resume' }); }
-    if (!s.running) { unload(); return; }
+    if (!s.running) { unload(); liveDevices.states = {}; return; }
     if (loaded.current !== s.program) {
       gen.current++;
       snap.current = null;
@@ -150,6 +151,7 @@ export function SimClock({ circuit, inputs, burns, onBurns }: Props = {}) {
     const tx = chip.simMs - chip.lastTxSimMs < TX_LIT_MS, rx = performance.now() < rxUntil.current;
     if (tx !== s.txLed || rx !== s.rxLed) s.setSerialLeds(rx, tx);
     if (chip.line !== s.line) s.setLine(chip.line);
+    liveDevices.states = chip.devices ?? {};
     if (chip.circuit?.board.shorted && s.running) s.setRunning(false); // a short stops the board
     if (isTestMode()) (window.__rq ??= { debug: {} }).debug.sim = { simMs: chip.simMs, pin13: chip.pin13, speed: chip.speed };
   });

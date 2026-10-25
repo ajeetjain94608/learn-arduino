@@ -1,8 +1,12 @@
 import type { LineEntry } from '../build/compiler/types';
-import { evaluate, type Burn, type InputValues, type PartState, type PinDrive } from '../circuit/evaluate';
+import { evaluate, unoLinks, type Burn, type InputValues, type Link, type PartState, type PinDrive } from '../circuit/evaluate';
 import type { CircuitSpec } from '../circuit/types';
 import { AvrRunner } from './avr/AvrRunner';
 import { currentLine } from './avr/sourceLine';
+import { Buzzer, Oled, Servo, Sonar, Stepper, type Device, type DeviceState } from './devices';
+
+const DEVICE_TYPES = new Set(['buzzer', 'servo', 'hcsr04', 'stepper', 'oled']);
+const SDA = 18, SCL = 19; // A4, A5
 
 export const MAX_DEBT_MS = 200;  // after a slow stretch, catch up at most this much (no fast-forward bursts)
 const SPEED_WINDOW_MS = 500;     // speed = chip time ÷ wall time over windows this long
@@ -27,6 +31,7 @@ export type SimSnapshot = {
   speed: number;         // chip time ÷ real time (1 = keeping up)
   replaced: number;      // replace requests handled so far (the page ignores older snapshots after asking)
   circuit?: CircuitSnapshot; // the learner's circuit, when one is attached (Build)
+  devices?: Record<string, DeviceState>; // modules timed by the chip (buzzer, servo, HC-SR04, stepper, OLED), by part id
 };
 
 // The simulated chip, paced to real time. Runs in the simulation worker (sim.worker.ts), where it can use a whole
@@ -51,8 +56,13 @@ export class SimEngine {
   private dirty = true;        // the circuit or an input changed: solve again
   evaluations = 0;             // how many times the circuit was solved (tests keep this low)
   private replaced = 0;
+  private links: Record<string, Record<string, Link>> = {};
+  private devices = new Map<string, Device>();
+  private deviceSig = '';
+  private devicePins = new Set<number>(); // pins a module drives itself (HC-SR04 ECHO): the circuit leaves them alone
 
   load(flash: Uint8Array, lines: LineEntry[], now: number): void {
+    this.dropDevices();
     this.chip = new AvrRunner(flash);
     this.lines = lines;
     this.serial = this.lastChar = '';
@@ -70,11 +80,13 @@ export class SimEngine {
     this.speed = 1;
   }
 
-  stop(): void { this.chip = null; this.signature = ''; this.dirty = true; }
+  stop(): void { this.dropDevices(); this.chip = null; this.signature = ''; this.dirty = true; }
+  private dropDevices() { for (const d of this.devices.values()) d.detach(); this.devices.clear(); this.devicePins.clear(); this.deviceSig = ''; }
 
   // The learner's circuit around the UNO (null = none: the chip runs on its own, as on Home).
   setCircuit(spec: CircuitSpec | null): void {
     this.spec = spec;
+    this.links = spec ? unoLinks(spec) : {};
     this.dirty = true;
     // a part that was thrown away takes its burn with it (the board's own burns stay until "Replace board")
     const ids = new Set(spec?.parts.map((p) => p.id) ?? []);
@@ -115,10 +127,40 @@ export class SimEngine {
     this.evaluations++;
     for (const b of r.newBurns) { this.burnt.add(b.id); this.burns.push(b); }
     this.circuitState = { seq: (this.circuitState?.seq ?? 0) + 1, parts: r.parts, burns: [...this.burns], board: r.board };
+    if (chip) this.configureDevices(chip, r.parts);
     if (chip) drives.forEach((d, n) => {
-      if (d.mode !== 'output') chip.setInput(n, r.pinVolts[n] > HIGH_VOLTS);
+      if (d.mode !== 'output' && !this.devicePins.has(n)) chip.setInput(n, r.pinVolts[n] > HIGH_VOLTS);
       if (n >= 14) chip.setAnalog(n - 14, r.pinVolts[n]);
     });
+  }
+  // The modules that can work now (powered, signal pins wired to the UNO); rebuilt only when that changes.
+  private configureDevices(chip: AvrRunner, parts: Record<string, PartState>) {
+    const want: { id: string; sig: string; make: () => Device; drives?: number }[] = [];
+    const num = (l: Link | undefined): l is number => typeof l === 'number';
+    for (const p of this.spec?.parts ?? []) {
+      const L = this.links[p.id] ?? {}, powered = !!parts[p.id]?.powered;
+      if (p.type === 'buzzer' && num(L['+']) && L['-'] === 'GND') { const pin = L['+']; want.push({ id: p.id, sig: `${pin}`, make: () => new Buzzer(chip, pin) }); }
+      if (!powered) continue;
+      if (p.type === 'servo' && num(L.SIG)) { const pin = L.SIG; want.push({ id: p.id, sig: `${pin}`, make: () => new Servo(chip, pin) }); }
+      if (p.type === 'hcsr04' && num(L.TRIG) && num(L.ECHO)) {
+        const [trig, echo] = [L.TRIG, L.ECHO];
+        want.push({ id: p.id, sig: `${trig},${echo}`, drives: echo, make: () => new Sonar(chip, trig, echo, () => this.inputs[p.id]?.cm ?? 30) });
+      }
+      if (p.type === 'stepper') {
+        const ins = [L.IN1, L.IN2, L.IN3, L.IN4];
+        if (ins.every(num)) want.push({ id: p.id, sig: ins.join(), make: () => new Stepper(chip, ins as [number, number, number, number]) });
+      }
+      if (p.type === 'oled' && L.SDA === SDA && L.SCL === SCL) want.push({ id: p.id, sig: 'i2c', make: () => new Oled(chip) });
+    }
+    const sig = want.map((w) => `${w.id}:${w.sig}`).join('|');
+    if (sig === this.deviceSig) return;
+    this.dropDevices();
+    this.deviceSig = sig;
+    for (const w of want) {
+      if (w.sig === 'i2c' && [...this.devices.values()].some((d) => d instanceof Oled)) continue; // one screen on the bus
+      this.devices.set(w.id, w.make());
+      if (w.drives !== undefined) this.devicePins.add(w.drives);
+    }
   }
   private get shorted() { return this.burnt.has('uno'); }
   setHold(on: boolean): void { this.hold = on; }
@@ -163,12 +205,14 @@ export class SimEngine {
     const serial = this.serial;
     this.serial = '';
     const circuit = this.spec && this.circuitState ? this.circuitState : undefined;
+    const devices = this.spec ? Object.fromEntries(this.spec.parts.filter((p) => DEVICE_TYPES.has(p.type)).map((p) => [p.id, this.devices.get(p.id)?.state() ?? {}])) : undefined;
     if (!chip) return { running: false, simMs: 0, levels: 0, pin13: false, line: null, serial, lastTxSimMs: -Infinity, speed: 1, circuit, replaced: this.replaced };
     let levels = 0;
     for (let n = 0; n < 20; n++) if (chip.pin(n).high) levels |= 1 << n;
     return {
       running: !this.shorted,
       circuit,
+      devices,
       simMs: chip.simMs,
       levels,
       pin13: (levels & (1 << 13)) !== 0,

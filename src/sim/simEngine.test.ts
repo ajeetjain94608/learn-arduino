@@ -282,3 +282,72 @@ describe('B3: the board as it really is', { timeout: 60_000 }, () => {
     expect(e.snapshot().replaced).toBe(2);
   });
 });
+
+describe('B3: modules the chip talks to, cycle by cycle', { timeout: 120_000 }, () => {
+  const w = (from: string, to: string): Wire => ({ id: `${from}-${to}`, from, to, color: '#000' });
+  const start = (spec: CircuitSpec, fixture: string, inputs: Record<string, Record<string, number>> = {}) => {
+    const e = new SimEngine();
+    e.setCircuit(spec);
+    for (const [id, v] of Object.entries(inputs)) for (const [k, x] of Object.entries(v)) e.setInput(id, k, x);
+    const { flash, lines } = prog(fixture);
+    e.load(flash, lines, 0);
+    return e;
+  };
+
+  it('a buzzer on pin 8 sounds at the frequency tone() plays (440 Hz ± 1 %)', () => {
+    const e = start({ parts: [{ id: 'buzzer1', type: 'buzzer', params: {}, at: { col: 20, row: 'a' } }], wires: [w('uno.D8', 'bb.20c'), w('bb.23c', 'uno.GND')] }, 'tone');
+    play(e, 0, 300);
+    expect(Math.abs(e.snapshot().devices!.buzzer1.hz! - 440)).toBeLessThan(4.4);
+  });
+
+  const servo = { id: 'servo1', type: 'servo' as const, params: {}, at: { x: 30, z: 75 } };
+  it('a powered servo turns to the angle written (90°, then 0°)', () => {
+    const e = start({ parts: [servo], wires: [w('uno.D9', 'servo1.SIG'), w('uno.5V', 'servo1.V+'), w('servo1.GND', 'uno.GND')] }, 'servo');
+    play(e, 0, 300);
+    expect(e.snapshot().devices!.servo1.angle).toBeCloseTo(90, -0.5);
+    play(e, 300, 600);
+    expect(e.snapshot().devices!.servo1.angle).toBeCloseTo(0, -0.5);
+  });
+  it('a servo without power does not move', () => {
+    const e = start({ parts: [servo], wires: [w('uno.D9', 'servo1.SIG'), w('servo1.GND', 'uno.GND')] }, 'servo');
+    play(e, 0, 300);
+    expect(e.snapshot().devices!.servo1.angle).toBeUndefined();
+  });
+
+  const hc = { id: 'hcsr041', type: 'hcsr04' as const, params: {}, at: { x: -15, z: 75 } };
+  const sonarWires = [w('uno.D9', 'hcsr041.TRIG'), w('hcsr041.ECHO', 'uno.D10'), w('uno.5V', 'hcsr041.VCC'), w('hcsr041.GND', 'uno.GND')];
+  const lastPrinted = (e: SimEngine) => Number(e.snapshot().serial.trim().split(/\r\n/).at(-1));
+  it('HC-SR04: pulseIn() times an echo of 58 µs per cm, and follows the obstacle', () => {
+    const e = start({ parts: [hc], wires: sonarWires }, 'sonar', { hcsr041: { cm: 20 } });
+    play(e, 0, 400);
+    expect(Math.abs(lastPrinted(e) - 20)).toBeLessThanOrEqual(1);
+    e.setInput('hcsr041', 'cm', 150);
+    play(e, 400, 400);
+    expect(Math.abs(lastPrinted(e) - 150)).toBeLessThanOrEqual(2);
+  });
+  it('HC-SR04 without power never answers (pulseIn gives up: 0)', () => {
+    const e = start({ parts: [hc], wires: sonarWires.slice(0, 2) }, 'sonar', { hcsr041: { cm: 20 } });
+    play(e, 0, 2500);
+    expect(lastPrinted(e)).toBe(0);
+  });
+
+  it('stepper: 512 steps forward and 256 back leave it a quarter… then an eighth of a turn round (45°)', () => {
+    const e = start({ parts: [{ id: 'stepper1', type: 'stepper', params: {}, at: { x: 75, z: 75 } }],
+      wires: [w('uno.D8', 'stepper1.IN1'), w('uno.D9', 'stepper1.IN2'), w('uno.D10', 'stepper1.IN3'), w('uno.D11', 'stepper1.IN4'), w('uno.5V', 'stepper1.+'), w('stepper1.-', 'uno.GND')] }, 'stepper');
+    play(e, 0, 4000);
+    const s = e.snapshot().devices!.stepper1;
+    expect(s.steps).toBe(256);
+    expect(s.angle).toBeCloseTo(45, 1);
+  });
+
+  it('OLED: what the sketch draws reaches the 128 × 64 screen over I²C', () => {
+    const e = start({ parts: [{ id: 'oled1', type: 'oled', params: {}, at: { x: 120, z: 75 } }],
+      wires: [w('uno.A4', 'oled1.SDA'), w('uno.A5', 'oled1.SCL'), w('uno.5V', 'oled1.VCC'), w('oled1.GND', 'uno.GND')] }, 'oled');
+    play(e, 0, 1500);
+    const frame = e.snapshot().devices!.oled1.frame!;
+    const px = (x: number, y: number) => (frame[x + (y >> 3) * 128] >> (y & 7)) & 1;
+    expect(px(5, 45)).toBe(1);      // inside the filled square (0,40)–(9,49)
+    expect(px(20, 45)).toBe(0);
+    expect([0, 1, 2, 3, 4].some((x) => [0, 1, 2, 3, 4, 5, 6].some((y) => px(x, y)))).toBe(true); // the "H"
+  });
+});

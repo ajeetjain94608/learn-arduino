@@ -19,7 +19,7 @@ export function buildSketch(ino, name) {
   try {
     const cpp = join(dir, `${name}.cpp`), obj = join(dir, `${name}.o`), elf = join(dir, `${name}.elf`), hex = join(dir, `${name}.hex`);
     writeFileSync(cpp, toCpp(ino, name));
-    execFileSync(t.gpp, [...CPP_FLAGS, ...SKETCH_FLAGS, ...MCU, ...INCLUDES, cpp, '-o', obj], { stdio: 'inherit' });
+    execFileSync(t.gpp, [...CPP_FLAGS, ...SKETCH_FLAGS, ...MCU, ...INCLUDES, '-Itools/avr-wasm/libraries', cpp, '-o', obj], { stdio: 'inherit' });
     execFileSync(t.gcc, [...LINK_FLAGS, obj, 'public/avr/uno/core.a', '-lm', '-o', elf], { stdio: 'inherit' });
     execFileSync(t.objcopy, ['-O', 'ihex', '-R', '.eeprom', elf, hex]);
     const decoded = execFileSync(t.objdump, ['--dwarf=decodedline', elf], { encoding: 'utf8', maxBuffer: 64 << 20 });

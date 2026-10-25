@@ -56,11 +56,14 @@ const netsOf = (spec: CircuitSpec) => {
   return nets;
 };
 
-// For every pin of every part, the UNO pin (0–19) it is wired to, if any — what timing modules listen to or drive.
-export function unoLinks(spec: CircuitSpec): Record<string, Record<string, number | null>> {
+// For every pin of every part, the UNO pin (0–19) it is wired to, 'GND' when it is on ground, or null — what timing
+// modules listen to or drive.
+export type Link = number | 'GND' | null;
+export function unoLinks(spec: CircuitSpec): Record<string, Record<string, Link>> {
   const nets = netsOf(spec);
-  const unoNet = new Map<number, number>();
+  const unoNet = new Map<number, Link>();
   for (let n = 19; n >= 0; n--) unoNet.set(nets.netOf(`uno.${unoPinName(n)}`), n);
+  unoNet.set(nets.netOf('uno.GND'), 'GND');
   return Object.fromEntries(spec.parts.map((p) => [p.id, Object.fromEntries(PART_DEFS[p.type].pins.map((pin) => [pin, unoNet.get(nets.netOf(`${p.id}.${pin}`)) ?? null]))]));
 }
 
