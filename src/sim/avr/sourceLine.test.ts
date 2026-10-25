@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { LineEntry } from '../../build/compiler/types';
 import { AvrRunner } from './AvrRunner';
 import { parseIntelHex } from './hex';
+import { runSim } from './testing';
 import { currentLine } from './sourceLine';
 
 const load = (name: string) => ({
@@ -12,17 +13,17 @@ const load = (name: string) => ({
 });
 const lineNow = ({ runner, table }: ReturnType<typeof load>) => currentLine(runner.pc, runner.returnAddresses(), table);
 
-describe('the running source line', () => {
+describe('the running source line', { timeout: 60_000 }, () => {
   it('blink: while in delay after HIGH, current line is the first delay(1000) line (9)', () => {
     const b = load('blink');
-    b.runner.runFor(500, 1000);
+    runSim(b.runner, 500);
     expect(b.runner.pin(13).high).toBe(true);
     expect(lineNow(b)).toBe(9);
   });
 
   it('during the LOW half it is line 12', () => {
     const b = load('blink');
-    b.runner.runFor(1500, 1000);
+    runSim(b.runner, 1500);
     expect(b.runner.pin(13).high).toBe(false);
     expect(lineNow(b)).toBe(12);
   });

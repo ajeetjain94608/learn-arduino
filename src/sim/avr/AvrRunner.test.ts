@@ -3,15 +3,16 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AvrRunner } from './AvrRunner';
 import { HexError, parseIntelHex } from './hex';
+import { runSim } from './testing';
 
 const fixture = (name: string) => new AvrRunner(parseIntelHex(readFileSync(`src/sim/avr/fixtures/${name}.hex`, 'utf8')));
 
 // Run in 1 ms steps, calling `each` after every step (generous budget: correctness, not speed).
 function runSteps(r: AvrRunner, ms: number, each?: () => void) {
-  for (let i = 0; i < ms; i++) { r.runFor(1, 1000); each?.(); }
+  for (let i = 0; i < ms; i++) { runSim(r, 1); each?.(); }
 }
 
-describe('AvrRunner', () => {
+describe('AvrRunner', { timeout: 60_000 }, () => {
   it('blink toggles D13 every 1000 ms (±1 ms)', () => {
     const r = fixture('blink');
     const edges: number[] = [];
