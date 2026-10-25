@@ -1,27 +1,45 @@
 import { COLUMNS, type Row } from '../three/breadboard/breadboardGeometry';
-import type { PartType, Placement } from './types';
+import { onBench, type BoardPlacement, type PartInstance, type PartType, type Placement } from './types';
 
 export type ParamDef = { key: string; options: (string | number)[]; default: string | number };
 export type InputDef = { key: string; min: number; max: number; step: number; unit: string; default: number };
+// A module standing on the bench: its size (mm, x by z) and where each header pin's tip is, from its centre (x, y, z).
+export type BenchDef = { w: number; d: number; h: number; pins: Record<string, [number, number, number]> };
 export type PartDef = {
   pins: string[];
   // where each pin's leg sits on the breadboard (hole names like "10a"), or null if the part can't sit there
   footprint(at: Placement, params: Record<string, string | number>): Record<string, string> | null;
   // every hole the part's body sits over, legs included (no other part may use them); [] if it can't sit there
   covers(at: Placement, params: Record<string, string | number>): string[];
+  bench?: BenchDef; // set for modules: they stand on the bench and wires go to their own pins
   params: ParamDef[];
   inputs: InputDef[];
 };
 
 export const LED_COLORS = ['red', 'green', 'yellow', 'blue', 'white'] as const;
 export const LED_VF: Record<string, number> = { red: 1.9, yellow: 2.0, green: 2.1, blue: 3.0, white: 3.0 };
+export const RGB_VF = { R: 2.0, G: 3.0, B: 3.0 } as const;           // a common-cathode RGB LED's three dies
+export const TRAFFIC_VF = { R: 1.9, Y: 2.0, G: 2.1 } as const;       // the traffic-light module's LEDs…
+export const TRAFFIC_OHMS = 220;                                     // …each with its own resistor on the board
 export const POT_OHMS = 10_000;
+export const MOTOR_OHMS = 8;            // a small 3–6 V hobby motor's winding
+export const MOTOR_FULL_A = 0.5;        // its current at full speed on 5 V through a TIP120 (5 V ÷ (8 Ω + 2 Ω))
+
+// Sensor curves (from typical data sheets)
+// LDR (GL5528-like): about 10 kΩ at 10 lux, falling as the light grows; 1 MΩ in the dark.
+export const ldrOhms = (lux: number) => Math.min(1e6, 10_000 * (10 / Math.max(lux, 0.01)) ** 0.8);
+// FSR (402-like): open when not pressed; about 10 kΩ at 100 g, 1 kΩ at 1 kg.
+export const fsrOhms = (grams: number) => (grams <= 0.5 ? 1e7 : Math.min(1e7, 1e6 / grams));
+// TMP36: 0.5 V at 0 °C, +10 mV per °C.
+export const tmp36Volts = (celsius: number) => 0.5 + 0.01 * celsius;
+// Capacitive soil-moisture sensor: about 2.54 V in dry air (reading 520), 1.27 V in water (260).
+export const soilVolts = (percent: number) => 2.54 - 0.0127 * Math.min(100, Math.max(0, percent));
 
 const STRIP_ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 const onBoard = (col: number) => col >= 1 && col <= COLUMNS;
 const range = (from: number, n: number) => Array.from({ length: n }, (_, i) => from + i);
 // a block of holes: columns col…col+w-1 and up to h rows from `row` on its own side of the gap
-function block(at: Placement, w: number, h: number): string[] {
+function block(at: BoardPlacement, w: number, h: number): string[] {
   const i = STRIP_ROWS.indexOf(at.row), side = i < 5 ? 0 : 5;
   const rows = range(i, h).filter((r) => r < side + 5);
   while (rows.length < h && rows[0] > side) rows.unshift(rows[0] - 1); // near the gap: grow away from it
@@ -29,22 +47,33 @@ function block(at: Placement, w: number, h: number): string[] {
 }
 // legs in one row, at these column offsets from the anchor
 const inRow = (pinsAt: Record<string, number>) => (at: Placement) => {
-  if (!STRIP_ROWS.includes(at.row) || Object.values(pinsAt).some((d) => !onBoard(at.col + d))) return null;
+  if (onBench(at) || !STRIP_ROWS.includes(at.row) || Object.values(pinsAt).some((d) => !onBoard(at.col + d))) return null;
   return Object.fromEntries(Object.entries(pinsAt).map(([pin, d]) => [pin, `${at.col + d}${at.row}`]));
 };
+// a part whose body covers only the holes its legs are in
+const legsOnly = (pinsAt: Record<string, number>) => ({ footprint: inRow(pinsAt), covers: (at: Placement) => Object.values(inRow(pinsAt)(at) ?? {}) });
+// a part whose body covers `w` columns × `h` rows from its first leg
+const bodyBlock = (pinsAt: Record<string, number>, w: number, h: number) => ({
+  footprint: inRow(pinsAt),
+  covers: (at: Placement) => (inRow(pinsAt)(at) && !onBench(at) ? block(at, w, h) : []),
+});
+// a module: no breadboard holes, its own pins
+const module = (bench: BenchDef) => ({ pins: Object.keys(bench.pins), footprint: () => null, covers: () => [], bench });
+// header pins in a row along x, `pitch` apart, centred on x0
+const header = (names: string[], x0: number, y: number, z: number, pitch = 2.54): Record<string, [number, number, number]> =>
+  Object.fromEntries(names.map((n, i) => [n, [x0 + (i - (names.length - 1) / 2) * pitch, y, z]]));
 
 export const PART_DEFS: Record<PartType, PartDef> = {
   led: {
     pins: ['A', 'K'],
-    footprint: inRow({ A: 0, K: 1 }),
-    covers: (at) => Object.values(inRow({ A: 0, K: 1 })(at) ?? {}),
+    ...legsOnly({ A: 0, K: 1 }),
     params: [{ key: 'color', options: [...LED_COLORS], default: 'red' }],
     inputs: [],
   },
   resistor: {
     pins: ['1', '2'],
     footprint: inRow({ 1: 0, 2: 4 }),
-    covers: (at) => (inRow({ 1: 0, 2: 4 })(at) ? range(at.col, 5).map((c) => `${c}${at.row}`) : []),
+    covers: (at) => (inRow({ 1: 0, 2: 4 })(at) && !onBench(at) ? range(at.col, 5).map((c) => `${c}${at.row}`) : []),
     params: [{ key: 'ohms', options: [220, 1000, 10000], default: 220 }],
     inputs: [],
   },
@@ -52,9 +81,9 @@ export const PART_DEFS: Record<PartType, PartDef> = {
   // As on the real part, the legs across the gap (1–3, 2–4) are always joined; pressing joins the two columns.
   button: {
     pins: ['1', '2', '3', '4'],
-    footprint: (at) => (at.row !== 'e' || !onBoard(at.col) || !onBoard(at.col + 2) ? null
+    footprint: (at) => (onBench(at) || at.row !== 'e' || !onBoard(at.col) || !onBoard(at.col + 2) ? null
       : { 1: `${at.col}e`, 2: `${at.col + 2}e`, 3: `${at.col}f`, 4: `${at.col + 2}f` }),
-    covers: (at) => (at.row !== 'e' || !onBoard(at.col) || !onBoard(at.col + 2) ? []
+    covers: (at) => (onBench(at) || at.row !== 'e' || !onBoard(at.col) || !onBoard(at.col + 2) ? []
       : range(at.col, 3).flatMap((c) => ['d', 'e', 'f', 'g'].map((r) => `${c}${r}`))),
     params: [],
     inputs: [{ key: 'pressed', min: 0, max: 1, step: 1, unit: '', default: 0 }],
@@ -62,14 +91,74 @@ export const PART_DEFS: Record<PartType, PartDef> = {
   // 10 kΩ rotary potentiometer: outer legs 1 and 2, wiper W in the middle. position 1 = wiper at leg 1.
   pot: {
     pins: ['1', 'W', '2'],
-    footprint: inRow({ 1: 0, W: 2, 2: 4 }),
-    covers: (at) => (inRow({ 1: 0, W: 2, 2: 4 })(at) ? block(at, 5, 3) : []),
+    ...bodyBlock({ 1: 0, W: 2, 2: 4 }, 5, 3),
     params: [],
     inputs: [{ key: 'position', min: 0, max: 1, step: 0.001, unit: '', default: 0.5 }],
   },
+  // 5 mm RGB LED, common cathode: legs red, cathode (the longest), green, blue.
+  rgb: { pins: ['R', 'K', 'G', 'B'], ...legsOnly({ R: 0, K: 1, G: 2, B: 3 }), params: [], inputs: [] },
+  // 12 mm passive piezo buzzer, legs 7.6 mm apart (+ marked on top).
+  buzzer: { pins: ['+', '-'], ...bodyBlock({ '+': 0, '-': 3 }, 4, 4), params: [], inputs: [] },
+  // light-dependent resistor; `lux` is the light falling on it (the desk lamp sets it, or the slider)
+  ldr: { pins: ['1', '2'], ...bodyBlock({ 1: 0, 2: 2 }, 3, 1), params: [], inputs: [{ key: 'lux', min: 0, max: 1000, step: 1, unit: 'lux', default: 300 }] },
+  // TMP36 temperature sensor, flat face forward: +Vs, Vout, GND
+  tmp36: { pins: ['VS', 'OUT', 'GND'], ...legsOnly({ VS: 0, OUT: 1, GND: 2 }), params: [], inputs: [{ key: 'celsius', min: -10, max: 60, step: 0.5, unit: '°C', default: 22 }] },
+  // force-sensing resistor: two legs in the breadboard, the round pad beside it
+  fsr: { pins: ['1', '2'], ...legsOnly({ 1: 0, 2: 1 }), params: [], inputs: [{ key: 'grams', min: 0, max: 5000, step: 10, unit: 'g', default: 0 }] },
+  // 1N4001 diode: anode, cathode (the band), laid flat like a resistor
+  diode: { pins: ['A', 'K'], footprint: inRow({ A: 0, K: 4 }), covers: (at) => (inRow({ A: 0, K: 4 })(at) && !onBench(at) ? range(at.col, 5).map((c) => `${c}${at.row}`) : []), params: [], inputs: [] },
+  // TIP120 Darlington transistor (TO-220, tab at the back): base, collector, emitter
+  npn: { pins: ['B', 'C', 'E'], ...legsOnly({ B: 0, C: 1, E: 2 }), params: [], inputs: [] },
+  // traffic-light module: red, yellow and green LEDs, each with its own resistor, and a common GND pin
+  traffic: { pins: ['R', 'Y', 'G', 'GND'], ...legsOnly({ R: 0, Y: 1, G: 2, GND: 3 }), params: [], inputs: [] },
+
+  // small DC motor (with a fan blade or bare), two solder tabs
+  motor: { ...module({ w: 30, d: 30, h: 28, pins: { '+': [-3, 10, 12], '-': [3, 10, 12] } }), params: [{ key: 'load', options: ['fan', 'none'], default: 'fan' }], inputs: [] },
+  // SG90 micro servo: its lead ends in a 3-pin plug — brown GND, red V+, orange signal
+  servo: { ...module({ w: 34, d: 20, h: 30, pins: header(['GND', 'V+', 'SIG'], 0, 6, 16) }), params: [], inputs: [] },
+  // HC-SR04 ultrasonic distance sensor, eyes facing away from the UNO; `cm` is how far the obstacle is
+  hcsr04: { ...module({ w: 46, d: 22, h: 16, pins: header(['VCC', 'TRIG', 'ECHO', 'GND'], 0, 12, 9) }), params: [], inputs: [{ key: 'cm', min: 2, max: 400, step: 1, unit: 'cm', default: 30 }] },
+  // 28BYJ-48 stepper on its ULN2003 driver board: IN1–IN4, + and −
+  stepper: { ...module({ w: 76, d: 40, h: 22, pins: { ...header(['IN1', 'IN2', 'IN3', 'IN4'], 14, 6, 16), '+': [26, 6, 10], '-': [26, 6, 7.46] } }), params: [{ key: 'load', options: ['wheel', 'none'], default: 'wheel' }], inputs: [] },
+  // 0.96" SSD1306 OLED, 128 × 64, I²C: GND, VCC, SCL, SDA
+  oled: { ...module({ w: 28, d: 28, h: 12, pins: header(['GND', 'VCC', 'SCL', 'SDA'], 0, 6, -11) }), params: [], inputs: [] },
+  // capacitive soil-moisture sensor standing in a plant pot: GND, VCC, AOUT
+  soil: { ...module({ w: 60, d: 60, h: 60, pins: header(['GND', 'VCC', 'AOUT'], 0, 58, 14) }), params: [], inputs: [{ key: 'moisture', min: 0, max: 100, step: 1, unit: '%', default: 50 }] },
 };
+
+export const BENCH_TYPES = (Object.keys(PART_DEFS) as PartType[]).filter((t) => PART_DEFS[t].bench);
 
 // The part's parameters with defaults filled in.
 export function paramsOf(type: PartType, params: Record<string, string | number>): Record<string, string | number> {
   return Object.fromEntries(PART_DEFS[type].params.map((p) => [p.key, params[p.key] ?? p.default]));
 }
+
+// Whether the part is connected at all: a module always is; a breadboard part when its legs are in holes.
+export const isPlaced = (p: PartInstance) => !!PART_DEFS[p.type].bench || PART_DEFS[p.type].footprint(p.at, p.params) !== null;
+
+// The connection points a wire can go to on this part: a module's header pins (breadboard parts are wired through
+// the holes their legs are in).
+export const partPoints = (p: PartInstance): string[] => (PART_DEFS[p.type].bench ? PART_DEFS[p.type].pins.map((pin) => `${p.id}.${pin}`) : []);
+
+// The bench around the UNO and the breadboard (world mm, x by z). Modules stand anywhere on it except on those two.
+export type Rect = { x: number; z: number; w: number; d: number }; // centre and size
+export const BENCH_AREA: Rect = { x: 30, z: 5, w: 330, d: 230 };
+export const KEEP_OUT: Rect[] = [
+  { x: -38, z: 2, w: 72, d: 58 }, // the UNO (blinkLayout BLINK.board, 68.6 × 53.3 mm and a margin)
+  { x: 50, z: 8, w: 86, d: 59 },  // the breadboard (blinkLayout BLINK.breadboard, 82 × 55 mm and a margin)
+];
+// where a new module goes first: in front of the UNO and breadboard, then behind them, then to the right
+export const BENCH_SLOTS = [
+  ...[-60, -15, 30, 75, 120].map((x) => ({ x, z: 75 })),
+  ...[-60, -15, 30, 75, 120].map((x) => ({ x, z: -65 })),
+  { x: 135, z: 5 },
+];
+export const BENCH_STEP = 10; // a move arrow moves a module this far
+
+export function benchRect(type: PartType, at: { x: number; z: number }): Rect {
+  const b = PART_DEFS[type].bench!;
+  return { x: at.x, z: at.z, w: b.w, d: b.d };
+}
+export const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.z - b.z) * 2 < a.d + b.d;
+export const inside = (a: Rect, area: Rect) =>
+  Math.abs(a.x - area.x) * 2 + a.w <= area.w && Math.abs(a.z - area.z) * 2 + a.d <= area.d;

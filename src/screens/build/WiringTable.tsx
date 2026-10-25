@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BB_HOLES, UNO_PINS } from '../../circuit/board';
-import type { PinRef } from '../../circuit/types';
+import { partPoints } from '../../circuit/parts';
+import type { PartInstance, PinRef } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { useBuildStore } from '../../state/buildStore';
 
@@ -13,6 +14,7 @@ const COLORS: { value: string; name: string }[] = [
 export function pinLabel(ref: PinRef): string {
   const [part, pin] = [ref.slice(0, ref.indexOf('.')), ref.slice(ref.indexOf('.') + 1)];
   if (part === 'uno') return `UNO ${pin}`;
+  if (part !== 'bb') { const type = part.replace(/\d+$/, ''); return `${t(`build.part.${type}` as StringKey)} ${part.slice(type.length)} › ${pin}`; } // a module's pin
   const rail = pin.match(/^([TB][+-])(\d+)$/);
   if (rail) return `${t(`build.wiring.rail.${rail[1]}` as StringKey)} ${rail[2]}`;
   return `Hole ${pin}`;
@@ -23,12 +25,15 @@ const strip = (col: number) => BB_HOLES.filter((h) => h.match(/^(\d+)[a-j]$/)?.[
 const rails = BB_HOLES.filter((h) => /^[TB][+-]\d+$/.test(h));
 
 // The From / To pickers: UNO pins, then the breadboard column by column, then the rails. Used points say so.
-function PointSelect({ label, value, onChange, used }: { label: string; value: string; onChange(v: string): void; used: Set<PinRef> }) {
+function PointSelect({ label, value, onChange, used, parts }: { label: string; value: string; onChange(v: string): void; used: Set<PinRef>; parts: PartInstance[] }) {
   const opt = (ref: PinRef) => <option key={ref} value={ref}>{pinLabel(ref)}{used.has(ref) ? ` ${t('build.wiring.inUse')}` : ''}</option>;
   return (
     <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">{t('build.wiring.choose')}</option>
       <optgroup label={t('build.wiring.uno')}>{UNO_PINS.map((p) => opt(`uno.${p}`))}</optgroup>
+      {parts.filter((p) => partPoints(p).length).map((p) => (
+        <optgroup key={p.id} label={t('build.wiring.module').replace('{name}', pinLabel(`${p.id}.x`).split(' › ')[0])}>{partPoints(p).map(opt)}</optgroup>
+      ))}
       {HOLE_COLS.map((c) => <optgroup key={c} label={t('build.wiring.col').replace('{n}', String(c))}>{strip(c).map((h) => opt(`bb.${h}`))}</optgroup>)}
       <optgroup label={t('build.wiring.rails')}>{rails.map((h) => opt(`bb.${h}`))}</optgroup>
     </select>
@@ -50,9 +55,9 @@ export function WiringTable() {
   return (
     <div className="wiring">
       <div className="wiring__new">
-        <PointSelect label={t('build.wiring.from')} value={from} onChange={setFrom} used={used} />
+        <PointSelect label={t('build.wiring.from')} value={from} onChange={setFrom} used={used} parts={parts} />
         <span aria-hidden>→</span>
-        <PointSelect label={t('build.wiring.to')} value={to} onChange={setTo} used={used} />
+        <PointSelect label={t('build.wiring.to')} value={to} onChange={setTo} used={used} parts={parts} />
         <button type="button" className="wiring__connect" disabled={!from || !to} onClick={connect}>{t('build.wiring.connect')}</button>
       </div>
       {wires.length === 0 ? <p className="build-note">{t('build.wiring.none')}</p> : (

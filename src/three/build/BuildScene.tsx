@@ -8,7 +8,7 @@ import { isTestMode } from '../shared/motion';
 import { Breadboard } from '../breadboard/Breadboard';
 import { Jumper } from '../parts/Jumper';
 import { BurnEffect } from './BurnEffect';
-import { PartModel } from './partModels';
+import { BenchModel, PartModel } from './partModels';
 import { colX, holeLocal } from '../breadboard/breadboardGeometry';
 import { BENCH, pinWorld } from './pinPoints';
 import { partBodies } from './partBodies';
@@ -44,8 +44,8 @@ function ScreenProbe() {
 }
 
 // One jumper, along the path the router gave it.
-function WireModel({ wire, route, onPick }: { wire: Wire; route: Route; onPick(id: string): void }) {
-  const [a, b] = useMemo(() => [pinWorld(wire.from), pinWorld(wire.to)], [wire.from, wire.to]);
+function WireModel({ wire, route, parts, onPick }: { wire: Wire; route: Route; parts: PartInstance[]; onPick(id: string): void }) {
+  const [a, b] = useMemo(() => [pinWorld(wire.from, parts), pinWorld(wire.to, parts)], [wire.from, wire.to, parts]);
   return (
     <group name={wire.id} userData={{ buildWire: wire.id }} onClick={(e) => { e.stopPropagation(); onPick(wire.id); }}>
       <Jumper a={a} b={b} color={wire.color} route={route} />
@@ -60,24 +60,30 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
   if (id.startsWith('uno.')) return pinWorld(id).add(new THREE.Vector3(0, 4, 0)).toArray() as [number, number, number];
   const p = parts.find((x) => x.id === id);
   if (!p) return null;
+  if ('x' in p.at) return [p.at.x, 20, p.at.z];
   const [, , z] = holeLocal(p.at.col, p.at.row);
   return [colX(p.at.col) + 1.27 + BENCH.breadboard[0], 20, z + BENCH.breadboard[2]];
 }
 
 export function BuildScene({ burns, parts, wires, inputs, partStates, pin13, rx, tx, onPick, onInput }: Props) {
   // all wires laid out together so none passes through another or through a part
-  const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from), b: pinWorld(w.to) })), partBodies(parts)), [wires, parts]);
+  const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
+  const onBoard = parts.filter((p) => !('x' in p.at)), onBench = parts.filter((p) => 'x' in p.at);
   return (
     <>
       <ScreenProbe />
       <UnoBoard position={BENCH.board} pin13={pin13} rx={rx} tx={tx} />
       <Breadboard position={BENCH.breadboard}>
-        {parts.map((p) => (
+        {onBoard.map((p) => (
           <PartModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={(e) => { e.stopPropagation(); onPick(p.id); }}
             onInput={(key, value) => onInput(p.id, key, value)} />
         ))}
       </Breadboard>
-      {wires.map((w) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} onPick={onPick} />)}
+      {onBench.map((p) => (
+        <BenchModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={(e) => { e.stopPropagation(); onPick(p.id); }}
+          onInput={(key, value) => onInput(p.id, key, value)} />
+      ))}
+      {wires.map((w) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} />)}
       {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} />; })}
     </>
   );

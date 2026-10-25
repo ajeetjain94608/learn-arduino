@@ -65,3 +65,4 @@
 /* on the Code tab the tab card is just its tabs; the code card takes the column */
 .build-card--tabs-only { flex: none; padding-bottom: 0; }
 .build-card--tabs-only .tabs { margin-bottom: 0; border-bottom: 0; }
+.part-library__group h4 { margin: 12px 0 6px; font-size: 14px; font-weight: 800; color: var(--muted); letter-spacing: .02em; }

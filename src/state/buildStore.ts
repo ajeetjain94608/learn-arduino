@@ -1,8 +1,8 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { Burn, InputValues } from '../circuit/evaluate';
 import { BB_HOLES, UNO_PINS } from '../circuit/board';
-import { PART_DEFS, paramsOf } from '../circuit/parts';
-import type { CircuitSpec, PartInstance, PartType, PinRef, Placement, Row, Wire } from '../circuit/types';
+import { BENCH_AREA, BENCH_SLOTS, benchRect, inside, KEEP_OUT, overlaps, PART_DEFS, paramsOf, partPoints } from '../circuit/parts';
+import { onBench, type CircuitSpec, type PartInstance, type PartType, type PinRef, type Placement, type Row, type Wire } from '../circuit/types';
 import { t } from '../i18n/en';
 
 export const FRESH_CODE = 'void setup() {\n\n}\n\nvoid loop() {\n\n}\n';
@@ -46,14 +46,19 @@ const coveredHoles = (p: PartInstance, at = p.at) => PART_DEFS[p.type].covers(at
 const defaultInputs = (type: PartType) => Object.fromEntries(PART_DEFS[type].inputs.map((i) => [i.key, i.default]));
 
 const POINTS = new Set([...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`)]);
+// a connection point that exists in this build: a UNO pin, a breadboard hole, or a pin of a module on the bench
+const isPoint = (ref: string, parts: PartInstance[]) => POINTS.has(ref) || parts.some((p) => partPoints(p).includes(ref));
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
-const validPart = (p: unknown): p is PartInstance =>
-  isObject(p) && typeof p.id === 'string' && typeof p.type === 'string' && p.type in PART_DEFS && isObject(p.params) && isObject(p.at)
-  && PART_DEFS[p.type as PartType].footprint(p.at as Placement, p.params as Record<string, string | number>) !== null;
+const validPart = (p: unknown): p is PartInstance => {
+  if (!isObject(p) || typeof p.id !== 'string' || typeof p.type !== 'string' || !(p.type in PART_DEFS) || !isObject(p.params) || !isObject(p.at)) return false;
+  const def = PART_DEFS[p.type as PartType], at = p.at as Record<string, unknown>;
+  if (def.bench) return typeof at.x === 'number' && typeof at.z === 'number' && Number.isFinite(at.x) && Number.isFinite(at.z);
+  return typeof at.col === 'number' && typeof at.row === 'string' && def.footprint(p.at as Placement, p.params as Record<string, string | number>) !== null;
+};
 const BURN_REASONS = ['led-overcurrent', 'pin-overcurrent', 'short'];
 const validBurn = (b: unknown): b is Burn => isObject(b) && typeof b.id === 'string' && BURN_REASONS.includes(b.reason as string);
-const validWire = (w: unknown): w is Wire =>
-  isObject(w) && typeof w.id === 'string' && typeof w.color === 'string' && POINTS.has(w.from as string) && POINTS.has(w.to as string);
+const validWire = (parts: PartInstance[]) => (w: unknown): w is Wire =>
+  isObject(w) && typeof w.id === 'string' && typeof w.color === 'string' && isPoint(w.from as string, parts) && isPoint(w.to as string, parts);
 
 // A saved build, checked entry by entry: whatever is damaged or unknown (e.g. saved by a newer version) is dropped
 // rather than breaking the Build screen; unreadable JSON or another version gives a fresh build.
@@ -71,7 +76,7 @@ function load(storage: Storage | undefined): Saved | null {
     }
     const counters = isObject(s.counters) ? Object.fromEntries(Object.entries(s.counters).filter(([, n]) => typeof n === 'number')) as Record<string, number> : {};
     const burns = Array.isArray(s.burns) ? s.burns.filter(validBurn).filter((b) => b.id.startsWith('uno') || ids.has(b.id)) : [];
-    return { v: 1, parts, wires: s.wires.filter(validWire), inputs, code: s.code, counters, burns };
+    return { v: 1, parts, wires: s.wires.filter(validWire(parts)), inputs, code: s.code, counters, burns };
   } catch { return null; }
 }
 
@@ -79,15 +84,21 @@ function load(storage: Storage | undefined): Saved | null {
 export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<BuildState>> {
   const saved = load(storage);
   const store = create<BuildState>((set, get) => {
-    // holes taken by part bodies and legs (except `ignore`'s) and by wire ends
+    // holes taken by part bodies and legs (except `ignore`'s), and holes and module pins taken by wire ends
     const taken = (ignore?: string) => {
       const used = new Set<PinRef>();
       for (const p of get().parts) if (p.id !== ignore) for (const h of coveredHoles(p)) used.add(h);
-      for (const w of get().wires) for (const end of [w.from, w.to]) if (end.startsWith('bb.')) used.add(end);
+      for (const w of get().wires) for (const end of [w.from, w.to]) if (!end.startsWith('uno.')) used.add(end);
       return used;
     };
     const fits = (p: PartInstance, at: Placement, ignore?: string) => {
-      if (!PART_DEFS[p.type].footprint(at, p.params)) return false;
+      if (PART_DEFS[p.type].bench) { // a module: on the bench, clear of the UNO, the breadboard and the other modules
+        if (!onBench(at)) return false;
+        const r = benchRect(p.type, at);
+        return inside(r, BENCH_AREA) && !KEEP_OUT.some((k) => overlaps(r, k))
+          && !get().parts.some((o) => o.id !== ignore && o.id !== p.id && PART_DEFS[o.type].bench && overlaps(r, benchRect(o.type, o.at as { x: number; z: number })));
+      }
+      if (onBench(at) || !PART_DEFS[p.type].footprint(at, p.params)) return false;
       const used = taken(ignore);
       return coveredHoles(p, at).every((h) => !used.has(h));
     };
@@ -107,8 +118,8 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       addPart(type) {
         const n = 1 + Math.max(get().counters[type] ?? 0, ...get().parts.filter((p) => p.type === type).map((p) => Number(p.id.slice(type.length)) || 0));
         const part: PartInstance = { id: `${type}${n}`, type, params: paramsOf(type, {}), at: { col: 1, row: 'a' } };
-        for (const row of ROWS) for (let col = 1; col <= 30; col++) {
-          const at = { col, row };
+        const spots: Placement[] = PART_DEFS[type].bench ? BENCH_SLOTS : ROWS.flatMap((row) => Array.from({ length: 30 }, (_, i) => ({ col: i + 1, row })));
+        for (const at of spots) {
           if (!fits(part, at)) continue;
           part.at = at;
           set({ parts: [...get().parts, part], inputs: { ...get().inputs, [part.id]: defaultInputs(type) }, counters: { ...get().counters, [type]: n }, message: null });
@@ -126,7 +137,8 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       canMove(id, at) { const p = get().parts.find((x) => x.id === id); return !!p && fits(p, at, id); },
       removePart(id) {
         const { [id]: _gone, ...inputs } = get().inputs;
-        set({ parts: get().parts.filter((p) => p.id !== id), inputs, selected: get().selected === id ? null : get().selected, burns: get().burns.filter((b) => b.id !== id), message: null });
+        const pins = new Set(get().parts.filter((p) => p.id === id).flatMap(partPoints)); // a module's wires go with it
+        set({ parts: get().parts.filter((p) => p.id !== id), inputs, wires: get().wires.filter((w) => !pins.has(w.from) && !pins.has(w.to)), selected: get().selected === id ? null : get().selected, burns: get().burns.filter((b) => b.id !== id), message: null });
       },
       setParam(id, key, value) { set({ parts: get().parts.map((p) => (p.id === id ? { ...p, params: { ...p.params, [key]: value } } : p)), message: null }); },
       setInput(id, key, value) {
@@ -141,8 +153,9 @@ export function createBuildStore(storage?: Storage): UseBoundStore<StoreApi<Buil
       addWire(from, to, color) {
         if (from === to) return refuse('build.msg.self');
         if (get().wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) return refuse('build.msg.duplicate');
+        if (![from, to].every((end) => isPoint(end, get().parts))) return refuse('build.msg.noPoint');
         const used = taken();
-        if ([from, to].some((end) => end.startsWith('bb.') && used.has(end))) return refuse('build.msg.holeTaken');
+        if ([from, to].some((end) => !end.startsWith('uno.') && used.has(end))) return refuse('build.msg.holeTaken');
         const id = `w${Date.now().toString(36)}${nextWire++}`;
         set({ wires: [...get().wires, { id, from, to, color: color ?? WIRE_COLORS[get().wires.length % WIRE_COLORS.length] }], message: null });
         return id;

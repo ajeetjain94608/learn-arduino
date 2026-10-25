@@ -1,12 +1,21 @@
 import { buildNets } from './nets';
-import { LED_VF, PART_DEFS, paramsOf, POT_OHMS } from './parts';
+import {
+  fsrOhms, isPlaced, ldrOhms, LED_VF, MOTOR_FULL_A, MOTOR_OHMS, PART_DEFS, paramsOf, POT_OHMS, RGB_VF, soilVolts,
+  tmp36Volts, TRAFFIC_OHMS, TRAFFIC_VF,
+} from './parts';
 import { solve, type Element } from './solver';
-import type { CircuitSpec, PartInstance } from './types';
+import type { CircuitSpec, PartInstance, PartType } from './types';
 
 // What the chip is doing on each UNO pin (0–19, A0 = 14).
 export type PinDrive = { mode: 'output' | 'input' | 'input-pullup'; high: boolean; duty: number | null };
 export type InputValues = Record<string, Record<string, number>>;
-export type PartState = { brightness?: number; burnt?: boolean; current?: number };
+export type PartState = {
+  brightness?: number; burnt?: boolean; current?: number;
+  rgb?: [number, number, number];               // an RGB LED's red, green, blue (0–1 each)
+  lights?: { R: number; Y: number; G: number }; // the traffic-light module's three LEDs
+  speed?: number;                               // a motor, 0–1
+  powered?: boolean;                            // a module with its supply and ground wired
+};
 export type Burn = { id: string; reason: 'led-overcurrent' | 'pin-overcurrent' | 'short'; supply?: string }; // supply: which one was shorted
 export type CircuitResult = {
   pinVolts: number[];
@@ -22,59 +31,126 @@ const LED_RON = 15, LED_FULL_A = 0.02;
 const LED_BURN_A = 0.05, PIN_BURN_A = 0.04, SHORT_A = 1;
 const unoPinName = (n: number) => (n < 14 ? `D${n}` : `A${n - 14}`);
 
+// Modules that need power: their supply and ground pins, what they draw, and the least voltage they work on.
+const POWER: Partial<Record<PartType, { vcc: string; gnd: string; ohms: number; min: number }>> = {
+  tmp36: { vcc: 'VS', gnd: 'GND', ohms: 100_000, min: 2.7 },
+  servo: { vcc: 'V+', gnd: 'GND', ohms: 500, min: 4.5 },
+  hcsr04: { vcc: 'VCC', gnd: 'GND', ohms: 333, min: 4.5 },
+  stepper: { vcc: '+', gnd: '-', ohms: 200, min: 4.5 },
+  oled: { vcc: 'VCC', gnd: 'GND', ohms: 250, min: 3 },
+  soil: { vcc: 'VCC', gnd: 'GND', ohms: 1000, min: 3.3 },
+};
+const TIP120 = { vbe: 1.4, rbe: 50, ron: 2, ibOn: 1e-4 };
+
 // Nets depend only on the circuit, which changes far less often than the pins: work them out once per circuit.
 const netCache = new WeakMap<CircuitSpec, ReturnType<typeof buildNets>>();
-
 const legs = (p: PartInstance): Record<string, string> =>
   Object.fromEntries(Object.entries(PART_DEFS[p.type].footprint(p.at, p.params) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
+const netsOf = (spec: CircuitSpec) => {
+  let nets = netCache.get(spec);
+  if (!nets) {
+    nets = buildNets(spec, legs);
+    for (const p of spec.parts) for (const pin of PART_DEFS[p.type].pins) nets.netOf(`${p.id}.${pin}`); // every pin numbered up front
+    netCache.set(spec, nets);
+  }
+  return nets;
+};
+
+// For every pin of every part, the UNO pin (0–19) it is wired to, if any — what timing modules listen to or drive.
+export function unoLinks(spec: CircuitSpec): Record<string, Record<string, number | null>> {
+  const nets = netsOf(spec);
+  const unoNet = new Map<number, number>();
+  for (let n = 19; n >= 0; n--) unoNet.set(nets.netOf(`uno.${unoPinName(n)}`), n);
+  return Object.fromEntries(spec.parts.map((p) => [p.id, Object.fromEntries(PART_DEFS[p.type].pins.map((pin) => [pin, unoNet.get(nets.netOf(`${p.id}.${pin}`)) ?? null]))]));
+}
 
 // Solves the circuit for the chip's current pin states and the learner's inputs, applying the burn rules (unless
 // `burnRules` is false: the board stopped, nothing burns until Run). `burnt` holds everything already burnt: part ids,
 // 'uno.D<n>' pins, 'uno' (a shorted board).
 export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>, burnRules = true): CircuitResult {
-  let nets = netCache.get(spec);
-  if (!nets) { nets = buildNets(spec, legs); netCache.set(spec, nets); }
+  const nets = netsOf(spec);
   const net = (ref: string) => nets.netOf(ref);
   const ground = net('uno.GND');
   const burns = new Set(burnt);
   const newBurns: Burn[] = [];
   const shortedBefore = burns.has('uno');
+  const input = (id: string, key: string, def: number) => inputs[id]?.[key] ?? def;
+  const placed = spec.parts.filter(isPlaced);
 
   type Tagged = { el: Element; tag: string };
-  const build = (pwmLow: number | null): Tagged[] => {
+  // every element of the circuit; nodes beyond the nets are inside parts (the traffic light's LED–resistor joints)
+  const build = (pwmLow: number | null, powered: Set<string>): { t: Tagged[]; nodes: number } => {
     const out: Tagged[] = [];
-    if (!burns.has('uno')) for (const s of SUPPLIES) out.push({ tag: `supply:${s.pin}`, el: { kind: 'V', node: net(`uno.${s.pin}`), volts: s.volts, ohms: s.ohms } });
+    let nodes = nets.count;
+    const add = (tag: string, el: Element) => out.push({ tag, el });
+    if (!burns.has('uno')) for (const s of SUPPLIES) add(`supply:${s.pin}`, { kind: 'V', node: net(`uno.${s.pin}`), volts: s.volts, ohms: s.ohms });
     pins.forEach((d, n) => {
       if (burns.has(`uno.${unoPinName(n)}`) || burns.has('uno')) return;
       const node = net(`uno.${unoPinName(n)}`);
       const high = n === pwmLow ? false : d.duty !== null ? d.duty > 0 : d.high;
-      if (d.mode === 'output') out.push({ tag: `pin:${n}`, el: { kind: 'V', node, volts: high ? 5 : 0, ohms: PIN_OHMS } });
-      else if (d.mode === 'input-pullup') out.push({ tag: `pull:${n}`, el: { kind: 'V', node, volts: 5, ohms: PULLUP_OHMS } });
+      if (d.mode === 'output') add(`pin:${n}`, { kind: 'V', node, volts: high ? 5 : 0, ohms: PIN_OHMS });
+      else if (d.mode === 'input-pullup') add(`pull:${n}`, { kind: 'V', node, volts: 5, ohms: PULLUP_OHMS });
     });
-    for (const p of spec.parts) {
-      if (!PART_DEFS[p.type].footprint(p.at, p.params)) continue; // not on the board: not connected
+    for (const p of placed) {
       const pin = (name: string) => net(`${p.id}.${name}`);
       const prm = paramsOf(p.type, p.params);
-      if (p.type === 'led' && !burns.has(p.id)) out.push({ tag: `led:${p.id}`, el: { kind: 'D', a: pin('A'), k: pin('K'), vf: LED_VF[String(prm.color)] ?? 1.9, ron: LED_RON } });
-      else if (p.type === 'resistor') out.push({ tag: `r:${p.id}`, el: { kind: 'R', a: pin('1'), b: pin('2'), ohms: Number(prm.ohms) } });
-      else if (p.type === 'button') {
-        out.push({ tag: `b:${p.id}`, el: { kind: 'R', a: pin('1'), b: pin('3'), ohms: 0.01 } }, { tag: `b:${p.id}`, el: { kind: 'R', a: pin('2'), b: pin('4'), ohms: 0.01 } });
-        if ((inputs[p.id]?.pressed ?? 0) >= 0.5) out.push({ tag: `b:${p.id}`, el: { kind: 'R', a: pin('1'), b: pin('2'), ohms: 0.1 } });
-      } else if (p.type === 'pot') {
-        const pos = Math.min(1, Math.max(0, inputs[p.id]?.position ?? 0.5));
-        out.push({ tag: `p:${p.id}`, el: { kind: 'R', a: pin('1'), b: pin('W'), ohms: POT_OHMS * (1 - pos) + 1 } }, { tag: `p:${p.id}`, el: { kind: 'R', a: pin('W'), b: pin('2'), ohms: POT_OHMS * pos + 1 } });
+      const R = (tag: string, a: number, b: number, ohms: number) => add(tag, { kind: 'R', a, b, ohms });
+      const power = POWER[p.type];
+      if (power) R(`load:${p.id}`, pin(power.vcc), pin(power.gnd), power.ohms);
+      switch (p.type) {
+        case 'led': if (!burns.has(p.id)) add(`led:${p.id}`, { kind: 'D', a: pin('A'), k: pin('K'), vf: LED_VF[String(prm.color)] ?? 1.9, ron: LED_RON }); break;
+        case 'resistor': R(`r:${p.id}`, pin('1'), pin('2'), Number(prm.ohms)); break;
+        case 'button':
+          R(`b:${p.id}`, pin('1'), pin('3'), 0.01); R(`b:${p.id}`, pin('2'), pin('4'), 0.01);
+          if (input(p.id, 'pressed', 0) >= 0.5) R(`b:${p.id}`, pin('1'), pin('2'), 0.1);
+          break;
+        case 'pot': {
+          const pos = Math.min(1, Math.max(0, input(p.id, 'position', 0.5)));
+          R(`p:${p.id}`, pin('1'), pin('W'), POT_OHMS * (1 - pos) + 1); R(`p:${p.id}`, pin('W'), pin('2'), POT_OHMS * pos + 1);
+          break;
+        }
+        case 'rgb':
+          if (!burns.has(p.id)) for (const c of ['R', 'G', 'B'] as const) add(`rgb:${p.id}:${c}`, { kind: 'D', a: pin(c), k: pin('K'), vf: RGB_VF[c], ron: LED_RON });
+          break;
+        case 'buzzer': R(`bz:${p.id}`, pin('+'), pin('-'), 1e6); break; // a piezo passes no steady current
+        case 'ldr': R(`ldr:${p.id}`, pin('1'), pin('2'), ldrOhms(input(p.id, 'lux', 300))); break;
+        case 'fsr': R(`fsr:${p.id}`, pin('1'), pin('2'), fsrOhms(input(p.id, 'grams', 0))); break;
+        case 'diode': add(`d:${p.id}`, { kind: 'D', a: pin('A'), k: pin('K'), vf: 0.7, ron: 0.2 }); break;
+        case 'npn': add(`q:${p.id}`, { kind: 'Q', b: pin('B'), c: pin('C'), e: pin('E'), ...TIP120 }); break;
+        case 'traffic':
+          for (const c of ['R', 'Y', 'G'] as const) {
+            const joint = nodes++;
+            R(`tlr:${p.id}:${c}`, pin(c), joint, TRAFFIC_OHMS);
+            add(`tl:${p.id}:${c}`, { kind: 'D', a: joint, k: pin('GND'), vf: TRAFFIC_VF[c], ron: LED_RON });
+          }
+          break;
+        case 'motor': R(`m:${p.id}`, pin('+'), pin('-'), MOTOR_OHMS); break;
+        case 'tmp36': if (powered.has(p.id)) add(`src:${p.id}`, { kind: 'V', node: pin('OUT'), volts: tmp36Volts(input(p.id, 'celsius', 22)), ohms: 50 }); break;
+        case 'soil': if (powered.has(p.id)) add(`src:${p.id}`, { kind: 'V', node: pin('AOUT'), volts: soilVolts(input(p.id, 'moisture', 50)), ohms: 1000 }); break;
+        case 'stepper': for (const i of ['IN1', 'IN2', 'IN3', 'IN4']) R(`in:${p.id}`, pin(i), pin('-'), 5000); break;
+        default: break; // servo, HC-SR04, OLED: their signals are handled by the simulator, cycle by cycle
       }
     }
-    return out;
+    return { t: out, nodes };
   };
-  const run = (pwmLow: number | null = null) => { const t = build(pwmLow); return { t, r: solve(t.map((x) => x.el), nets.count, ground) }; };
+
+  // which modules have power: a first solve with every module's own outputs off
+  const probe = (() => { const b = build(null, new Set()); return solve(b.t.map((x) => x.el), b.nodes, ground); })();
+  const powered = new Set(placed.filter((p) => {
+    const pw = POWER[p.type];
+    if (!pw) return false;
+    const vcc = probe.volts[net(`${p.id}.${pw.vcc}`)], gnd = probe.volts[net(`${p.id}.${pw.gnd}`)];
+    return vcc - gnd >= pw.min && Math.abs(gnd) < 0.5;
+  }).map((p) => p.id));
+
+  const run = (pwmLow: number | null = null) => { const b = build(pwmLow, powered); return { t: b.t, r: solve(b.t.map((x) => x.el), b.nodes, ground) }; };
   const currentOf = (s: ReturnType<typeof run>, tag: string) => { const i = s.t.findIndex((x) => x.tag === tag); return i < 0 ? 0 : s.r.current[i]; };
 
   // burn rules, most fragile first; each burn changes the circuit, so solve again
   let s = run();
   for (let guard = 0; burnRules && guard < 20; guard++) {
-    const led = s.t.find((x) => x.tag.startsWith('led:') && currentOf(s, x.tag) > LED_BURN_A);
-    if (led) { const id = led.tag.slice(4); burns.add(id); newBurns.push({ id, reason: 'led-overcurrent' }); s = run(); continue; }
+    const led = s.t.find((x) => (x.tag.startsWith('led:') || x.tag.startsWith('rgb:')) && currentOf(s, x.tag) > LED_BURN_A);
+    if (led) { const id = led.tag.split(':')[1]; burns.add(id); newBurns.push({ id, reason: 'led-overcurrent' }); s = run(); continue; }
     const pin = s.t.find((x) => x.tag.startsWith('pin:') && Math.abs(currentOf(s, x.tag)) > PIN_BURN_A);
     if (pin && !SUPPLIES.some((sp) => Math.abs(currentOf(s, `supply:${sp.pin}`)) > SHORT_A)) {
       const id = `uno.${unoPinName(Number(pin.tag.slice(4)))}`; burns.add(id); newBurns.push({ id, reason: 'pin-overcurrent' }); s = run(); continue;
@@ -84,21 +160,45 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
     break;
   }
 
-  // PWM: an LED's brightness is the time average of the pin's HIGH and LOW states
+  // PWM: what a part shows is the time average of the pin's HIGH and LOW states (one extra solve per PWM pin)
   const pwmPins = pins.flatMap((d, n) => (d.mode === 'output' && d.duty !== null && d.duty > 0 && d.duty < 1 ? [n] : []));
-  const parts: Record<string, PartState> = {};
-  const lowRuns = new Map<number, ReturnType<typeof run>>(); // one extra solve per PWM pin, shared by all LEDs
-  for (const p of spec.parts) {
-    if (p.type !== 'led') continue;
-    if (burns.has(p.id)) { parts[p.id] = { burnt: true, brightness: 0, current: 0 }; continue; }
-    const iHigh = Math.max(0, currentOf(s, `led:${p.id}`));
-    let i = iHigh;
+  const lowRuns = new Map<number, ReturnType<typeof run>>();
+  const averaged = (tag: string) => {
+    const iHigh = Math.max(0, currentOf(s, tag));
     for (const n of pwmPins) {
       if (!lowRuns.has(n)) lowRuns.set(n, run(n));
-      const iLow = Math.max(0, currentOf(lowRuns.get(n)!, `led:${p.id}`));
-      if (Math.abs(iLow - iHigh) > 1e-6) { const d = pins[n].duty!; i = d * iHigh + (1 - d) * iLow; break; }
+      const iLow = Math.max(0, currentOf(lowRuns.get(n)!, tag));
+      if (Math.abs(iLow - iHigh) > 1e-6) { const d = pins[n].duty!; return d * iHigh + (1 - d) * iLow; }
     }
-    parts[p.id] = { brightness: Math.min(1, i / LED_FULL_A), current: i };
+    return iHigh;
+  };
+  const glow = (i: number) => Math.min(1, i / LED_FULL_A);
+
+  const parts: Record<string, PartState> = {};
+  for (const p of spec.parts) {
+    const burnt = burns.has(p.id);
+    switch (p.type) {
+      case 'led': {
+        const i = burnt ? 0 : averaged(`led:${p.id}`);
+        parts[p.id] = burnt ? { burnt: true, brightness: 0, current: 0 } : { brightness: glow(i), current: i };
+        break;
+      }
+      case 'rgb':
+        parts[p.id] = burnt ? { burnt: true, rgb: [0, 0, 0] }
+          : { rgb: (['R', 'G', 'B'] as const).map((c) => glow(averaged(`rgb:${p.id}:${c}`))) as [number, number, number] };
+        break;
+      case 'traffic':
+        parts[p.id] = { lights: { R: glow(averaged(`tl:${p.id}:R`)), Y: glow(averaged(`tl:${p.id}:Y`)), G: glow(averaged(`tl:${p.id}:G`)) } };
+        break;
+      case 'motor': {
+        const i = averaged(`m:${p.id}`);
+        parts[p.id] = { speed: i < 0.01 ? 0 : Math.min(1, i / MOTOR_FULL_A), current: i };
+        break;
+      }
+      case 'diode': parts[p.id] = { current: Math.max(0, currentOf(s, `d:${p.id}`)) }; break;
+      default:
+        if (POWER[p.type]) parts[p.id] = { powered: powered.has(p.id) };
+    }
   }
 
   return {

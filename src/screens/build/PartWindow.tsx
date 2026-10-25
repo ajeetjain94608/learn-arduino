@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
-import type { Row } from '../../circuit/types';
+import { BENCH_STEP, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
+import type { PartInstance, Placement, Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { useBuildStore } from '../../state/buildStore';
 import { commitNumber } from './numberInput';
@@ -8,10 +8,22 @@ import { commitNumber } from './numberInput';
 // How an input is shown: the knob's 0…1 is shown as the 0–1023 reading it gives on A0 with 5 V across it.
 const SHOWN: Record<string, { label: StringKey; scale: number }> = {
   position: { label: 'build.input.knob', scale: 1023 },
+  lux: { label: 'build.input.lux', scale: 1 },
+  celsius: { label: 'build.input.celsius', scale: 1 },
+  grams: { label: 'build.input.grams', scale: 1 },
+  moisture: { label: 'build.input.moisture', scale: 1 },
+  cm: { label: 'build.input.cm', scale: 1 },
 };
 const ohmsLabel = (v: number) => (v >= 1000 ? `${v / 1000} kΩ` : `${v} Ω`);
 const ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 const MOVES = [['left', -1, 0], ['right', 1, 0], ['up', 0, -1], ['down', 0, 1]] as const;
+// where an arrow takes a part: the next hole on the breadboard, or BENCH_STEP mm on the bench (up = away from you)
+function moved(at: Placement, dc: number, dr: number): Placement | null {
+  if ('x' in at) return { x: at.x + dc * BENCH_STEP, z: at.z + dr * BENCH_STEP };
+  const r = ROWS.indexOf(at.row) + dr;
+  return r >= 0 && r < ROWS.length ? { col: at.col + dc, row: ROWS[r] } : null;
+}
+const legsText = (part: PartInstance) => ('x' in part.at ? '' : Object.values(PART_DEFS[part.type].footprint(part.at, part.params) ?? {}).join(' · '));
 
 // A slider and a number box for one input, always showing the same value as the 3D part.
 function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
@@ -84,11 +96,10 @@ export function PartWindow() {
         <button type="button" className="part-window__close" aria-label={t('build.close')} onClick={() => select(null)}>×</button>
       </header>
       <div className="part-window__place">
-        <span>{t('build.legs')} <b>{Object.values(def.footprint(part.at, part.params) ?? {}).join(' · ')}</b></span>
+        {'x' in part.at ? <span>{t('build.onBench')}</span> : <span>{t('build.legs')} <b>{legsText(part)}</b></span>}
         <div className="part-window__moves">
           {MOVES.map(([dir, dc, dr]) => {
-            const r = ROWS.indexOf(part.at.row) + dr;
-            const to = r >= 0 && r < ROWS.length ? { col: part.at.col + dc, row: ROWS[r] } : null;
+            const to = moved(part.at, dc, dr);
             return (
               <button key={dir} type="button" aria-label={t(`build.move.${dir}` as StringKey)} disabled={!to || !canMove(part.id, to)}
                 onClick={() => { if (to) movePart(part.id, to); }}>
@@ -103,7 +114,7 @@ export function PartWindow() {
           {p.options.map((o) => (
             <button key={String(o)} type="button" role="radio" aria-checked={params[p.key] === o} className={params[p.key] === o ? 'is-on' : ''}
               onClick={() => setParam(part.id, p.key, o)}>
-              {p.key === 'ohms' ? ohmsLabel(Number(o)) : t(`build.color.${o}` as StringKey)}
+              {p.key === 'ohms' ? ohmsLabel(Number(o)) : t(`build.${p.key === 'load' ? 'param.load' : 'color'}.${o}` as StringKey)}
             </button>
           ))}
         </div>

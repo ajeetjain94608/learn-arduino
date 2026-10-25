@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BB_HOLES, UNO_PINS } from '../../circuit/board';
-import { PART_DEFS } from '../../circuit/parts';
-import type { PartType } from '../../circuit/types';
+import { partPoints } from '../../circuit/parts';
+import type { PartInstance, PartType } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { SimClock } from '../../sim/SimClock';
 import { useBuildStore } from '../../state/buildStore';
@@ -26,7 +26,14 @@ import { WiringTable } from './WiringTable';
 import './build.css';
 
 type Tab = 'parts' | 'wiring' | 'code';
-const PART_TYPES = Object.keys(PART_DEFS) as PartType[];
+// the parts library, in the order a beginner meets them
+const CATEGORIES: { key: string; types: PartType[] }[] = [
+  { key: 'basic', types: ['led', 'resistor', 'button', 'pot', 'diode', 'npn'] },
+  { key: 'output', types: ['rgb', 'buzzer', 'traffic', 'motor', 'servo', 'stepper', 'oled'] },
+  { key: 'sensor', types: ['ldr', 'tmp36', 'fsr', 'hcsr04', 'soil'] },
+];
+// where a part is, in words: its first leg's hole, or "On the bench"
+const placeLabel = (p: PartInstance) => ('x' in p.at ? t('build.onBench') : `${p.at.col}${p.at.row}`);
 const partName = (type: PartType) => t(`build.part.${type}` as StringKey);
 const fill = (s: string, name: string) => s.replace('{name}', name);
 const label = (id: string, type: PartType) => `${partName(type)} ${id.slice(type.length)}`;
@@ -56,7 +63,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
   // points a wire can be dragged from/to: every UNO pin, and the holes nothing sits in yet
   const targets = useMemo(() => {
     const used = useBuildStore.getState().usedPins();
-    return [...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`).filter((h) => !used.has(h))];
+    return [...UNO_PINS.map((p) => `uno.${p}`), ...[...BB_HOLES.map((h) => `bb.${h}`), ...parts.flatMap(partPoints)].filter((h) => !used.has(h))];
   }, [parts, wires]);
 
   // While Build is open the board runs the build's program: code, compiled program and compiler messages are
@@ -86,7 +93,7 @@ export function BuildScreen({ onNavigate }: { onNavigate(s: Screen): void }) {
         <GlErrorBoundary onReload={guard.reload}>
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} />
-            <WireDragger targets={targets} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
+            <WireDragger targets={targets} parts={parts} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
             <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
@@ -123,21 +130,26 @@ function PartsPanel() {
   return (
     <div className="parts-panel">
       <h3>{t('build.library')}</h3>
-      <ul className="part-library">
-        {PART_TYPES.map((type) => (
-          <li key={type} className="part-card">
-            <span><b>{partName(type)}</b><small>{t(`build.part.${type}.text` as StringKey)}</small></span>
-            <button type="button" className="part-card__add" aria-label={fill(t('build.add'), partName(type))} onClick={() => { const id = addPart(type); if (id) select(id); }}>+</button>
-          </li>
-        ))}
-      </ul>
+      {CATEGORIES.map((c) => (
+        <section key={c.key} className="part-library__group" aria-label={t(`build.cat.${c.key}` as StringKey)}>
+          <h4>{t(`build.cat.${c.key}` as StringKey)}</h4>
+          <ul className="part-library">
+            {c.types.map((type) => (
+              <li key={type} className="part-card">
+                <span><b>{partName(type)}</b><small>{t(`build.part.${type}.text` as StringKey)}</small></span>
+                <button type="button" className="part-card__add" aria-label={fill(t('build.add'), partName(type))} onClick={() => { const id = addPart(type); if (id) select(id); }}>+</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
       <h3>{t('build.bench')}</h3>
       <ul className="bench-list" aria-label={t('build.bench')}>
         <li>{t('build.uno')}</li>
         <li>{t('build.breadboard')}</li>
         {parts.map((p) => (
           <li key={p.id}>
-            <button type="button" className="bench-list__name" onClick={() => select(p.id)}>{label(p.id, p.type)} <small>{p.at.col}{p.at.row}</small></button>
+            <button type="button" className="bench-list__name" onClick={() => select(p.id)}>{label(p.id, p.type)} <small>{placeLabel(p)}</small></button>
             <button type="button" className="bench-list__remove" aria-label={fill(t('build.remove'), label(p.id, p.type))} onClick={() => removePart(p.id)}>×</button>
           </li>
         ))}

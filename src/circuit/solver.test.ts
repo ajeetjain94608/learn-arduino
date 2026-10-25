@@ -41,3 +41,23 @@ describe('DC solver', () => {
     expect(solve([pullup, { kind: 'R', a: 1, b: 0, ohms: 0.1 }], 2, 0).volts[1]).toBeLessThan(0.001);
   });
 });
+
+describe('DC solver: NPN Darlington switch (TIP120)', () => {
+  const tip120 = (b: number, c: number, e: number): Element => ({ kind: 'Q', b, c, e, vbe: 1.4, rbe: 50, ron: 2, ibOn: 1e-4 });
+  // node 1: pin, 2: base, 3: 5 V rail, 4: collector (motor −); ground 0 is the emitter
+  const circuit = (pinVolts: number): Element[] => [
+    { kind: 'V', node: 1, volts: pinVolts, ohms: 25 }, { kind: 'R', a: 1, b: 2, ohms: 1000 },
+    { kind: 'V', node: 3, volts: 5, ohms: 0.05 }, { kind: 'R', a: 3, b: 4, ohms: 10 }, // the motor
+    tip120(2, 4, 0),
+  ];
+  it('a 5 V pin through 1 kΩ to the base switches a 10 Ω motor on (≈ 0.4 A)', () => {
+    const r = solve(circuit(5), 5, 0);
+    expect(r.current[4]).toBeGreaterThan(0.38);
+    expect(r.current[4]).toBeLessThan(0.42);
+    expect(r.current[3]).toBeCloseTo(r.current[4], 3);         // the motor's current goes through the transistor
+    expect(r.current[0]).toBeCloseTo((5 - 1.4) / (25 + 1000 + 50), 4); // the pin only feeds the base
+  });
+  it('with the pin LOW the transistor is off', () => {
+    expect(Math.abs(solve(circuit(0), 5, 0).current[4])).toBeLessThan(1e-6);
+  });
+});

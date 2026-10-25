@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PartState } from '../../circuit/evaluate';
-import { paramsOf } from '../../circuit/parts';
-import type { PartInstance } from '../../circuit/types';
+import { PART_DEFS, paramsOf } from '../../circuit/parts';
+import type { BoardPlacement, PartInstance } from '../../circuit/types';
 import { BB, colX, holeLocal, ROW } from '../breadboard/breadboardGeometry';
 import { Led5mm, type LedColor } from '../parts/Led5mm';
 import { Resistor } from '../parts/Resistor';
@@ -87,7 +87,7 @@ function Button6mm({ col, pressed, onInput }: { col: number; pressed: boolean; o
 // 10 kΩ rotary potentiometer: blue base on the breadboard, black knob with a white pointer.
 // position 0…1 turns the pointer from −135° to +135°.
 export const knobAngle = (position: number) => (-135 + 270 * position) * (Math.PI / 180);
-function Potentiometer({ id, col, row, position, onInput }: { id: string; col: number; row: PartInstance['at']['row']; position: number; onInput: OnInput }) {
+function Potentiometer({ id, col, row, position, onInput }: { id: string; col: number; row: BoardPlacement['row']; position: number; onInput: OnInput }) {
   const parts = useMemo(() => {
     const g = new THREE.Group();
     const base = rbox(9.6, 5, 9.6, 0.6, std('#2F5BBF', 0.55)); base.position.y = BB.H + 2.5; g.add(base);
@@ -111,7 +111,7 @@ type Props = { part: PartInstance; state?: PartState; inputs?: Record<string, nu
 
 // One placed part, in breadboard-local coordinates (render inside <Breadboard>).
 export function PartModel({ part, state, inputs, onPick, onInput }: Props) {
-  const { col, row } = part.at;
+  const { col, row } = part.at as BoardPlacement;
   const params = paramsOf(part.type, part.params);
   const [, , z] = holeLocal(col, row);
   let model: React.ReactNode = null;
@@ -129,5 +129,23 @@ export function PartModel({ part, state, inputs, onPick, onInput }: Props) {
   else if (part.type === 'resistor') model = <Resistor from={[col, row]} to={[col + 4, row]} bands={BANDS[Number(params.ohms)] ?? BANDS[220]} />;
   else if (part.type === 'button') model = <Button6mm col={col} pressed={(inputs?.pressed ?? 0) >= 0.5} onInput={onInput} />;
   else if (part.type === 'pot') model = <Potentiometer id={part.id} col={col} row={row} position={inputs?.position ?? 0.5} onInput={onInput} />;
+  else { // a plain block over its legs until the part's own model is added
+    const holes = PART_DEFS[part.type].covers(part.at, part.params);
+    const cols = holes.map((h) => Number(h.match(/^\d+/)![0]));
+    const x0 = colX(Math.min(...cols)), x1 = colX(Math.max(...cols));
+    model = <mesh position={[(x0 + x1) / 2, BB.H + 3, z]}><boxGeometry args={[x1 - x0 + 2.4, 6, 3]} /><meshStandardMaterial color="#5A6372" /></mesh>;
+  }
   return <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick}>{model}</group>;
+}
+
+// A module standing on the bench, in world coordinates (render outside <Breadboard>). A plain block the module's
+// size until its own model is added.
+export function BenchModel({ part, onPick }: Props) {
+  const bench = PART_DEFS[part.type].bench!;
+  const at = part.at as { x: number; z: number };
+  return (
+    <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick} position={[at.x, 0, at.z]}>
+      <mesh position={[0, bench.h / 2, 0]} castShadow><boxGeometry args={[bench.w, bench.h, bench.d]} /><meshStandardMaterial color="#3E5C76" roughness={0.6} /></mesh>
+    </group>
+  );
 }

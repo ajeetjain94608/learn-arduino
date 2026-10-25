@@ -18,7 +18,7 @@ describe('the build store', () => {
     expect(pb.at).toEqual({ col: 3, row: 'a' }); // 1a and 2a are taken by the first LED's legs
     const bid = s().addPart('button')!;
     const btn = s().parts.find((p) => p.id === bid)!;
-    expect(btn.at.row).toBe('e');
+    expect((btn.at as { row: string }).row).toBe('e');
     expect(s().inputs[btn.id]).toEqual({ pressed: 0 });
   });
 
@@ -135,7 +135,7 @@ describe('B3: the build store', () => {
   it('canMove says which way a part can go (a push button only fits row e)', () => {
     const s = fresh();
     const b = s().addPart('button')!;
-    const at = s().parts.find((p) => p.id === b)!.at;
+    const at = s().parts.find((p) => p.id === b)!.at as { col: number };
     expect(s().canMove(b, { col: at.col + 1, row: 'e' })).toBe(true);
     expect(s().canMove(b, { col: at.col, row: 'd' })).toBe(false);
     expect(s().canMove(b, { col: at.col, row: 'f' })).toBe(false);
@@ -151,5 +151,49 @@ describe('B3: the build store', () => {
     expect(s().burns).toEqual([{ id: 'uno.D13', reason: 'pin-overcurrent' }]);
     s().replaceBurn('uno'); // a new board: every damaged pin and the short go
     expect(s().burns).toEqual([]);
+  });
+});
+
+describe('B3: modules on the bench', () => {
+  type Bench = { x: number; z: number };
+  it('a module stands on the bench, in a free spot — never on the UNO, the breadboard or another module', () => {
+    const s = fresh();
+    const ids = ['servo', 'hcsr04', 'stepper', 'oled', 'soil', 'motor', 'servo'].map((t) => s().addPart(t as never)!);
+    expect(ids.every(Boolean)).toBe(true);
+    const spots = ids.map((id) => s().parts.find((p) => p.id === id)!.at as Bench);
+    for (const at of spots) expect(at).toEqual({ x: expect.any(Number), z: expect.any(Number) });
+    expect(new Set(spots.map((a) => `${a.x},${a.z}`)).size).toBe(spots.length);
+  });
+
+  it('a module moves 10 mm at a time, and not into something else', () => {
+    const s = fresh();
+    const id = s().addPart('oled')!;
+    const at = s().parts.find((p) => p.id === id)!.at as Bench;
+    expect(s().movePart(id, { x: at.x + 10, z: at.z })).toBe(true);
+    expect(s().canMove(id, { x: 50, z: 8 })).toBe(false); // the breadboard's middle
+    expect(s().canMove(id, { x: -38, z: 2 })).toBe(false); // the UNO's middle
+    expect(s().canMove(id, { x: 200, z: 300 })).toBe(false); // off the bench
+  });
+
+  it("wires go to a module's pins (one each), and go with the module when it is removed", () => {
+    const s = fresh();
+    const id = s().addPart('servo')!;
+    expect(s().addWire('uno.D9', `${id}.SIG`)).toBeTruthy();
+    expect(s().addWire('uno.D10', `${id}.SIG`)).toBeNull();           // that pin already has a wire
+    expect(s().addWire('uno.5V', `${id}.NOPE`)).toBeNull();           // not a pin of the servo
+    expect(s().addWire('uno.5V', 'servo9.V+')).toBeNull();            // no such module
+    expect(s().usedPins().has(`${id}.SIG`)).toBe(true);
+    s().removePart(id);
+    expect(s().wires).toEqual([]);
+  });
+
+  it('a saved build keeps its modules and their wires', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const a = createBuildStore(storage).getState;
+    const id = a().addPart('hcsr04')!;
+    a().addWire('uno.D9', `${id}.TRIG`);
+    const b = createBuildStore(storage).getState();
+    expect(b.parts).toEqual(a().parts);
+    expect(b.wires).toEqual(a().wires);
   });
 });

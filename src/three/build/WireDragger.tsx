@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { PinRef } from '../../circuit/types';
+import type { PartInstance, PinRef } from '../../circuit/types';
 import { disposeOwned } from '../shared/geometry';
 import { noOutline } from '../shared/layers';
 import { isTestMode } from '../shared/motion';
@@ -15,14 +15,14 @@ const DRAG_PLANE_Y = 14; // the loose end of a wire being dragged floats at this
 // press and hold the point first (a quick drag orbits the camera, two fingers pinch).
 // A press on a part (to turn a knob, press a button, select it) belongs to the part; presses that are not near a
 // point are left to the camera controls (orbit).
-export function WireDragger({ targets, color, onWire }: { targets: PinRef[]; color: string; onWire(from: PinRef, to: PinRef): void }) {
+export function WireDragger({ targets, parts, color, onWire }: { targets: PinRef[]; parts: readonly PartInstance[]; color: string; onWire(from: PinRef, to: PinRef): void }) {
   const { camera, gl, scene } = useThree();
   const cameraControls = useThree((s) => s.controls);
   const useThreeControls = useRef(cameraControls);
   useThreeControls.current = cameraControls;
-  const points = useMemo(() => targets.map((ref) => ({ ref, world: pinWorld(ref) })), [targets]);
-  const latest = useRef({ points, onWire });
-  latest.current = { points, onWire };
+  const points = useMemo(() => targets.map((ref) => ({ ref, world: pinWorld(ref, parts) })), [targets, parts]);
+  const latest = useRef({ points, onWire, parts });
+  latest.current = { points, onWire, parts };
 
   const fx = useMemo(() => {
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
@@ -129,7 +129,7 @@ export function WireDragger({ targets, color, onWire }: { targets: PinRef[]; col
       hold.down(ev.clientX, ev.clientY);
     };
     el.addEventListener('pointerdown', down, { capture: true }); // before the camera controls see the press
-    if (isTestMode()) (window.__rq ??= { debug: {} }).debug.buildPinScreen = (ref: string) => screen(pinWorld(ref));
+    if (isTestMode()) (window.__rq ??= { debug: {} }).debug.buildPinScreen = (ref: string) => screen(pinWorld(ref, latest.current.parts));
     return () => el.removeEventListener('pointerdown', down, { capture: true });
   }, [camera, gl, scene, fx]);
 

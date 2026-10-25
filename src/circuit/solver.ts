@@ -1,11 +1,13 @@
 // A small DC circuit solver (nodal analysis) — enough for breadboard circuits: resistors, sources with an internal
-// resistance (pins, 5 V, 3.3 V) and diodes/LEDs as "off" or "forward voltage + small resistance".
+// resistance (pins, 5 V, 3.3 V), diodes/LEDs as "off" or "forward voltage + small resistance", and an NPN transistor
+// used as a switch (base–emitter like a diode; collector–emitter a small resistance once the base current flows).
 // Nodes are net numbers; `ground` is the reference (0 V).
 
 export type Element =
   | { kind: 'R'; a: number; b: number; ohms: number }
   | { kind: 'V'; node: number; volts: number; ohms: number } // a source to ground through `ohms`
-  | { kind: 'D'; a: number; k: number; vf: number; ron: number }; // anode a, cathode k
+  | { kind: 'D'; a: number; k: number; vf: number; ron: number } // anode a, cathode k
+  | { kind: 'Q'; b: number; c: number; e: number; vbe: number; rbe: number; ron: number; ibOn: number }; // NPN switch
 
 const GMIN = 1e-9; // 1 GΩ from every node to ground: no node is left floating
 const MAX_ROUNDS = 20;
@@ -35,11 +37,13 @@ function linearSolve(A: number[][], b: number[]): number[] {
   return x;
 }
 
-// volts[node]; current[i] through element i: a→b for R, out of the source into its node for V, anode→cathode for D.
+// volts[node]; current[i] through element i: a→b for R, out of the source into its node for V, anode→cathode for D,
+// collector→emitter for Q.
 export function solve(elements: Element[], nodeCount: number, ground: number): { volts: number[]; current: number[] } {
   const row = (node: number) => (node === ground ? -1 : node < ground ? node : node - 1);
   const n = nodeCount - 1;
-  const on = elements.map(() => false);
+  const on = elements.map(() => false);   // a diode / a transistor's base–emitter conducts
+  const ce = elements.map(() => false);   // a transistor's collector–emitter is switched on
   let volts = new Array<number>(nodeCount).fill(0);
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -56,17 +60,25 @@ export function solve(elements: Element[], nodeCount: number, ground: number): {
     elements.forEach((e, idx) => {
       if (e.kind === 'R') conduct(e.a, e.b, 1 / Math.max(e.ohms, 1e-6));
       else if (e.kind === 'V') { const g = 1 / Math.max(e.ohms, 1e-6); conduct(e.node, ground, g); inject(e.node, e.volts * g); }
-      else if (on[idx]) { const g = 1 / e.ron; conduct(e.a, e.k, g); inject(e.a, e.vf * g); inject(e.k, -e.vf * g); }
+      else if (e.kind === 'D') { if (on[idx]) { const g = 1 / e.ron; conduct(e.a, e.k, g); inject(e.a, e.vf * g); inject(e.k, -e.vf * g); } }
+      else {
+        if (on[idx]) { const g = 1 / e.rbe; conduct(e.b, e.e, g); inject(e.b, e.vbe * g); inject(e.e, -e.vbe * g); }
+        if (ce[idx]) conduct(e.c, e.e, 1 / e.ron);
+      }
     });
     const x = linearSolve(A, b);
     volts = Array.from({ length: nodeCount }, (_, node) => (node === ground ? 0 : x[row(node)]));
 
     let changed = false;
     elements.forEach((e, idx) => {
-      if (e.kind !== 'D') return;
-      const vd = volts[e.a] - volts[e.k];
-      if (!on[idx] && vd > e.vf + 1e-9) { on[idx] = true; changed = true; }
-      else if (on[idx] && vd < e.vf - 1e-9) { on[idx] = false; changed = true; }
+      if (e.kind !== 'D' && e.kind !== 'Q') return;
+      const [vd, vf] = e.kind === 'D' ? [volts[e.a] - volts[e.k], e.vf] : [volts[e.b] - volts[e.e], e.vbe];
+      if (!on[idx] && vd > vf + 1e-9) { on[idx] = true; changed = true; }
+      else if (on[idx] && vd < vf - 1e-9) { on[idx] = false; changed = true; }
+      if (e.kind === 'Q') {
+        const switched = on[idx] && (vd - vf) / e.rbe > e.ibOn;
+        if (switched !== ce[idx]) { ce[idx] = switched; changed = true; }
+      }
     });
     if (!changed) break;
   }
@@ -74,7 +86,8 @@ export function solve(elements: Element[], nodeCount: number, ground: number): {
   const current = elements.map((e, idx) => {
     if (e.kind === 'R') return (volts[e.a] - volts[e.b]) / Math.max(e.ohms, 1e-6);
     if (e.kind === 'V') return (e.volts - volts[e.node]) / Math.max(e.ohms, 1e-6);
-    return on[idx] ? (volts[e.a] - volts[e.k] - e.vf) / e.ron : 0;
+    if (e.kind === 'D') return on[idx] ? (volts[e.a] - volts[e.k] - e.vf) / e.ron : 0;
+    return ce[idx] ? (volts[e.c] - volts[e.e]) / e.ron : 0;
   });
   return { volts, current };
 }

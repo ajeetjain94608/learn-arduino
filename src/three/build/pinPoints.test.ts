@@ -21,3 +21,17 @@ describe('where connection points are in 3D', () => {
     expect(pinWorld('uno.A0').toArray()).toEqual(headerTopWorld('A0').toArray());
   });
 });
+
+describe('modules on the bench', () => {
+  it("a module's pin is at the module's place plus the pin's offset", () => {
+    const servo = { id: 'servo1', type: 'servo' as const, params: {}, at: { x: 30, z: 75 } };
+    const p = pinWorld('servo1.SIG', [servo]);
+    expect(p.x).toBeCloseTo(30 + 2.54);
+    expect(p.z).toBeCloseTo(75 + 16);
+  });
+  it("the bench's keep-out zones are where the UNO and the breadboard really are", async () => {
+    const { KEEP_OUT } = await import('../../circuit/parts');
+    expect([KEEP_OUT[0].x, KEEP_OUT[0].z]).toEqual([BLINK.board[0], BLINK.board[2]]);
+    expect([KEEP_OUT[1].x, KEEP_OUT[1].z]).toEqual([BLINK.breadboard[0], BLINK.breadboard[2]]);
+  });
+});

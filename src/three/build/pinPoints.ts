@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { BB, colX, RAIL_Z, type Row } from '../breadboard/breadboardGeometry';
 import { BLINK, headerTopWorld, holeWorld } from '../scenes/blinkLayout';
+import { PART_DEFS } from '../../circuit/parts';
+import type { PartInstance } from '../../circuit/types';
 
 // The Build bench uses the same layout as the Blink project: UNO on the left, breadboard on the right.
 export const BENCH = { board: BLINK.board, breadboard: BLINK.breadboard };
@@ -8,9 +10,16 @@ export const BENCH = { board: BLINK.board, breadboard: BLINK.breadboard };
 const UNO_LABEL: Record<string, string> = { '5V': '5V', '3V3': '3.3V', VIN: 'VIN', GND: 'GND', AREF: 'AREF' };
 const RAIL_INDEX: Record<string, number> = { 'T-': 0, 'T+': 1, 'B-': 2, 'B+': 3 };
 
-// Where a connection point is in the world (mm): the top of a UNO header socket, or a breadboard hole.
-export function pinWorld(ref: string): THREE.Vector3 {
+// Where a connection point is in the world (mm): the top of a UNO header socket, a breadboard hole, or the tip of a
+// module's header pin (`parts`: the modules on the bench).
+export function pinWorld(ref: string, parts: readonly PartInstance[] = []): THREE.Vector3 {
   const [part, pin] = [ref.slice(0, ref.indexOf('.')), ref.slice(ref.indexOf('.') + 1)];
+  const module = parts.find((p) => p.id === part);
+  const bench = module && PART_DEFS[module.type].bench;
+  if (module && bench && 'x' in module.at) {
+    const [dx, y, dz] = bench.pins[pin] ?? [0, 0, 0];
+    return new THREE.Vector3(module.at.x + dx, y, module.at.z + dz);
+  }
   if (part === 'uno') {
     const label = UNO_LABEL[pin] ?? (pin.startsWith('D') ? pin.slice(1) : pin);
     return headerTopWorld(label);
