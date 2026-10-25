@@ -15,7 +15,8 @@ test('Run starts the blink program', async ({ page }) => {
   await page.goto('/?test');
   await expect(status(page)).toHaveText('Program stopped');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
-  await expect(status(page)).toHaveText('Pin 13 HIGH · LED on', { timeout: 1200 });
+  await expect(status(page)).toHaveText('Uploading…'); // Run uploads the sketch first, like a real board
+  await expect(status(page)).toHaveText('Pin 13 HIGH · LED on', { timeout: 4000 });
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(status(page)).toHaveText('Program stopped');
 });

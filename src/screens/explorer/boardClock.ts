@@ -7,8 +7,3 @@ export const BOOT_S = 0.8;
 export function bootLed(t: number): boolean {
   return t >= 0.1 && t < 0.6 && Math.floor((t - 0.1) / 0.1) % 2 === 0;
 }
-
-// The blink sketch: digitalWrite(13, HIGH); delay(1000); digitalWrite(13, LOW); delay(1000);
-export function blinkPin(t: number): boolean {
-  return Math.floor(t) % 2 === 0;
-}

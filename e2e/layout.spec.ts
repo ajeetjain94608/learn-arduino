@@ -61,7 +61,8 @@ test('"Try it yourself" shows the blink code and runs it', async ({ page }) => {
   await code.scrollIntoViewIfNeeded();
   await expect(code).toContainText('digitalWrite(13, HIGH);');
   await code.getByRole('button', { name: 'Run', exact: true }).click();
-  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 1500 });
+  await expect(page.getByTestId('status')).toHaveText('Uploading…');
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 4000 });
 });
 
 test('project cards show rendered pictures of the real parts', async ({ page }) => {
@@ -73,4 +74,28 @@ test('project cards show rendered pictures of the real parts', async ({ page }) 
     await expect(img).toHaveAttribute('src', new RegExp(file));
     await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(100);
   }
+});
+
+type Snap = { uploading: boolean; rxLed: boolean; txLed: boolean; line: number | null; pinHigh: boolean };
+const snap = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __rq: { debug: { store(): Snap } } }).__rq.debug.store());
+
+test('Run uploads (RX/TX flicker), then runs with the current line highlighted and output in the serial monitor', async ({ page }) => {
+  await page.goto('/?test');
+  const code = page.getByTestId('code-card');
+  await code.scrollIntoViewIfNeeded();
+  await code.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(page.getByTestId('status')).toHaveText('Uploading…');
+  await expect(code.getByRole('progressbar')).toBeVisible();
+  const leds = new Set<string>();
+  for (let i = 0; i < 12; i++) { const s = await snap(page); leds.add(`${s.rxLed}${s.txLed}`); await page.waitForTimeout(40); }
+  expect(leds.size).toBeGreaterThan(1); // RX/TX are flickering
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 4000 });
+  const monitor = page.getByRole('log', { name: 'Serial monitor' });
+  await expect(monitor).toContainText('LED on');
+  const active = code.locator('.code__line.is-running');
+  await expect(active).toHaveCount(1);
+  await expect(active).toHaveText(/digitalWrite\(13, HIGH\);|Serial\.println\("LED on"\);|delay\(1000\);/);
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 2500 });
+  await expect(active).toHaveText(/digitalWrite\(13, LOW\);|Serial\.println\("LED off"\);|delay\(1000\);/);
+  await expect(monitor).toContainText('LED off');
 });

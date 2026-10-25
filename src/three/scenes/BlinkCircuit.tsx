@@ -12,12 +12,13 @@ import { BLINK, blinkWires } from './blinkLayout';
 type Props = {
   pinHigh: boolean;       // pin 13 output level
   bootLed?: boolean;      // the L LED's bootloader flashes after a reset
+  rx?: boolean; tx?: boolean; // serial activity LEDs (upload, Serial.println)
   showCircuit: boolean;   // breadboard, parts and wires (hidden in the board-only view)
   showCurrent: boolean;   // current animation on the wires
 };
 
 // Lesson 2 circuit: pin 13 → 5 mm LED → 220 Ω → GND, on a half breadboard. Every part is inspectable.
-export function BlinkCircuit({ pinHigh, bootLed = false, showCircuit, showCurrent }: Props) {
+export function BlinkCircuit({ pinHigh, bootLed = false, rx = false, tx = false, showCircuit, showCurrent }: Props) {
   const wires = useMemo(() => blinkWires(), []);
   const [ax, , az] = holeLocal(...BLINK.ledAnode), [kx] = holeLocal(...BLINK.ledCathode);
   const [r1] = holeLocal(...BLINK.resistorFrom), [r2, , rz] = holeLocal(...BLINK.resistorTo);
@@ -25,7 +26,7 @@ export function BlinkCircuit({ pinHigh, bootLed = false, showCircuit, showCurren
   const mid = (w: typeof wires.signal) => w.wire.getPoint(0.5).toArray() as [number, number, number];
   return (
     <>
-      <UnoBoard position={BLINK.board} pin13={pinHigh || bootLed} />
+      <UnoBoard position={BLINK.board} pin13={pinHigh || bootLed} rx={rx} tx={tx} />
       <group visible={showCircuit}>
         <PartGroup id="breadboard" kind="breadboard" center={BLINK.breadboard}>
           <Breadboard position={BLINK.breadboard}>

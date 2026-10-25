@@ -28,6 +28,8 @@ export function ExplorerScreen() {
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const showCurrent = useWorkbenchStore((s) => s.showCurrent);
   const bootLed = useWorkbenchStore((s) => s.bootLed);
+  const rxLed = useWorkbenchStore((s) => s.rxLed);
+  const txLed = useWorkbenchStore((s) => s.txLed);
   const selectedPart = useInspectStore((s) => s.selected);
   const selectPart = useInspectStore((s) => s.select);
   const [callout, setCallout] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function ExplorerScreen() {
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={clearAll}>
             <DemoClock />
             <Inspectable onEmptyTap={clearAll}>
-              <BlinkCircuit pinHigh={pinHigh} bootLed={bootLed} showCircuit={view === 'circuit'} showCurrent={showCurrent} />
+              <BlinkCircuit pinHigh={pinHigh} bootLed={bootLed} rx={rxLed} tx={txLed} showCircuit={view === 'circuit'} showCurrent={showCurrent} />
             </Inspectable>
             <CalloutProjector hotspots={HOTSPOTS} bridge={bridge} />
             {SHOW_FPS && <FpsProbe />}

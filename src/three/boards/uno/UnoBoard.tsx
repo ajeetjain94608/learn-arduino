@@ -32,15 +32,17 @@ export function buildUnoBoard(surfacePx: number, anisotropy: number): { group: T
   return { group: g, leds };
 }
 
-type Props = { position?: [number, number, number]; pin13?: boolean };
+type Props = { position?: [number, number, number]; pin13?: boolean; rx?: boolean; tx?: boolean };
 
-// The Uno R3, built from the official layout. `pin13` HIGH lights the built-in "L" LED.
-export function UnoBoard({ position = [-38, 0, 2], pin13 = false }: Props) {
+// The Uno R3, built from the official layout. `pin13` HIGH lights the built-in "L" LED; rx/tx light the serial LEDs.
+export function UnoBoard({ position = [-38, 0, 2], pin13 = false, rx = false, tx = false }: Props) {
   const surfacePx = useQualityStore((s) => s.quality.surfacePx); // board texture resolution follows the quality tier
   const anisotropy = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
   const { group, leds } = useMemo(() => buildUnoBoard(surfacePx, anisotropy), [surfacePx, anisotropy]);
 
   leds.L.set(pin13 ? 1 : 0);
+  leds.RX.set(rx ? 1 : 0);
+  leds.TX.set(tx ? 1 : 0);
 
   return (
     <group position={position}>

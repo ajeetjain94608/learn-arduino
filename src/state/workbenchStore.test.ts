@@ -56,3 +56,25 @@ test('toolbar camera commands are queued with an increasing sequence number', ()
   s.nudgeCamera('zoom', 1.25);
   expect(useWorkbenchStore.getState().cameraCmd).toMatchObject({ kind: 'zoom', amount: 1.25, seq: first.seq + 1 });
 });
+
+test('Run uploads first: pin LOW, serial cleared, then the program starts', () => {
+  const s = useWorkbenchStore.getState();
+  s.appendSerial(['old']);
+  s.upload();
+  expect(useWorkbenchStore.getState()).toMatchObject({ running: true, uploading: true, pinHigh: false, serial: [], line: null });
+});
+
+test('the serial monitor keeps the latest 200 lines', () => {
+  const s = useWorkbenchStore.getState();
+  s.appendSerial(Array.from({ length: 250 }, (_, i) => `line ${i}`));
+  const log = useWorkbenchStore.getState().serial;
+  expect(log).toHaveLength(200);
+  expect(log.at(-1)).toBe('line 249');
+});
+
+test('stopping clears the running line and the board lights', () => {
+  const s = useWorkbenchStore.getState();
+  s.upload();
+  s.setRunning(false);
+  expect(useWorkbenchStore.getState()).toMatchObject({ running: false, uploading: false, line: null, rxLed: false, txLed: false });
+});

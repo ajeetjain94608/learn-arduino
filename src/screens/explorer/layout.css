@@ -92,3 +92,19 @@
   .viewer-toolbar { gap: 0; padding: 3px; }
   .viewer-toolbar__sep { display: none; }
 }
+
+/* "Try it yourself": upload progress, running-line highlight, serial monitor */
+.upload { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.upload__bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.upload__bar i { display: block; height: 100%; background: var(--accent); transition: width .1s linear; }
+.code__line.is-running { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); border-radius: 4px; }
+.code__line.is-running .code__no { color: var(--accent); opacity: 1; font-weight: 800; }
+.serial { margin-top: 12px; }
+.serial__head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.serial__head h3 { margin: 0; flex: 1; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+.serial__baud { font-size: 14px; color: var(--ink-2); }
+.serial__clear { appearance: none; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: transparent;
+  color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.serial__out { height: 132px; overflow-y: auto; padding: 8px 12px; border-radius: 12px; background: #0E1422; color: #CFE8FF;
+  font: 500 14px/1.55 ui-monospace, Consolas, monospace; }
+.serial__empty { color: #8392AB; }
