@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest';
+import { createBuildStore, FRESH_CODE } from './buildStore';
+
+class MemoryStorage {
+  data = new Map<string, string>();
+  getItem(k: string) { return this.data.get(k) ?? null; }
+  setItem(k: string, v: string) { this.data.set(k, v); }
+  removeItem(k: string) { this.data.delete(k); }
+}
+const fresh = () => createBuildStore(new MemoryStorage() as unknown as Storage).getState;
+
+describe('the build store', () => {
+  it('adding parts fills free spots', () => {
+    const s = fresh();
+    const a = s().addPart('led')!, b = s().addPart('led')!;
+    const [pa, pb] = [s().parts.find((p) => p.id === a)!, s().parts.find((p) => p.id === b)!];
+    expect(pa.at).toEqual({ col: 1, row: 'a' });
+    expect(pb.at).toEqual({ col: 3, row: 'a' }); // 1a and 2a are taken by the first LED's legs
+    const bid = s().addPart('button')!;
+    const btn = s().parts.find((p) => p.id === bid)!;
+    expect(btn.at.row).toBe('e');
+    expect(s().inputs[btn.id]).toEqual({ pressed: 0 });
+  });
+
+  it("placement: a leg can't share a hole", () => {
+    const s = fresh();
+    const a = s().addPart('resistor')!; // 1a–5a
+    const b = s().addPart('led')!;       // 6a, 7a
+    expect(s().movePart(b, { col: 5, row: 'a' })).toBe(false); // 5a holds the resistor's leg
+    expect(s().parts.find((p) => p.id === b)!.at).toEqual({ col: 6, row: 'a' });
+    expect(s().movePart(b, { col: 2, row: 'c' })).toBe(true);  // other row: free
+    expect(s().movePart(a, { col: 28, row: 'a' })).toBe(false); // off the end of the board
+    expect(s().wires).toEqual([]);
+  });
+
+  it('wires: self and duplicate connections are refused', () => {
+    const s = fresh();
+    expect(s().addWire('uno.D13', 'uno.D13')).toBeNull();
+    expect(s().message).toMatch(/two different/i);
+    expect(s().addWire('uno.D13', 'bb.10c')).not.toBeNull();
+    expect(s().addWire('bb.10c', 'uno.D13')).toBeNull(); // the same wire, other way round
+    expect(s().message).toMatch(/already connected/i);
+    expect(s().wires).toHaveLength(1);
+  });
+
+  it('a wire end cannot go into a hole that holds a leg', () => {
+    const s = fresh();
+    s().addPart('led'); // 1a, 2a
+    expect(s().addWire('uno.D13', 'bb.1a')).toBeNull();
+    expect(s().addWire('uno.D13', 'bb.1c')).not.toBeNull();
+  });
+
+  it("the UNO and breadboard can't be removed", () => {
+    const s = fresh();
+    s().removePart('uno');
+    s().removePart('bb');
+    const id = s().addPart('led')!;
+    s().addWire('uno.D13', 'bb.1c');
+    s().removePart(id);
+    expect(s().parts).toEqual([]);
+    expect(s().wires).toHaveLength(1); // the wire stays on the breadboard, like real life
+  });
+
+  it('inputs are clamped to their range', () => {
+    const s = fresh();
+    const pot = s().addPart('pot')!, btn = s().addPart('button')!;
+    s().setInput(pot, 'position', 7);
+    expect(s().inputs[pot].position).toBe(1);
+    s().setInput(pot, 'position', Number.NaN);
+    expect(s().inputs[pot].position).toBe(1);
+    s().setInput(btn, 'pressed', 0.7);
+    expect(s().inputs[btn].pressed).toBe(1);
+  });
+
+  it('saved builds survive reload; junk falls back to a fresh build', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const a = createBuildStore(storage).getState;
+    const id = a().addPart('led')!;
+    a().setParam(id, 'color', 'blue');
+    a().addWire('uno.D13', 'bb.1c');
+    a().setCode('void setup() {}\nvoid loop() {}\n');
+    const b = createBuildStore(storage).getState;
+    expect(b().parts).toEqual(a().parts);
+    expect(b().wires).toEqual(a().wires);
+    expect(b().code).toBe('void setup() {}\nvoid loop() {}\n');
+    storage.setItem('rq-build-v1', '{bad');
+    expect(createBuildStore(storage).getState().parts).toEqual([]);
+    expect(createBuildStore(storage).getState().code).toBe(FRESH_CODE);
+  });
+});

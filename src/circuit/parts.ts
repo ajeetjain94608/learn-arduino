@@ -7,6 +7,8 @@ export type PartDef = {
   pins: string[];
   // where each pin's leg sits on the breadboard (hole names like "10a"), or null if the part can't sit there
   footprint(at: Placement, params: Record<string, string | number>): Record<string, string> | null;
+  // every hole the part's body sits over, legs included (no other part may use them); [] if it can't sit there
+  covers(at: Placement, params: Record<string, string | number>): string[];
   params: ParamDef[];
   inputs: InputDef[];
 };
@@ -17,6 +19,14 @@ export const POT_OHMS = 10_000;
 
 const STRIP_ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 const onBoard = (col: number) => col >= 1 && col <= COLUMNS;
+const range = (from: number, n: number) => Array.from({ length: n }, (_, i) => from + i);
+// a block of holes: columns col…col+w-1 and up to h rows from `row` on its own side of the gap
+function block(at: Placement, w: number, h: number): string[] {
+  const i = STRIP_ROWS.indexOf(at.row), side = i < 5 ? 0 : 5;
+  const rows = range(i, h).filter((r) => r < side + 5);
+  while (rows.length < h && rows[0] > side) rows.unshift(rows[0] - 1); // near the gap: grow away from it
+  return range(at.col, w).flatMap((c) => rows.map((r) => `${c}${STRIP_ROWS[r]}`));
+}
 // legs in one row, at these column offsets from the anchor
 const inRow = (pinsAt: Record<string, number>) => (at: Placement) => {
   if (!STRIP_ROWS.includes(at.row) || Object.values(pinsAt).some((d) => !onBoard(at.col + d))) return null;
@@ -27,12 +37,14 @@ export const PART_DEFS: Record<PartType, PartDef> = {
   led: {
     pins: ['A', 'K'],
     footprint: inRow({ A: 0, K: 1 }),
+    covers: (at) => Object.values(inRow({ A: 0, K: 1 })(at) ?? {}),
     params: [{ key: 'color', options: [...LED_COLORS], default: 'red' }],
     inputs: [],
   },
   resistor: {
     pins: ['1', '2'],
     footprint: inRow({ 1: 0, 2: 4 }),
+    covers: (at) => (inRow({ 1: 0, 2: 4 })(at) ? range(at.col, 5).map((c) => `${c}${at.row}`) : []),
     params: [{ key: 'ohms', options: [220, 1000, 10000], default: 220 }],
     inputs: [],
   },
@@ -42,6 +54,8 @@ export const PART_DEFS: Record<PartType, PartDef> = {
     pins: ['1', '2', '3', '4'],
     footprint: (at) => (at.row !== 'e' || !onBoard(at.col) || !onBoard(at.col + 2) ? null
       : { 1: `${at.col}e`, 2: `${at.col + 2}e`, 3: `${at.col}f`, 4: `${at.col + 2}f` }),
+    covers: (at) => (at.row !== 'e' || !onBoard(at.col) || !onBoard(at.col + 2) ? []
+      : range(at.col, 3).flatMap((c) => ['d', 'e', 'f', 'g'].map((r) => `${c}${r}`))),
     params: [],
     inputs: [{ key: 'pressed', min: 0, max: 1, step: 1, unit: '', default: 0 }],
   },
@@ -49,6 +63,7 @@ export const PART_DEFS: Record<PartType, PartDef> = {
   pot: {
     pins: ['1', 'W', '2'],
     footprint: inRow({ 1: 0, W: 2, 2: 4 }),
+    covers: (at) => (inRow({ 1: 0, W: 2, 2: 4 })(at) ? block(at, 5, 3) : []),
     params: [],
     inputs: [{ key: 'position', min: 0, max: 1, step: 0.001, unit: '', default: 0.5 }],
   },
