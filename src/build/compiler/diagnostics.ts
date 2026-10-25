@@ -2,10 +2,12 @@ import { t, type StringKey } from '../../i18n/en';
 import { SKETCH_FILE } from './preprocess';
 import type { Diagnostic } from './types';
 
-const COMPILER_LINE = /^(.*?):(\d+):(\d+): (error|warning|note): (.*)$/;
+// "fatal error" is how GCC reports a missing #include file
+const COMPILER_LINE = /^(.*?):(\d+):(\d+): (?:fatal )?(error|warning|note): (.*)$/;
 
 // Plain-language hints for the mistakes beginners make most.
 const HINTS: [RegExp, StringKey][] = [
+  [/\.h: No such file or directory/, 'compile.hint.noLibrary'],
   [/expected ';' before/, 'compile.hint.semicolon'],
   [/was not declared in this scope/, 'compile.hint.undeclared'],
   [/expected '}' at end of input|a function-definition is not allowed here/, 'compile.hint.brace'],

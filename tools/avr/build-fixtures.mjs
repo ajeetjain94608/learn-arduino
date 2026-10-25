@@ -87,6 +87,7 @@ export const DIAGNOSTIC_CASES = {
   brace: 'void setup() {\n  pinMode(13, OUTPUT);\n\nvoid loop() {\n  delay(10);\n}\n',
   noloop: 'void setup() {\n  pinMode(13, OUTPUT);\n}\n',
   warning: 'void setup() {\n  byte b = 300;\n  Serial.begin(9600);\n  Serial.println(b);\n}\n\nvoid loop() {\n}\n',
+  missinglib: '#include <Servo.h>\n\nServo arm;\n\nvoid setup() {\n  arm.attach(9);\n}\n\nvoid loop() {\n}\n',
   note: 'void blinkTimes(int n) {\n  delay(n);\n}\n\nvoid setup() {\n  blinkTimes();\n}\n\nvoid loop() {\n}\n',
 };
 if (process.argv.includes('--diagnostics')) {

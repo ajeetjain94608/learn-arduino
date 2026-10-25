@@ -31,13 +31,16 @@ export function createWasmEnv(load: (tool: ToolName) => Promise<LoadedTool>, sys
     async run(tool, args, inputs, outputs) {
       const { factory, module } = await load(tool);
       let stdout = '', stderr = '';
-      const em = await factory({
+      // if the WebAssembly can't start (e.g. no memory), Emscripten's factory would wait forever: fail the step instead
+      let startFailed!: (e: unknown) => void;
+      const failure = new Promise<never>((_, reject) => { startFailed = reject; });
+      const em = await Promise.race([factory({
         // where the tool "lives": ld finds its default linker scripts relative to it (../avr/lib/ldscripts)
         thisProgram: `/sysroot/bin/${tool}`,
         print: (s) => { stdout += s + '\n'; },
         printErr: (s) => { stderr += s + '\n'; },
-        instantiateWasm: (imports, done) => { WebAssembly.instantiate(module, imports).then((i) => done(i, module)); return {}; },
-      });
+        instantiateWasm: (imports, done) => { WebAssembly.instantiate(module, imports).then((i) => done(i, module), startFailed); return {}; },
+      }), failure]);
       const write = (path: string, data: Uint8Array) => {
         em.FS.mkdirTree(path.slice(0, path.lastIndexOf('/')) || '/');
         em.FS.writeFile(path, data);

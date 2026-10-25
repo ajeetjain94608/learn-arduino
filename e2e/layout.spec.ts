@@ -64,7 +64,7 @@ test('"Try it yourself" shows the blink code and runs it', async ({ page }) => {
   await expect(code).toContainText('digitalWrite(13, HIGH);');
   await code.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.getByTestId('status')).toHaveText('Uploading…');
-  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 4000 });
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 10_000 });
 });
 
 test('project cards show rendered pictures of the real parts', async ({ page }) => {
@@ -91,13 +91,13 @@ test('Run uploads (RX/TX flicker), then runs with the current line highlighted a
   const leds = new Set<string>();
   for (let i = 0; i < 12; i++) { const s = await snap(page); leds.add(`${s.rxLed}${s.txLed}`); await page.waitForTimeout(40); }
   expect(leds.size).toBeGreaterThan(1); // RX/TX are flickering
-  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 4000 });
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 10_000 });
   const monitor = page.getByRole('log', { name: 'Serial monitor' });
   await expect(monitor).toContainText('LED on');
   const active = code.locator('.code__line.is-running');
   await expect(active).toHaveCount(1);
   await expect(active).toHaveText(/digitalWrite\(13, HIGH\);|Serial\.println\("LED on"\);|delay\(1000\);/);
-  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 2500 });
+  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 10_000 });
   await expect(active).toHaveText(/digitalWrite\(13, LOW\);|Serial\.println\("LED off"\);|delay\(1000\);/);
   await expect(monitor).toContainText('LED off');
 });

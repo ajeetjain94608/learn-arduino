@@ -12,6 +12,7 @@ const SOURCES: Record<string, string> = {
   brace: 'void setup() {\n  pinMode(13, OUTPUT);\n\nvoid loop() {\n  delay(10);\n}\n',
   noloop: 'void setup() {\n  pinMode(13, OUTPUT);\n}\n',
   warning: 'void setup() {\n  byte b = 300;\n  Serial.begin(9600);\n  Serial.println(b);\n}\n\nvoid loop() {\n}\n',
+  missinglib: '#include <Servo.h>\n\nServo arm;\n\nvoid setup() {\n  arm.attach(9);\n}\n\nvoid loop() {\n}\n',
   note: 'void blinkTimes(int n) {\n  delay(n);\n}\n\nvoid setup() {\n  blinkTimes();\n}\n\nvoid loop() {\n}\n',
 };
 const parse = (name: string) => {
@@ -58,6 +59,13 @@ describe('parseDiagnostics', () => {
     const ds = parseDiagnostics("ld.exe: sketch.elf section `.text' will not fit in region `text'\nld.exe: region `text' overflowed by 120 bytes\ncollect2.exe: error: ld returned 1 exit status\n", (l) => l);
     expect(ds).toHaveLength(1);
     expect(ds[0]).toMatchObject({ severity: 'error', hint: t('compile.hint.tooBig') });
+  });
+
+  it('a library that is not available is explained on its #include line', () => {
+    const ds = parse('missinglib');
+    expect(ds).toHaveLength(1);
+    expect(ds[0]).toMatchObject({ line: 1, col: 10, severity: 'error', hint: t('compile.hint.noLibrary') });
+    expect(ds[0].message).toContain('Servo.h');
   });
 
   it('warnings are kept as warnings', () => {

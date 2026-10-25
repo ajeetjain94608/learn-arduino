@@ -9,6 +9,8 @@ export const BLINK_SKETCH = BLINK.code;
 
 export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): void }) {
   const running = useWorkbenchStore((s) => s.running);
+  const compiling = useWorkbenchStore((s) => s.compiling);
+  const busy = running || compiling; // the button offers Stop while compiling too
   const uploading = useWorkbenchStore((s) => s.uploading);
   const progress = useWorkbenchStore((s) => s.uploadProgress);
   const line = useWorkbenchStore((s) => s.line);
@@ -39,11 +41,11 @@ export function CodeCard({ panel, onPanel }: { panel: Panel; onPanel(p: Panel): 
         <button type="button" className="icon-btn" aria-label={copied ? t('code.copied') : t('code.copy')} onClick={copy}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>
         </button>
-        <button type="button" className={`run-btn${running ? ' is-on' : ''}`} aria-label={running ? t('dock.stop') : t('dock.run')} onClick={() => (running ? setRunning(false) : upload())}>
-          {running
+        <button type="button" className={`run-btn${busy ? ' is-on' : ''}`} aria-label={busy ? t('dock.stop') : t('dock.run')} onClick={() => (busy ? setRunning(false) : upload())}>
+          {busy
             ? <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
             : <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden><path d="M7 5v14l12-7z" /></svg>}
-          <span className="run-btn__text" aria-hidden>{running ? t('dock.stop') : t('dock.run')}</span>
+          <span className="run-btn__text" aria-hidden>{busy ? t('dock.stop') : t('dock.run')}</span>
         </button>
       </div>
       {uploading && (

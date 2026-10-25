@@ -6,6 +6,8 @@ GNU General Public License version 3, compiled to WebAssembly with Emscripten 4.
 `tools/avr-wasm/build.sh` (that script is the complete build recipe). GMP 6.2.1, MPFR 4.1.0 and MPC 1.2.1
 (GNU LGPL 3) are linked in. Programs compiled with this compiler are covered by the GCC Runtime Library Exception.
 
+Licence texts: `LICENSES/COPYING3` (GNU GPL 3) and `LICENSES/COPYING3.LIB` (GNU LGPL 3).
+
 | File | SHA-256 | Download |
 |---|---|---|
 | gcc-7.3.0.tar.xz | `832ca6ae04636adbb430e865a1451adf6979ab44ca1c8374f61fba65645ce15c` | https://ftp.gnu.org/gnu/gcc/gcc-7.3.0/gcc-7.3.0.tar.xz |

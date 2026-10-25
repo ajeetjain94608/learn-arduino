@@ -26,4 +26,5 @@ export type CompileResult =
 // (GCC as WebAssembly on Android and the web; LLVM later on iOS — Build design §4).
 export interface Compiler {
   compile(sketch: string): Promise<CompileResult>;
+  cancel?(): void; // stop the compile in progress (its promise rejects); the next compile starts fresh
 }

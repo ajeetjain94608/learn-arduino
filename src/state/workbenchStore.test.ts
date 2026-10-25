@@ -117,3 +117,42 @@ describe('workbench store: Run compiles changed code', () => {
     expect(s().diagnostics[0]).toMatchObject({ severity: 'error', message: expect.stringContaining('toolchain missing') });
   });
 });
+
+describe('review fixes: store', () => {
+  let pending: { resolve(r: CompileResult): void }[] = [];
+  const cancels: number[] = [];
+  const fake: Compiler = { compile: () => new Promise((resolve) => pending.push({ resolve })), cancel: () => { cancels.push(1); } };
+  beforeEach(() => { setCompiler(fake); s().setRunning(false); s().clearSerial(); pending = []; cancels.length = 0; });
+
+  it('running the unchanged project sketch during a compile ends that compile', async () => {
+    s().setCode('void setup() {} void loop() {} // edited');
+    s().upload();
+    s().setCode(BLINK.code);
+    s().upload(); // the learner undid the edit and pressed Run
+    expect(s().compiling).toBe(false);
+    pending[0].resolve({ ok: true, program: { ...BLINK.program, hex: ':OLD' }, diagnostics: [], ms: 1 });
+    await Promise.resolve();
+    expect(s().program).toBe(BLINK.program);
+  });
+
+  it('a new Run cancels the compile that is still going (one compile at a time)', () => {
+    s().setCode('void setup() {} void loop() {} // a');
+    s().upload();
+    s().setCode('void setup() {} void loop() {} // b');
+    s().upload();
+    expect(cancels).toHaveLength(1);
+  });
+
+  it('Stop during a compile cancels it', () => {
+    s().setCode('void setup() {} void loop() {} // c');
+    s().upload();
+    s().setRunning(false);
+    expect(cancels).toHaveLength(1);
+  });
+
+  it('serial output without line endings is split so no line grows without limit', () => {
+    for (let i = 0; i < 100; i++) s().appendSerialText('x'.repeat(100)); // 10 000 characters, no newline
+    expect(s().serial.every((l) => l.length <= 1024)).toBe(true);
+    expect(s().serial.join('').length).toBe(10_000);
+  });
+});

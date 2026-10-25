@@ -58,3 +58,15 @@ describe.skipIf(!built)('the WebAssembly toolchain', { timeout: 300_000 }, () =>
       expect(md).toMatch(new RegExp(`${f.replace(/\./g, '\\.')} \\| \`[0-9a-f]{64}\``));
   });
 });
+
+describe('licence texts ship with what we distribute', () => {
+  it('the GPL 3 (GCC, binutils) and LGPL 3 (GMP, MPFR, MPC) texts are next to the compiler', () => {
+    expect(readFileSync(`${DIR}/LICENSES/COPYING3`, 'utf8')).toContain('GNU GENERAL PUBLIC LICENSE');
+    expect(readFileSync(`${DIR}/LICENSES/COPYING3.LIB`, 'utf8')).toContain('GNU LESSER GENERAL PUBLIC LICENSE');
+    expect(readFileSync(`${DIR}/SOURCES.md`, 'utf8')).toContain('LICENSES/COPYING3');
+  });
+
+  it("avr8js's MIT notice ships with the app", () => {
+    expect(readFileSync('public/licenses/avr8js.txt', 'utf8')).toMatch(/Uri Shaked[\s\S]*Permission is hereby granted/);
+  });
+});

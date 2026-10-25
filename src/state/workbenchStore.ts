@@ -53,6 +53,8 @@ type WorkbenchState = {
   setPinHigh(h: boolean): void;
 };
 
+const MAX_LINE = 1024; // longest serial monitor line
+
 // Start the upload animation; the simulated board runs `program` when it ends.
 function startUpload(set: (p: Partial<WorkbenchState>) => void) {
   set({ running: true, uploading: true, uploadProgress: 0, pinHigh: false, serial: [], serialOpen: false, serialInput: '', line: null, booting: false });
@@ -89,8 +91,13 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   nudgeCamera: (kind, amount) => set({ cameraCmd: { kind, amount, seq: (get().cameraCmd?.seq ?? 0) + 1 } }),
   upload: () => {
     const { code } = get();
+    if (get().compiling) getCompiler().cancel?.(); // one compile at a time: a new Run replaces the old one
     // the project's own sketch is shipped precompiled: no compile needed
-    if (code === BLINK.code) { set({ program: BLINK.program, diagnostics: [] }); startUpload(set); return; }
+    if (code === BLINK.code) {
+      set({ program: BLINK.program, diagnostics: [], compiling: false, compileSeq: get().compileSeq + 1 });
+      startUpload(set);
+      return;
+    }
     const seq = get().compileSeq + 1;
     set({ compiling: true, compileSeq: seq, diagnostics: [] });
     const done = (patch: Partial<WorkbenchState>, program?: Program) => {
@@ -114,7 +121,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     serial.push(...parts);
     const open = !text.endsWith('\n');
     if (!open) serial.pop(); // the text ended a line: no empty line after it
-    set({ serial: serial.slice(-200), serialOpen: open });
+    // output without line endings (Serial.print in a loop) wraps every MAX_LINE characters instead of growing forever
+    const capped = serial.flatMap((l) => (l.length <= MAX_LINE ? [l] : Array.from({ length: Math.ceil(l.length / MAX_LINE) }, (_, i) => l.slice(i * MAX_LINE, (i + 1) * MAX_LINE))));
+    set({ serial: capped.slice(-200), serialOpen: open });
   },
   serialSend: (text) => set({ serialInput: get().serialInput + text + '\n' }), // the Arduino IDE's default "Newline" ending
   takeSerialInput: () => { const t = get().serialInput; if (t) set({ serialInput: '' }); return t; },
@@ -129,6 +138,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   toggleLabels: () => set({ labels: !get().labels }),
   // Showing current only makes sense on the wired circuit with the program running.
   toggleCurrent: () => (get().showCurrent ? set({ showCurrent: false }) : set({ showCurrent: true, view: 'circuit', running: true })),
-  setRunning: (running) => set(running ? { running } : { running, pinHigh: false, uploading: false, line: null, rxLed: false, txLed: false, compiling: false, compileSeq: get().compileSeq + 1 }),
+  setRunning: (running) => {
+    if (!running && get().compiling) getCompiler().cancel?.();
+    set(running ? { running } : { running, pinHigh: false, uploading: false, line: null, rxLed: false, txLed: false, compiling: false, compileSeq: get().compileSeq + 1 });
+  },
   setPinHigh: (pinHigh) => set({ pinHigh }),
 }));

@@ -54,6 +54,28 @@ test.describe('editing and compiling the sketch', () => {
     expect(caretLine).toBe(7);
   });
 
+  test('Stop while compiling: the compile ends and nothing runs', async ({ page }) => {
+    const editor = await openCode(page);
+    await editor.fill(BLINK.code.replace('delay(1000);', 'delay(500);'));
+    // record every status the learner sees
+    await page.evaluate(() => {
+      const w = window as unknown as { __statuses: string[] };
+      w.__statuses = [];
+      const el = document.querySelector('[data-testid="status"]')!;
+      new MutationObserver(() => w.__statuses.push(el.textContent ?? '')).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+    await run(page);
+    await expect(page.getByTestId('status')).toHaveText('Compiling…');
+    // the button offers Stop while compiling (checked at once, not after waiting for the run to start)
+    expect(await page.locator('.run-btn').getAttribute('aria-label')).toBe('Stop');
+    await page.locator('.run-btn').click();
+    await expect(page.getByTestId('status')).toHaveText('Program stopped');
+    await page.waitForTimeout(3000); // the stopped compile must not come back and upload
+    const seen = await page.evaluate(() => (window as unknown as { __statuses: string[] }).__statuses);
+    expect(seen).not.toContain('Uploading…');
+    await expect(page.getByTestId('code-card').getByRole('button', { name: 'Run' })).toBeVisible();
+  });
+
   test('unchanged project code runs instantly without compiling', async ({ page }) => {
     await openCode(page);
     await run(page);

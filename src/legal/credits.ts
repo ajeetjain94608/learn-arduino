@@ -4,6 +4,7 @@ import { t } from '../i18n/en';
 export const CREDITS: string[] = [
   t('credits.boardLayout'),
   t('credits.avr8js'),
+  t('credits.gcc'),
   t('credits.core'),
   t('credits.avrlibc'),
 ];

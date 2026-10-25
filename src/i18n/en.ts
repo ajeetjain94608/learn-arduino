@@ -2,7 +2,8 @@
 export const en = {
   'app.name': 'RoboQuest',
   'credits.boardLayout': 'Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)',
-  'credits.avr8js': 'Chip simulation: avr8js by Uri Shaked (MIT licence)',
+  'credits.avr8js': 'Chip simulation: avr8js, Copyright (c) 2019-2025 Uri Shaked (MIT licence; notice in licenses/avr8js.txt)',
+  'credits.gcc': 'Compiler: GNU GCC 7.3.0 and GNU binutils 2.42 (GPL 3), with GMP, MPFR and MPC (LGPL 3); licence texts and source list in avr/toolchain/',
   'credits.core': 'Arduino AVR core 1.8.7 (GNU LGPL 2.1), precompiled for the UNO',
   'credits.avrlibc': 'AVR-LibC (Modified BSD licence) and libgcc (GPL 3 with the GCC Runtime Library Exception)',
   'app.tagline': '3D workbench',
@@ -17,6 +18,7 @@ export const en = {
   'compile.hint.brace': 'A { was opened but never closed',
   'compile.hint.noSetup': 'Your sketch needs a setup() function',
   'compile.hint.noLoop': 'Your sketch needs a loop() function',
+  'compile.hint.noLibrary': "This library isn't available in RoboQuest yet",
   'compile.hint.tooBig': "The program is too big for the UNO's 32 KB",
   'serial.title': 'Serial monitor', 'serial.baud': '9600 baud', 'serial.clear': 'Clear', 'serial.input': 'Message to the board', 'serial.placeholder': 'Send text to the board…', 'serial.send': 'Send to board', 'serial.sendShort': 'Send', 'status.speed': 'Running at {x}× speed', 'serial.expand': 'Expand serial monitor', 'serial.shrink': 'Shrink serial monitor', 'serial.empty': 'Nothing printed yet. Press Run.', 'code.uploading': 'Uploading',
   'status.high': 'Pin 13 HIGH · LED on', 'status.low': 'Pin 13 LOW · LED off',
