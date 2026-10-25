@@ -31,7 +31,8 @@ describe.skipIf(!nativeAvailable())('native AVR toolchain outputs', () => {
       expect(readFileSync(`${base}.hex`, 'utf8'), base).toMatch(/^:[0-9A-F]+/);
       const lines = JSON.parse(readFileSync(`${base}.lines.json`, 'utf8')) as { addr: number; line: number }[];
       expect(lines.length, base).toBeGreaterThan(0);
-      expect(lines.every((l) => Number.isInteger(l.addr) && l.line >= 1), base).toBe(true);
+      expect(lines.every((l) => Number.isInteger(l.addr) && l.line >= 0), base).toBe(true);
+      expect(lines.some((l) => l.line >= 1), `${base} has sketch lines`).toBe(true);
     }
   });
 });

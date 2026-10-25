@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
-import { CORE_DIR, CPP_FLAGS, GCC_DIR, INCLUDES, LINK_FLAGS, MCU, nativeTools } from './nativeToolchain.mjs';
+import { CORE_DIR, CPP_FLAGS, GCC_DIR, INCLUDES, LINK_FLAGS, MCU, nativeTools, SKETCH_FLAGS } from './nativeToolchain.mjs';
 
 const t = nativeTools();
 const dir = mkdtempSync(join(tmpdir(), 'rq-cmd-'));
@@ -19,7 +19,7 @@ function subcommands(args) {
 }
 let compile, link;
 try {
-  compile = subcommands([...CPP_FLAGS, ...MCU, ...INCLUDES, 'IN.cpp', '-o', 'OUT.o']);
+  compile = subcommands([...CPP_FLAGS, ...SKETCH_FLAGS, ...MCU, ...INCLUDES, 'IN.cpp', '-o', 'OUT.o']);
   link = subcommands([...LINK_FLAGS, 'IN.o', 'core.a', '-lm', '-o', 'OUT.elf']);
 } finally { rmSync(dir, { recursive: true, force: true }); }
 

@@ -21,5 +21,8 @@ export const MCU = ['-mmcu=atmega328p', '-DF_CPU=16000000L', '-DARDUINO=10819', 
 export const INCLUDES = [`-I${join(CORE_DIR, 'cores/arduino')}`, `-I${join(CORE_DIR, 'variants/standard')}`];
 export const C_FLAGS = ['-c', '-g', '-Os', '-w', '-std=gnu11', '-ffunction-sections', '-fdata-sections'];
 export const CPP_FLAGS = ['-c', '-g', '-Os', '-std=gnu++11', '-fpermissive', '-fno-exceptions', '-ffunction-sections', '-fdata-sections', '-fno-threadsafe-statics', '-Wno-error=narrowing'];
+// Learner sketches only: keep every call a real call (no tail-call jumps) so the running line can always be found
+// from the stack's return addresses (src/sim/avr/sourceLine.ts). Costs a few bytes.
+export const SKETCH_FLAGS = ['-fno-optimize-sibling-calls'];
 export const S_FLAGS = ['-c', '-g', '-x', 'assembler-with-cpp'];
 export const LINK_FLAGS = ['-Os', '-g', '-Wl,--gc-sections', '-mmcu=atmega328p'];

@@ -2,11 +2,13 @@ import {
   adcConfig, AVRADC, AVRIOPort, AVRTimer, AVRUSART, avrInstruction, CPU, PinState,
   portBConfig, portCConfig, portDConfig, timer0Config, timer1Config, timer2Config, usart0Config,
 } from 'avr8js';
+import { pwmDuty } from './pwm';
 import { unoPin, type Port } from './unoPins';
 
 export const CPU_HZ = 16_000_000;
 const CYCLES_PER_MS = CPU_HZ / 1000;
 const CHUNK = 1000; // instructions between wall-clock checks
+const RAMEND = 0x8ff;
 
 type Machine = { cpu: CPU; ports: Record<Port, AVRIOPort>; usart: AVRUSART; adc: AVRADC; timers: AVRTimer[] };
 export type PinMode = 'input' | 'input-pullup' | 'output';
@@ -71,6 +73,22 @@ export class AvrRunner {
   setInput(n: number, high: boolean | null): void {
     this.inputs.set(n, high);
     this.applyInputs();
+  }
+
+  // 0–1 when a timer's PWM output drives the pin (analogWrite), else null
+  pwmDuty(n: number): number | null { return this.pin(n).mode === 'output' ? pwmDuty(this.m.cpu, n) : null; }
+
+  // Program counter as a byte address.
+  get pc(): number { return this.m.cpu.pc * 2; }
+
+  // Candidate return addresses (byte addresses) on the stack, innermost first. AVR pushes the 2-byte word
+  // address high byte at the lower memory address; data on the stack can look like an address too, so callers
+  // treat these as candidates (see currentLine).
+  returnAddresses(max = 16): number[] {
+    const { data, SP } = this.m.cpu;
+    const out: number[] = [];
+    for (let i = SP + 1; i < RAMEND && out.length < max; i++) out.push(((data[i] << 8) | data[i + 1]) * 2);
+    return out;
   }
 
   setAnalog(channel: number, volts: number): void {

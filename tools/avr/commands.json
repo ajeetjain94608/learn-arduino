@@ -37,6 +37,7 @@
     "-ffunction-sections",
     "-fdata-sections",
     "-fno-threadsafe-statics",
+    "-fno-optimize-sibling-calls",
     "-mn-flash=1",
     "-mno-skip-bug",
     "-fno-rtti",
