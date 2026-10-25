@@ -1,0 +1,3 @@
+sketch.ino: In function 'void setup()':
+sketch.ino:2:11: error: 'ledPin' was not declared in this scope
+sketch.ino:2:11: note: suggested alternative: 'ldiv'

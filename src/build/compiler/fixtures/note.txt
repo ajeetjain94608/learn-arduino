@@ -1,0 +1,3 @@
+sketch.ino: In function 'void setup()':
+sketch.ino:6:14: error: too few arguments to function 'void blinkTimes(int)'
+sketch.ino:1:6: note: declared here

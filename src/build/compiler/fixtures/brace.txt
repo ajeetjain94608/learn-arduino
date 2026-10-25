@@ -1,0 +1,3 @@
+sketch.ino: In function 'void setup()':
+sketch.ino:4:13: error: a function-definition is not allowed here before '{' token
+sketch.ino:6:1: error: expected '}' at end of input

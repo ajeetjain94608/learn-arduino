@@ -1,0 +1,2 @@
+sketch.ino: In function 'void setup()':
+sketch.ino:2:12: warning: large integer implicitly truncated to unsigned type [-Woverflow]

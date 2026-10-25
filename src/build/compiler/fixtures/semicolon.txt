@@ -1,0 +1,2 @@
+sketch.ino: In function 'void loop()':
+sketch.ino:7:3: error: expected ';' before 'delay'

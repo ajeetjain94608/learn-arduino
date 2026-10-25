@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CPP_FLAGS, INCLUDES, LINK_FLAGS, MCU, nativeTools, SKETCH_FLAGS } from './nativeToolchain.mjs';
+import { CORE_DIR, CPP_FLAGS, INCLUDES, LINK_FLAGS, MCU, nativeTools, SKETCH_FLAGS } from './nativeToolchain.mjs';
 
 const t = nativeTools();
 const FIX = 'src/sim/avr/fixtures';
@@ -43,12 +43,44 @@ export function sketchLines(decoded, file) {
   return out;
 }
 
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('build-fixtures.mjs')) {
+if (!process.argv.includes("--diagnostics") && process.argv[1]?.endsWith("build-fixtures.mjs")) {
   for (const f of readdirSync(FIX).filter((x) => x.endsWith('.ino')).sort()) {
     const name = f.replace(/\.ino$/, '');
     const { hex, lines } = buildSketch(readFileSync(join(FIX, f), 'utf8'), name);
     writeFileSync(join(FIX, `${name}.hex`), hex);
     writeFileSync(join(FIX, `${name}.lines.json`), JSON.stringify(lines) + '\n');
     console.log(`${name}: ${lines.length} line entries`);
+  }
+}
+
+// --diagnostics: real compiler/linker error output for the diagnostics parser's tests
+// (node --experimental-strip-types tools/avr/build-fixtures.mjs --diagnostics).
+export const DIAGNOSTIC_CASES = {
+  semicolon: 'void setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH)\n  delay(1000);\n}\n',
+  undeclared: 'void setup() {\n  pinMode(ledPin, OUTPUT);\n}\n\nvoid loop() {\n}\n',
+  brace: 'void setup() {\n  pinMode(13, OUTPUT);\n\nvoid loop() {\n  delay(10);\n}\n',
+  noloop: 'void setup() {\n  pinMode(13, OUTPUT);\n}\n',
+  warning: 'void setup() {\n  byte b = 300;\n  Serial.begin(9600);\n  Serial.println(b);\n}\n\nvoid loop() {\n}\n',
+  note: 'void blinkTimes(int n) {\n  delay(n);\n}\n\nvoid setup() {\n  blinkTimes();\n}\n\nvoid loop() {\n}\n',
+};
+if (process.argv.includes('--diagnostics')) {
+  const { preprocessSketch } = await import('../../src/build/compiler/preprocess.ts');
+  const out = 'src/build/compiler/fixtures';
+  const { mkdirSync } = await import('node:fs');
+  const { spawnSync } = await import('node:child_process');
+  mkdirSync(out, { recursive: true });
+  for (const [name, ino] of Object.entries(DIAGNOSTIC_CASES)) {
+    const dir = mkdtempSync(join(tmpdir(), 'rq-diag-'));
+    try {
+      const cpp = join(dir, 'sketch.cpp'), obj = join(dir, 'sketch.o');
+      writeFileSync(cpp, preprocessSketch(ino).cpp);
+      let r = spawnSync(t.gpp, [...CPP_FLAGS, ...SKETCH_FLAGS, ...MCU, ...INCLUDES, cpp, '-o', obj], { encoding: 'utf8', cwd: dir });
+      let text = r.stderr;
+      if (r.status === 0) text += spawnSync(t.gcc, [...LINK_FLAGS, obj, join(process.cwd(), 'public/avr/uno/core.a'), '-lm', '-o', join(dir, 'sketch.elf')], { encoding: 'utf8', cwd: dir }).stderr;
+      // machine-specific paths → stable placeholders
+      for (const [path, name] of [[dir, '{TMP}'], [process.cwd(), '{PROJECT}'], [CORE_DIR, '{CORE}']]) text = text.split(path).join(name).split(path.replace(/\\/g, '/')).join(name);
+      writeFileSync(join(out, `${name}.txt`), text);
+      console.log(`${name}: ${text.split('\n').length} lines`);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   }
 }
