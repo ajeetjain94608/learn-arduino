@@ -1,0 +1,34 @@
+// Packs everything the WebAssembly compiler reads into public/avr/uno/sysroot.tar (npm run avr:sysroot):
+//   sysroot/…  — mirrors the toolchain's own layout (configured --prefix=/sysroot), so cc1plus's built-in include
+//                paths and ld's -L paths resolve: GCC's headers, AVR-LibC headers, ATmega328P libraries.
+//   core/…     — the Arduino core and Uno variant headers;  core.a — the precompiled core (npm run avr:core).
+// Only the UNO's own chip header (avr/iom328p.h) is kept out of AVR-LibC's per-chip headers.
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { makeTar } from '../../src/build/compiler/tar.ts';
+import { CORE_DIR, GCC_DIR } from '../avr/nativeToolchain.mjs';
+
+const files = {};
+const walk = (dir) => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
+const add = (root, sub, prefix, keep = () => true) => {
+  for (const p of walk(join(root, sub))) {
+    const rel = relative(root, p).split('\\').join('/');
+    if (keep(rel)) files[`${prefix}/${rel}`] = readFileSync(p);
+  }
+};
+const unoOnly = (rel) => !/^avr\/include\/avr\/io[a-z0-9]+\.h$/.test(rel) || /\/(io|iom328p)\.h$/.test(rel);
+
+add(GCC_DIR, 'lib/gcc/avr/7.3.0/include', 'sysroot');
+add(GCC_DIR, 'lib/gcc/avr/7.3.0/include-fixed', 'sysroot');
+add(GCC_DIR, 'avr/include', 'sysroot', unoOnly);
+for (const f of ['lib/gcc/avr/7.3.0/avr5/libgcc.a', 'avr/lib/avr5/crtatmega328p.o', 'avr/lib/avr5/libc.a', 'avr/lib/avr5/libm.a', 'avr/lib/avr5/libatmega328p.a'])
+  files[`sysroot/${f}`] = readFileSync(join(GCC_DIR, f));
+// binutils 2.42's own default linker scripts (tools/avr-wasm/build.sh install), where ld looks: <-L dir>/ldscripts
+add('public/avr/toolchain', 'ldscripts', 'sysroot/avr/lib');
+add(CORE_DIR, 'cores/arduino', 'core', (rel) => rel.endsWith('.h') || !rel.includes('.'));
+add(CORE_DIR, 'variants/standard', 'core');
+files['core.a'] = readFileSync('public/avr/uno/core.a');
+
+const tar = makeTar(files);
+writeFileSync('public/avr/uno/sysroot.tar', tar);
+console.log(`sysroot.tar: ${Object.keys(files).length} files, ${(tar.length / 1024 / 1024).toFixed(2)} MB`);
