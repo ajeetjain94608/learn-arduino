@@ -14,3 +14,8 @@ test('status says uploading while the sketch uploads', () => {
 test('while the sketch compiles the status says so', () => {
   expect(statusText({ running: false, pinHigh: false, showCurrent: false, booting: false, compiling: true })).toBe('Compiling…');
 });
+
+test('says only "running" when the circuit is not about pin 13', () => {
+  expect(statusText({ running: true, pinHigh: true, showCurrent: false, booting: false }, false)).toBe('Program running');
+  expect(statusText({ running: false, pinHigh: false, showCurrent: false, booting: false }, false)).toBe('Program stopped');
+});

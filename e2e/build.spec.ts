@@ -86,19 +86,21 @@ test.describe('Build: inputs three ways', () => {
     await dbg(page, 'addWire', 'bb.3a', 'uno.D2');
     await dbg(page, 'addWire', 'bb.7a', 'uno.GND');
     await runSketch(page, 'void setup() {\n  pinMode(2, INPUT);\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, digitalRead(2));\n}\n');
-    await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off');
+    await expect.poll(() => pin13(page), { timeout: 10_000 }).toBe(false);
     await page.getByTestId('viewer').scrollIntoViewIfNeeded();
     const c = (await partScreen(page, 'button1'))!;
     await page.mouse.move(c.x, c.y);
     await page.mouse.down();
-    await expect(page.getByTestId('status')).toHaveText('Pin 13 HIGH · LED on', { timeout: 10_000 });
+    await expect.poll(() => pin13(page), { timeout: 10_000 }).toBe(true);
     await page.mouse.up();
-    await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 10_000 });
+    await expect.poll(() => pin13(page), { timeout: 10_000 }).toBe(false);
   });
 });
 
 const BLINK_CODE = 'void setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  delay(1000);\n  digitalWrite(13, LOW);\n  delay(1000);\n}\n';
 type Snap = { pinHigh: boolean; circuitState: { parts: Record<string, { brightness?: number }> } | null };
+// the level on pin 13 (the Build page does not spell it out: only the Blink circuit does)
+const pin13 = (page: Page) => page.evaluate(() => (window as unknown as { __rq: { debug: { store(): { pinHigh: boolean } } } }).__rq.debug.store().pinHigh);
 const store = (page: Page) => page.evaluate(() => (window as unknown as { __rq: { debug: { store(): Snap } } }).__rq.debug.store());
 
 async function ledAndResistor(page: Page) {
@@ -117,7 +119,7 @@ async function connect(page: Page, from: string, to: string) {
 async function expectBlinkLights(page: Page) {
   await runSketch(page, BLINK_CODE);
   await expect.poll(async () => { const s = await store(page); return s.pinHigh && (s.circuitState?.parts.led1?.brightness ?? 0) > 0.5; }, { timeout: 10_000 }).toBe(true);
-  await expect(page.getByTestId('status')).toHaveText('Pin 13 LOW · LED off', { timeout: 10_000 });
+  await expect.poll(() => pin13(page), { timeout: 10_000 }).toBe(false);
 }
 
 test.describe('Build: wiring', () => {

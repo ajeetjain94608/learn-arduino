@@ -12,7 +12,7 @@ export const en = {
   'view.board': 'Board', 'view.circuit': 'Circuit',
   'theme.lab': 'Lab theme', 'theme.night': 'Night Workshop theme', 'theme.mint': 'Mint theme',
   'dock.run': 'Run', 'dock.stop': 'Stop', 'dock.current': 'Current', 'dock.labels': 'Labels', 'dock.reset': 'Reset view',
-  'status.stopped': 'Program stopped', 'status.resetting': 'Resetting…', 'status.uploading': 'Uploading…', 'status.compiling': 'Compiling…',
+  'status.stopped': 'Program stopped', 'status.running': 'Program running', 'status.resetting': 'Resetting…', 'status.uploading': 'Uploading…', 'status.compiling': 'Compiling…',
   'code.editor': 'Sketch code', 'code.messages': 'Compiler messages', 'code.line': 'Line {n}',
   'build.tabs': 'Build panels', 'build.tab.parts': 'Parts', 'build.tab.wiring': 'Wiring', 'build.tab.code': 'Code',
   'build.add': 'Add {name}', 'build.remove': 'Remove {name}', 'build.bench': 'On the bench', 'build.library': 'Parts you can add',

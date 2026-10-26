@@ -2,21 +2,23 @@ import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { useSound } from '../../sim/buzzerSound';
 
-export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean; booting: boolean; uploading?: boolean; compiling?: boolean }): string {
+export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean; booting: boolean; uploading?: boolean; compiling?: boolean }, pin13 = true): string {
   if (s.compiling) return t('status.compiling');
   if (s.uploading) return t('status.uploading');
   if (s.booting) return t('status.resetting');
   if (!s.running) return t('status.stopped');
+  if (!pin13) return t('status.running'); // only the Blink circuit is about pin 13
   if (s.showCurrent) return s.pinHigh ? t('status.currentOn') : t('status.currentOff');
   return s.pinHigh ? t('status.high') : t('status.low');
 }
 
-export function StatusPill() {
+// pin13: say what pin 13 is doing (the Blink circuit); other circuits just show that the program runs
+export function StatusPill({ pin13 = true }: { pin13?: boolean } = {}) {
   const s = useWorkbenchStore();
   return (
     <div className="status" data-testid="status-pill">
-      <i className={s.running && s.pinHigh ? 'is-lit' : ''} aria-hidden />
-      <span data-testid="status" aria-live="polite">{statusText(s)}</span>
+      <i className={pin13 && s.running && s.pinHigh ? 'is-lit' : ''} aria-hidden />
+      <span data-testid="status" aria-live="polite">{statusText(s, pin13)}</span>
       {s.running && !s.uploading && !s.booting && s.simSpeed < 1 && (
         <span className="status__speed" data-testid="sim-speed">{t('status.speed').replace('{x}', s.simSpeed.toFixed(1))}</span>
       )}

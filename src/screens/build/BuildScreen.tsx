@@ -113,7 +113,7 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
             <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onMove={dragPart} selected={selected} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
-        <StatusPill />
+        <StatusPill pin13={false} />
         <ViewerToolbar showCurrentButton={false} soundButton />
         <BuzzerSound />
         <GlGuardCard state={guard.state} onReload={guard.reload} />

@@ -158,7 +158,7 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
             onSelect={(id) => { setAbout(false); selectPart(null); setCallout(id === callout ? null : id); }} />
           <PartTooltip />
         </div>
-        <StatusPill />
+        <StatusPill pin13={!generic} />
         <ViewerToolbar showCurrentButton={!generic} soundButton={!!generic} />
         {generic && <BuzzerSound />}
         <GlGuardCard state={guard.state} onReload={guard.reload} />
