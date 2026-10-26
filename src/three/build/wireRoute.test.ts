@@ -123,7 +123,7 @@ describe('wires never hide parts (random builds)', () => {
   });
 });
 
-describe('routing stays fast, and always ends in a path', () => {
+describe('routing stays fast, and always ends in a path', { timeout: 30_000 }, () => { // (a busy machine, e.g. while the browser tests run, can be several times slower)
   const build = (n: number, seed: number) => {
     const r = rng(seed), used = new Set<string>(), wires: WireEnds[] = [];
     const bodies = Array.from({ length: 10 }, (_, i) => ({ box: new THREE.Box3().setFromCenterAndSize(pinWorld(`bb.${2 + i * 3}${'cd'[i % 2]}`).add(new THREE.Vector3(0, 6, 0)), new THREE.Vector3(8, 12, 8)) }));

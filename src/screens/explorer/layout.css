@@ -21,7 +21,8 @@
 .navbar button.is-on { color: var(--accent); background: var(--accent-soft); }
 .header { grid-area: header; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .header .brand { display: flex; align-items: center; gap: 10px; }
-.header h1 { margin: 0; font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; }
+.header h1 { margin: 0; font-size: 17px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 800; white-space: nowrap; } /* "Learn Arduino" stays on one line */
+.header .brand { min-width: 0; }
 .header p { margin: 1px 0 0; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
 .viewer { grid-area: viewer; position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--line);
   background: var(--paper); box-shadow: 0 6px 24px rgba(0,0,0,0.06); min-height: 0; }
