@@ -16,3 +16,6 @@ android/local.properties
 android/app/release/
 *.keystore
 tsconfig.tsbuildinfo
+
+# Cloudflare Wrangler local state
+.wrangler/

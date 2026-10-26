@@ -1,0 +1,11 @@
+# Cloudflare Pages response headers
+# Built app files carry a content hash in their name: cache them for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+# The compiler and its sysroot: the app keeps its own versioned offline copy; let browsers revalidate daily.
+/avr/*
+  Cache-Control: public, max-age=86400
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

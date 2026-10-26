@@ -19,7 +19,8 @@
     "avr:core": "node tools/avr/build-core.mjs && node tools/avr/record-commands.mjs",
     "avr:fixtures": "node tools/avr/build-fixtures.mjs",
     "avr:diagnostics": "node --experimental-strip-types tools/avr/build-fixtures.mjs --diagnostics",
-    "avr:sysroot": "node --experimental-strip-types tools/avr-wasm/package-sysroot.mjs"
+    "avr:sysroot": "node --experimental-strip-types tools/avr-wasm/package-sysroot.mjs",
+    "deploy:site": "npm run build && npx wrangler deploy"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

@@ -5,6 +5,7 @@ export const CREDITS: string[] = [
   t('credits.boardLayout'),
   t('credits.avr8js'),
   t('credits.gcc'),
+  t('credits.source'),
   t('credits.core'),
   t('credits.avrlibc'),
 ];
