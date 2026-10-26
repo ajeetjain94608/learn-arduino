@@ -5,14 +5,15 @@
 import { chromium } from '@playwright/test';
 
 const base = (process.argv[2] ?? 'http://localhost:4173').replace(/\/$/, '');
-const browser = await chromium.launch({ channel: 'chrome' });
+// HOST_RESOLVE="MAP learnarduino.tech 104.21.38.44": test a domain before this computer's DNS knows it (new domains)
+const browser = await chromium.launch({ channel: 'chrome', args: process.env.HOST_RESOLVE ? [`--host-resolver-rules=${process.env.HOST_RESOLVE}`] : [] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const problems = [];
 const origin = new URL(base).origin;
 page.on('pageerror', (e) => problems.push(`page error: ${e}`));
-page.on('console', (m) => { if (m.type() === 'error') problems.push(`console error: ${m.text().slice(0, 200)}`); });
+page.on('console', (m) => { if (m.type() === 'error' && !/nope.html|404/.test(m.text())) problems.push(`console error: ${m.text().slice(0, 200)}`); });
 page.on('requestfailed', (r) => problems.push(`request failed: ${r.url()}`));
-page.on('response', (r) => { if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`); });
+page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('/nope.html')) problems.push(`${r.status()} ${r.url()}`); });
 page.on('request', (r) => { const u = r.url(); if (!u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:')) problems.push(`other site: ${u}`); });
 
 const step = (s) => console.log(`✓ ${s}`);
@@ -21,13 +22,25 @@ const title = await page.title();
 if (!/Learn Arduino/.test(title)) problems.push(`title is "${title}"`);
 step(`home loads: "${title}"`);
 
+// (fetched by the browser itself, so the same DNS and redirects as a visitor; a page that redirects to its clean address is fine)
+// (each in its own tab, so a failed navigation can't leave the main page stuck)
+const statusOf = async (path) => {
+  const url = base + path; let status = 0;
+  const probe = await browser.newPage();
+  probe.on('response', (r) => { if (r.url() === url) status = r.status(); });
+  // (goto gives the final answer after redirects such as /privacy.html → /privacy; a 404 with no body makes the browser
+  // call the navigation failed, so then the first answer's status is what we want)
+  try { status = (await probe.goto(url))?.status() ?? status; } catch { /* keep the status seen */ }
+  await probe.close();
+  return status;
+};
 for (const path of ['/privacy.html', '/terms.html']) {
-  const r = await page.request.get(base + path);
-  if (r.status() !== 200) problems.push(`${path}: ${r.status()}`);
+  const st = await statusOf(path);
+  if (st !== 200) problems.push(`${path}: ${st}`);
 }
-const missing = await page.request.get(`${base}/avr/toolchain/nope.wasm`);
+const missingStatus = await statusOf('/avr/toolchain/nope.html');
 // (the local preview server answers every unknown path with the app page; the live host must give a real 404)
-if (!/localhost|127.0.0.1/.test(base) && missing.status() !== 404) problems.push(`a missing file should be a real 404, got ${missing.status()}`);
+if (!/localhost|127.0.0.1/.test(base) && missingStatus !== 404) problems.push(`a missing file should be a real 404, got ${missingStatus}`);
 step('privacy, terms and real 404s');
 
 await page.goto(`${base}/#/projects/night-light`);
