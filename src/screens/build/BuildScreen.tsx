@@ -3,6 +3,7 @@ import { BB_HOLES, UNO_PINS } from '../../circuit/board';
 import { partPoints } from '../../circuit/parts';
 import type { PartInstance, PartType } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
+import { BuzzerSound } from '../../sim/buzzerSound';
 import { SimClock } from '../../sim/SimClock';
 import { BuildStoreContext, useBuild, useBuildApi } from '../../state/buildContext';
 import { useBuildStore, type BuildStore } from '../../state/buildStore';
@@ -109,7 +110,8 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />
-        <ViewerToolbar showCurrentButton={false} />
+        <ViewerToolbar showCurrentButton={false} soundButton />
+        <BuzzerSound />
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
       <div className="side build-side" data-expand={panel ?? undefined}>

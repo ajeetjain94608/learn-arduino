@@ -147,10 +147,11 @@ export const KEEP_OUT: Rect[] = [
   { x: -38, z: 2, w: 72, d: 58 }, // the UNO (blinkLayout BLINK.board, 68.6 × 53.3 mm and a margin)
   { x: 50, z: 8, w: 86, d: 59 },  // the breadboard (blinkLayout BLINK.breadboard, 82 × 55 mm and a margin)
 ];
-// where a new module goes first: in front of the UNO and breadboard, then behind them, then to the right
+// where a new module goes first: along the back of the bench (its pins face the viewer and wires reach the UNO's digital
+// header without crossing the UNO or the breadboard), then in front of them, then to the right
 export const BENCH_SLOTS = [
+  ...[-60, -15, 30, 75, 120].map((x) => ({ x, z: -72 })),
   ...[-60, -15, 30, 75, 120].map((x) => ({ x, z: 75 })),
-  ...[-60, -15, 30, 75, 120].map((x) => ({ x, z: -65 })),
   { x: 135, z: 5 },
 ];
 export const BENCH_STEP = 10; // a move arrow moves a module this far

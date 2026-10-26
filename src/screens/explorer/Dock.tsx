@@ -1,5 +1,6 @@
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
+import { useSound } from '../../sim/buzzerSound';
 
 export function statusText(s: { running: boolean; pinHigh: boolean; showCurrent: boolean; booting: boolean; uploading?: boolean; compiling?: boolean }): string {
   if (s.compiling) return t('status.compiling');
@@ -30,8 +31,9 @@ const STEP = Math.PI / 6; // 30° per rotate press
 
 // The toolbar inside the 3D card (camera + what the scene shows). Run lives on the code card.
 // showCurrent: Home's "current" shortcut starts the shipped program on the lesson circuit — Build leaves it out.
-export function ViewerToolbar({ showCurrentButton = true }: { showCurrentButton?: boolean } = {}) {
+export function ViewerToolbar({ showCurrentButton = true, soundButton = false }: { showCurrentButton?: boolean; soundButton?: boolean } = {}) {
   const { showCurrent, labels, toggleCurrent, toggleLabels, resetView, nudgeCamera } = useWorkbenchStore();
+  const sound = useSound();
   return (
     <div className="viewer-toolbar" role="toolbar" aria-label={t('viewer.toolbar')}>
       <button type="button" aria-label={t('viewer.rotateLeft')} onClick={() => nudgeCamera('rotate', -STEP)}><Icon d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5" /></button>
@@ -43,6 +45,11 @@ export function ViewerToolbar({ showCurrentButton = true }: { showCurrentButton?
       <span className="viewer-toolbar__sep" aria-hidden />
       {showCurrentButton && <button type="button" aria-label={t('dock.current')} aria-pressed={showCurrent} className={showCurrent ? 'is-on' : ''} onClick={toggleCurrent}><Icon d="M13 2 4 14h7l-1 8 9-12h-7z" /></button>}
       <button type="button" aria-label={t('dock.labels')} aria-pressed={labels} className={labels ? 'is-on' : ''} onClick={toggleLabels}><Icon d="M20 12 12 20l-9-9V3h8zM7.5 6v.01" /></button>
+      {soundButton && (
+        <button type="button" aria-label={t('dock.sound')} aria-pressed={sound.on} className={sound.on ? 'is-on' : ''} onClick={sound.toggle}>
+          <Icon d={sound.on ? 'M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14' : 'M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6'} />
+        </button>
+      )}
     </div>
   );
 }

@@ -72,7 +72,7 @@ void loop() {
     learn: ['Why a transistor is needed for motors', 'PWM speed control from 0 to 255', 'What a flyback diode is for'],
     tryIt: ['Run it and watch the fan speed up and stop', 'Wire the motor straight to pin 6 instead — what does the board say?', 'Make it hold half speed'],
     build: {
-      parts: [{ id: 'motor1', type: 'motor', params: { load: 'fan' }, at: { x: 75, z: 75 } }, ...fanDriver.parts],
+      parts: [{ id: 'motor1', type: 'motor', params: { load: 'fan' }, at: { x: 75, z: -72 } }, ...fanDriver.parts],
       wires: fanDriver.wires,
       code: `const int MOTOR = 6;   // a ~ pin, through the transistor
 
@@ -106,7 +106,7 @@ void loop() {
     build: {
       parts: [
         { id: 'tmp361', type: 'tmp36', params: {}, at: { col: 4, row: 'a' } },
-        { id: 'motor1', type: 'motor', params: { load: 'fan' }, at: { x: 75, z: 75 } },
+        { id: 'motor1', type: 'motor', params: { load: 'fan' }, at: { x: 75, z: -72 } },
         ...fanDriver.parts,
       ],
       wires: [wire('uno.5V', 'bb.4c', 'power'), wire('bb.5c', 'uno.A0', 'data'), wire('bb.6c', 'uno.GND', 'ground'), ...motorDriver('motor1').wires],
@@ -141,7 +141,7 @@ void loop() {
     learn: ['#include a library', 'servo.attach() and servo.write(angle)', 'Counting up and down with for loops'],
     tryIt: ['Run it and watch the horn sweep', 'Make it stop at 45°, 90° and 135°', 'Sweep faster or slower'],
     build: {
-      parts: [{ id: 'servo1', type: 'servo', params: {}, at: { x: 30, z: 75 } }],
+      parts: [{ id: 'servo1', type: 'servo', params: {}, at: { x: 30, z: -72 } }],
       wires: [wire('uno.D9', 'servo1.SIG'), wire('uno.5V', 'servo1.V+', 'power'), wire('servo1.GND', 'uno.GND', 'ground')],
       code: `#include <Servo.h>
 Servo arm;
@@ -175,7 +175,7 @@ void loop() {
     tryIt: ['Press the button to spin', 'Watch the LEDs A–D on the driver board', 'Make it spin two turns before it stops'],
     build: {
       parts: [
-        { id: 'stepper1', type: 'stepper', params: { load: 'wheel' }, at: { x: 40, z: 78 } },
+        { id: 'stepper1', type: 'stepper', params: { load: 'wheel' }, at: { x: 40, z: -72 } },
         { id: 'button1', type: 'button', params: {}, at: { col: 10, row: 'e' } },
         { id: 'resistor1', type: 'resistor', params: { ohms: 10000 }, at: { col: 12, row: 'c' } },
       ],
@@ -222,8 +222,8 @@ void loop() {
     tryIt: ['Hold the watering can over the pot', 'Set the soil moisture in the sensor’s window', 'Change the “Water me!” limit'],
     build: {
       parts: [
-        { id: 'soil1', type: 'soil', params: {}, at: { x: -60, z: 80 } },
-        { id: 'oled1', type: 'oled', params: {}, at: { x: 30, z: 75 } },
+        { id: 'soil1', type: 'soil', params: {}, at: { x: -60, z: -72 } },
+        { id: 'oled1', type: 'oled', params: {}, at: { x: 30, z: -72 } },
       ],
       wires: [
         wire('uno.5V', 'soil1.VCC', 'power'), wire('soil1.GND', 'uno.GND', 'ground'), wire('soil1.AOUT', 'uno.A0', 'data'),
@@ -275,7 +275,7 @@ void loop() {
         { id: 'fsr1', type: 'fsr', params: {}, at: { col: 5, row: 'a' } },
         { id: 'resistor1', type: 'resistor', params: { ohms: 10000 }, at: { col: 6, row: 'c' } },
         { id: 'buzzer1', type: 'buzzer', params: {}, at: { col: 20, row: 'a' } },
-        { id: 'servo1', type: 'servo', params: {}, at: { x: 30, z: 75 } },
+        { id: 'servo1', type: 'servo', params: {}, at: { x: 30, z: -72 } },
       ],
       wires: [
         wire('uno.5V', 'bb.5c', 'power'), wire('bb.6d', 'uno.A0', 'data'), wire('bb.10d', 'uno.GND', 'ground'),
@@ -316,7 +316,7 @@ void loop() {
     tryIt: ['Drag the obstacle towards the sensor', 'Make yellow start at 40 cm', 'Add a beeping buzzer for red'],
     build: {
       parts: [
-        { id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 30, z: 75 } },
+        { id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 30, z: -72 } },
         { id: 'traffic1', type: 'traffic', params: {}, at: { col: 15, row: 'a' } },
       ],
       wires: [

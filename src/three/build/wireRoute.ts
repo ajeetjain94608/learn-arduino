@@ -8,6 +8,10 @@ export type Obstacle = { box: THREE.Box3 };
 export type Route = { kind: 'flat' | 'arch'; curve: THREE.Curve<THREE.Vector3>; points: THREE.Vector3[] };
 
 const CLEAR = 2;          // mm between wires, and between a wire and a part
+// The camera looks along -VIEW_DIR. A wire point "hides" a part if the ray from it away from the camera reaches the
+// part within this distance: parts stay in front, wires pass behind them.
+const AWAY = new THREE.Vector3(-85, -200, -190).normalize();
+const HIDE_REACH = 60;
 const FLAT_LIFT = 1.4;    // a flat jumper's centre above the board
 const FLAT_MAX = 26;      // longest flat jumper (10 holes)
 const SHARED = HOUSING_H + 8; // near an end two wires share (one UNO socket), they may touch
@@ -67,7 +71,10 @@ function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: numb
   const dir = new THREE.Vector3(b.x - a.x, 0, b.z - a.z);
   if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
   dir.normalize();
-  const side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(bulge);
+  // positive `bulge` bows towards the back of the bench (away from the camera), negative towards the viewer
+  const side = new THREE.Vector3(-dir.z, 0, dir.x);
+  if (side.x + side.z > 0) side.negate();
+  side.multiplyScalar(bulge);
   const at = (t: number, y: number, bow: number) => a.clone().lerp(b, t).setY(y).addScaledVector(side, bow);
   const rise = (p: THREE.Vector3) => (steep ? Math.max(p.y + HOUSING_H + 4, top - 5) : p.y + HOUSING_H + 4);
   const span = Math.hypot(b.x - a.x, b.z - a.z), edge = steep ? Math.min(0.15, 5 / Math.max(span, 1)) : 0.15;
@@ -101,9 +108,13 @@ export function routeWires(wires: WireEnds[], obstacles: Obstacle[]): Map<string
 function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[]): { out: Map<string, Route>; crowded: WireEnds[] } {
   const out = new Map<string, Route>(), crowded: WireEnds[] = [];
 
-  const hitsParts = (w: WireEnds, r: Route) => r.points.some((p) =>
-    [w.a, w.b].every((e) => Math.hypot(p.x - e.x, p.z - e.z) > 1.6) // a part may sit right next to the wire's own hole
-    && obstacles.some((o) => o.box.distanceToPoint(p) < (r.kind === 'flat' ? 0.3 : CLEAR)));
+  const ray = new THREE.Ray(), spot = new THREE.Vector3();
+  const hitsParts = (w: WireEnds, r: Route) => r.points.some((p) => {
+    if ([w.a, w.b].some((e) => Math.hypot(p.x - e.x, p.z - e.z) <= 4)) return false; // next to its own plugs: allowed
+    ray.set(p, AWAY);
+    return obstacles.some((o) => o.box.distanceToPoint(p) < (r.kind === 'flat' ? 0.3 : CLEAR)
+      || (r.kind === 'arch' && ray.intersectBox(o.box, spot) !== null && spot.distanceTo(p) < HIDE_REACH));
+  });
   // every laid wire's points in a grid of CLEAR-sized cells, so a candidate only checks its neighbourhood
   const grid = new Map<string, { p: THREE.Vector3; l: number }[]>(); // l: the wire's place in `order`
   const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
@@ -143,7 +154,7 @@ function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[]):
     // the natural height for its length first, then higher, then lower (under the wires that cross it)
     const base = Math.min(30, Math.max(6, 4 + span * 0.12));
     const lifts = [...Array.from({ length: 16 }, (_, i) => base + i * 3.5), ...Array.from({ length: Math.floor((base - 6) / 3.5) }, (_, i) => base - (i + 1) * 3.5)];
-    for (const lift of lifts) for (const steep of [false, true]) for (const bulge of [0, 6, -6, 12, -12]) {
+    for (const lift of lifts) for (const steep of [false, true]) for (const bulge of [0, 6, 12, 20, 30, 42, -6, -14]) {
       candidates.push(() => archRoute(w.a, w.b, lift, bulge * Math.min(1, span / 30), steep));
     }
     let pick: Route | null = null, fewest = Infinity, fallback: Route | null = null;

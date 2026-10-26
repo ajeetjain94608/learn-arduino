@@ -64,3 +64,61 @@ describe('routeWires', () => {
     expect(a.map((p) => p.toArray())).toEqual(b.map((p) => p.toArray()));
   });
 });
+
+describe('wires pass behind parts, as the camera sees them', () => {
+  // the camera looks along -VIEW_DIR; a wire point "hides" a part if the ray from it away from the camera reaches the part
+  const away = new THREE.Vector3(-85, -200, -190).normalize();
+  const hides = (p: THREE.Vector3, body: THREE.Box3) => {
+    const hit = new THREE.Ray(p, away).intersectBox(body, new THREE.Vector3());
+    return !!hit && hit.distanceTo(p) < 60;
+  };
+  it('a wire from the UNO to a hole behind a tall part does not cross in front of it', () => {
+    const hole = pinWorld('bb.20a');                       // the back row
+    const body = new THREE.Box3().setFromCenterAndSize(pinWorld('bb.15c').add(new THREE.Vector3(0, 8, 0)), new THREE.Vector3(10, 16, 10));
+    const w = wire('w1', 'uno.D9', 'bb.20a');
+    const r = routeWires([w], [{ box: body }]).get('w1')!;
+    const own = (p: THREE.Vector3) => Math.hypot(p.x - hole.x, p.z - hole.z) < 4 || Math.hypot(p.x - w.a.x, p.z - w.a.z) < 4;
+    expect(r.points.filter((p) => !own(p) && hides(p, body))).toEqual([]);
+  });
+  it('wires bow towards the back of the bench, not towards the viewer', () => {
+    const r = routeWires([wire('w1', 'uno.D13', 'bb.25g')], []).get('w1')!;
+    const a = pinWorld('uno.D13'), b = pinWorld('bb.25g');
+    const apex = r.points.reduce((m, p) => (p.y > m.y ? p : m));
+    const chordZ = a.z + (apex.x - a.x) / (b.x - a.x) * (b.z - a.z);
+    expect(apex.z).toBeLessThanOrEqual(chordZ + 0.5); // never in front of the straight line between its ends
+  });
+});
+
+describe('wires never hide parts (random builds)', () => {
+  const away = new THREE.Vector3(-85, -200, -190).normalize();
+  const hides = (p: THREE.Vector3, body: THREE.Box3) => {
+    const hit = new THREE.Ray(p, away).intersectBox(body, new THREE.Vector3());
+    return !!hit && hit.distanceTo(p) < 60;
+  };
+  it('with 6 parts and 6 wires on the breadboard, no wire point sits between the camera and a part', () => {
+    for (const seed of [11, 12, 13, 14, 15, 16]) {
+      const r = rng(seed);
+      const bodies = Array.from({ length: 6 }, (_, i) => {
+        const c = pinWorld(`bb.${3 + i * 4}${'abcdefghij'[Math.floor(r() * 10)]}`);
+        return new THREE.Box3().setFromCenterAndSize(c.add(new THREE.Vector3(0, 6, 0)), new THREE.Vector3(8, 12, 8));
+      });
+      const wires: WireEnds[] = [];
+      const used = new Set<string>();
+      while (wires.length < 6) {
+        const from = `uno.${UNO[Math.floor(r() * 15)]}`;
+        const to = `bb.${1 + Math.floor(r() * 30)}${'abcdefghij'[Math.floor(r() * 10)]}`;
+        if (used.has(from) || used.has(to)) continue;
+        // keep the hole clear of the part bodies
+        if (bodies.some((b) => b.distanceToPoint(pinWorld(to)) < 3)) continue;
+        used.add(from); used.add(to);
+        wires.push(wire(`w${wires.length}`, from, to));
+      }
+      const routes = routeWires(wires, bodies.map((box) => ({ box })));
+      for (const w of wires) {
+        const near = (p: THREE.Vector3) => Math.hypot(p.x - w.b.x, p.z - w.b.z) < 4 || Math.hypot(p.x - w.a.x, p.z - w.a.z) < 4;
+        const bad = routes.get(w.id)!.points.filter((p) => !near(p) && bodies.some((b) => hides(p, b)));
+        expect(bad.length, `seed ${seed}: ${w.from} → ${w.to} hides a part`).toBe(0);
+      }
+    }
+  });
+});

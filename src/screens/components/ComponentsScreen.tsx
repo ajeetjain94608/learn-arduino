@@ -83,7 +83,7 @@ export function ComponentScreen({ type, onNavigate, onOpen, onUse }: { type: str
   // a bench of its own, not saved, with just this part on it
   const store = useMemo(() => {
     const parts: PartInstance[] = !isPart(id) ? [] : [{
-      id: `${id}1`, type: id, params: {}, at: PART_DEFS[id].bench ? { x: 30, z: 75 } : { col: 13, row: id === 'button' ? 'e' : 'a' },
+      id: `${id}1`, type: id, params: {}, at: PART_DEFS[id].bench ? { x: 30, z: -72 } : { col: 13, row: id === 'button' ? 'e' : 'a' },
     }];
     return createBuildStore(undefined, `rq-sandbox-${id}`, { parts, wires: [], code: info.example });
   }, [id, info.example]);
