@@ -14,7 +14,7 @@ const CIRCUIT_SLICE_MS = 1;      // with a circuit, the chip runs in slices this
 const HIGH_VOLTS = 2.5;          // a digital input reads HIGH above this
 
 // seq goes up each time the circuit is solved again, so the page only re-renders when something changed
-export type CircuitSnapshot = { seq: number; parts: Record<string, PartState>; burns: Burn[]; board: { shorted: boolean; burntPins: number[] } };
+export type CircuitSnapshot = { seq: number; wireVolts: Record<string, number>; parts: Record<string, PartState>; burns: Burn[]; board: { shorted: boolean; burntPins: number[] } };
 
 // Whether a snapshot's circuit is news for the page (worker messages are fresh copies, so compare by seq).
 export const circuitChanged = (prev: CircuitSnapshot | null, next: CircuitSnapshot | null) => (next ? prev?.seq !== next.seq : prev !== null);
@@ -63,6 +63,7 @@ export class SimEngine {
 
   load(flash: Uint8Array, lines: LineEntry[], now: number): void {
     this.dropDevices();
+    this.dirty = true; // a new program always re-solves: its modules (OLED, servo…) attach on the first solve
     this.chip = new AvrRunner(flash);
     this.lines = lines;
     this.serial = this.lastChar = '';
@@ -126,7 +127,7 @@ export class SimEngine {
     const r = evaluate(this.spec!, drives, this.inputs, this.burnt, !!chip); // stopped: lit, but nothing burns until Run
     this.evaluations++;
     for (const b of r.newBurns) { this.burnt.add(b.id); this.burns.push(b); }
-    this.circuitState = { seq: (this.circuitState?.seq ?? 0) + 1, parts: r.parts, burns: [...this.burns], board: r.board };
+    this.circuitState = { seq: (this.circuitState?.seq ?? 0) + 1, wireVolts: r.wireVolts, parts: r.parts, burns: [...this.burns], board: r.board };
     if (chip) this.configureDevices(chip, r.parts);
     if (chip) drives.forEach((d, n) => {
       if (d.mode !== 'output' && !this.devicePins.has(n)) chip.setInput(n, r.pinVolts[n] > HIGH_VOLTS);

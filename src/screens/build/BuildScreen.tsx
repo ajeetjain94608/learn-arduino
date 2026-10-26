@@ -62,6 +62,8 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
   const message = useBuild((s) => s.message);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
+  const labels = useWorkbenchStore((s) => s.labels);
+  const running = useWorkbenchStore((s) => s.running);
   const rxLed = useWorkbenchStore((s) => s.rxLed);
   const txLed = useWorkbenchStore((s) => s.txLed);
   const [tab, setTab] = useState<Tab>(project ? 'about' : 'parts');
@@ -106,7 +108,7 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} />
             <WireDragger targets={targets} parts={parts} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
-            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
+            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />

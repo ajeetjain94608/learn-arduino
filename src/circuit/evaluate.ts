@@ -19,6 +19,7 @@ export type PartState = {
 export type Burn = { id: string; reason: 'led-overcurrent' | 'pin-overcurrent' | 'short'; supply?: string }; // supply: which one was shorted
 export type CircuitResult = {
   pinVolts: number[];
+  wireVolts: Record<string, number>; // each wire's voltage (the live wire tags)
   parts: Record<string, PartState>;
   newBurns: Burn[];
   board: { shorted: boolean; burntPins: number[] };
@@ -206,6 +207,7 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
 
   return {
     pinVolts: pins.map((_, n) => s.r.volts[net(`uno.${unoPinName(n)}`)]),
+    wireVolts: Object.fromEntries(spec.wires.map((w) => [w.id, s.r.volts[net(w.from)]])),
     parts,
     newBurns,
     board: {

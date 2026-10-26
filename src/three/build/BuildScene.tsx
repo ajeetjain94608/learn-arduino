@@ -13,6 +13,7 @@ import { colX, holeLocal } from '../breadboard/breadboardGeometry';
 import { BENCH, pinWorld } from './pinPoints';
 import { partBodies } from './partBodies';
 import { routeWires, type Route } from './wireRoute';
+import { WireTags } from './WireTags';
 
 type Props = {
   burns: { id: string; supply?: string }[];
@@ -20,6 +21,7 @@ type Props = {
   wires: Wire[];
   inputs: InputValues;
   partStates: Record<string, PartState>;
+  wireVolts?: Record<string, number>; // set while the board runs and tags are on
   pin13: boolean; rx: boolean; tx: boolean;
   onPick(id: string): void;
   onInput(partId: string, key: string, value: number): void;
@@ -65,7 +67,7 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
   return [colX(p.at.col) + 1.27 + BENCH.breadboard[0], 20, z + BENCH.breadboard[2]];
 }
 
-export function BuildScene({ burns, parts, wires, inputs, partStates, pin13, rx, tx, onPick, onInput }: Props) {
+export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onInput }: Props) {
   // all wires laid out together so none passes through another or through a part
   const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
   const onBoard = parts.filter((p) => !('x' in p.at)), onBench = parts.filter((p) => 'x' in p.at);
@@ -83,6 +85,7 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, pin13, rx,
         <BenchModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={(e) => { e.stopPropagation(); onPick(p.id); }}
           onInput={(key, value) => onInput(p.id, key, value)} />
       ))}
+      {wireVolts && <WireTags wires={wires} routes={routes} volts={wireVolts} />}
       {wires.map((w) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} />)}
       {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} />; })}
     </>

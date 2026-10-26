@@ -139,3 +139,13 @@ describe('motors and modules on the bench', () => {
     expect(unoLinks(spec).hc1).toEqual({ VCC: null, TRIG: 9, ECHO: 10, GND: null });
   });
 });
+
+describe('wire voltages (for the live wire tags)', () => {
+  it('every wire reports the voltage of its net', () => {
+    const spec: CircuitSpec = { parts: [], wires: [{ id: 'a', from: 'uno.5V', to: 'bb.3c', color: '#000' }, { id: 'b', from: 'uno.D13', to: 'bb.8a', color: '#000' }, { id: 'c', from: 'bb.9d', to: 'uno.GND', color: '#000' }] };
+    const r = run(spec, pins({ 13: out(true) }));
+    expect(r.wireVolts.a).toBeCloseTo(5, 1);
+    expect(r.wireVolts.b).toBeCloseTo(5, 1);
+    expect(r.wireVolts.c).toBeCloseTo(0, 3);
+  });
+});

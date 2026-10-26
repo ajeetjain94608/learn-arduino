@@ -210,7 +210,7 @@ describe('review fixes: the circuit is solved only when something changes', { ti
 });
 
 describe('review fixes: the page re-renders only when the circuit changed', () => {
-  const snap = (seq: number) => ({ seq, parts: {}, burns: [], board: { shorted: false, burntPins: [] } });
+  const snap = (seq: number) => ({ seq, wireVolts: {}, parts: {}, burns: [], board: { shorted: false, burntPins: [] } });
   it('a new copy of the same solve is not a change; a new solve is; no circuit is a change only once', () => {
     expect(circuitChanged(snap(3), snap(3))).toBe(false); // every worker message is a fresh copy
     expect(circuitChanged(snap(3), snap(4))).toBe(true);
@@ -349,5 +349,19 @@ describe('B3: modules the chip talks to, cycle by cycle', { timeout: 120_000 }, 
     expect(px(5, 45)).toBe(1);      // inside the filled square (0,40)–(9,49)
     expect(px(20, 45)).toBe(0);
     expect([0, 1, 2, 3, 4].some((x) => [0, 1, 2, 3, 4, 5, 6].some((y) => px(x, y)))).toBe(true); // the "H"
+  });
+});
+
+describe('B3: a program loaded after the circuit was already solved still gets its modules', { timeout: 60_000 }, () => {
+  it('OLED: the circuit is solved while stopped, then Run loads the program — the screen still works (its pins never change on the chip)', () => {
+    const w = (from: string, to: string): Wire => ({ id: `${from}-${to}`, from, to, color: '#000' });
+    const e = new SimEngine();
+    e.setCircuit({ parts: [{ id: 'oled1', type: 'oled', params: {}, at: { x: 30, z: -72 } }],
+      wires: [w('uno.A4', 'oled1.SDA'), w('uno.A5', 'oled1.SCL'), w('uno.5V', 'oled1.VCC'), w('oled1.GND', 'uno.GND')] });
+    play(e, 0, 100);                    // stopped: the powered circuit is solved once
+    const { flash, lines } = prog('oled');
+    e.load(flash, lines, 200);
+    play(e, 200, 1500);
+    expect(e.snapshot().devices!.oled1.on).toBe(true);
   });
 });
