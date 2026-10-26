@@ -13,14 +13,14 @@ const chip = async (page: Page) => {
   return (await screenPos(page))!;
 };
 
-test('hovering a part lifts it and shows its name; moving away puts it back', async ({ page }, info) => {
+test('hovering a part lifts it and shows no name while Labels are off; moving away puts it back', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'hover needs a mouse');
   await page.goto('/?test');
   await page.getByRole('button', { name: 'Labels' }).click(); // labels off so cards don't cover the chip
   const p = await chip(page);
   await page.mouse.move(p.x, p.y);
-  await expect(page.getByTestId('part-tooltip')).toContainText('ATmega328P');
-  await expect.poll(() => lift(page)).toBeGreaterThan(2);
+  await expect.poll(() => lift(page)).toBeGreaterThan(2); // it lifts…
+  await expect(page.getByTestId('part-tooltip')).toBeHidden(); // …but with Labels off it has no name
   { const e = await bench(page); await page.mouse.move(e.x, e.y); }
   await expect(page.getByTestId('part-tooltip')).toBeHidden();
   await expect.poll(() => lift(page)).toBeLessThan(0.1);

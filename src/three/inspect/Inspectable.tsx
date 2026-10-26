@@ -8,12 +8,18 @@ import { findPart } from './findPart';
 import { approach, LIFT } from './lift';
 
 const shown = (o: THREE.Object3D | null): boolean => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+const isWire = (kind: string) => kind.startsWith('wire');
 const firstPart = (e: ThreeEvent<PointerEvent | MouseEvent>) => {
+  let first: ReturnType<typeof findPart> = null, seen = false;
   for (const hit of e.intersections) {
     if (!shown(hit.object)) continue;
-    return findPart(hit.object); // nearest visible thing decides: the bare PCB or bench means "no part"
+    const p = findPart(hit.object);
+    // nearest visible thing decides: the bare PCB or bench means "no part"…
+    if (!seen) { first = p; seen = true; if (!p || !isWire(p.kind)) return p; continue; }
+    // …except a jumper wire crossing in front of a part: the part behind it is what the pointer is on
+    if (p && !isWire(p.kind) && p.kind !== 'breadboard') return p;
   }
-  return null;
+  return first;
 };
 
 // Wraps scene content whose parts (pivots made by makePart / PartGroup) can be inspected:

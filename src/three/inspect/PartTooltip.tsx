@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { t, type StringKey } from '../../i18n/en';
 import { useInspectStore } from '../../state/inspectStore';
+import { useWorkbenchStore } from '../../state/workbenchStore';
 import { kindOf } from './partCatalog';
 import { cardOf } from './projectParts';
 import { placeTooltip } from './tooltipPlacement';
@@ -10,6 +11,7 @@ const TOOLBAR_SPACE = 66; // the 3D card's toolbar along its bottom edge
 // Name card for the hovered (beside the pointer) or tapped part (centred at the bottom of the 3D view).
 export function PartTooltip() {
   const { hovered, pointer, selected, selectedAt } = useInspectStore();
+  const labels = useWorkbenchStore((s) => s.labels);
   const ref = useRef<HTMLDivElement>(null);
   const [, relayout] = useState(0);
   // A clicked/tapped part keeps its centred card even while the mouse still rests on it.
@@ -34,7 +36,7 @@ export function PartTooltip() {
     return () => removeEventListener('resize', onResize);
   }, []);
 
-  if (!id || !card) return null;
+  if (!id || !card || (mode === 'hover' && !labels)) return null; // with Labels off, pointing at a part shows no name (a tap still does)
   return (
     <div ref={ref} className={`part-tooltip part-tooltip--${mode}`} data-testid="part-tooltip" role="tooltip">
       <b>{card.name}</b>

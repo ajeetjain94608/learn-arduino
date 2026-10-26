@@ -40,7 +40,8 @@ test('tapping a label explains the part; tapping the bench closes it', async ({ 
   await page.goto('/?test');
   await card(page, 'usb').click();
   await expect(page.getByTestId('info-sheet')).toContainText('upload your programs');
-  await canvas(page).click({ position: { x: 20, y: 300 } });
+  const box = (await canvas(page).boundingBox())!; // empty bench near the left edge, below the labels
+  await page.mouse.click(box.x + 14, box.y + box.height * 0.62);
   await expect(page.getByTestId('info-sheet')).toBeHidden();
 });
 
