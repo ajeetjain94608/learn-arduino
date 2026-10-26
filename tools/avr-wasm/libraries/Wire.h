@@ -1,4 +1,4 @@
-// RoboQuest Wire library — our own, header-only. The I²C controller side of the usual Arduino Wire API:
+// Learn Arduino Wire library — our own, header-only. The I²C controller side of the usual Arduino Wire API:
 //   Wire.begin(); Wire.beginTransmission(address); Wire.write(byte or buffer); Wire.endTransmission();
 // SDA is A4, SCL is A5. Up to 32 bytes per transmission. endTransmission() returns 0 when the device answered,
 // 2 when no device has that address, 3 when the device refused a byte, 4 on another bus error, 5 on a timeout.

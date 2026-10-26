@@ -10,7 +10,7 @@ import { CREDITS } from './legal/credits';
 test('shows the app name', () => {
   render(<App />);
   expect(screen.getByText(t('app.name'))).toBeInTheDocument();
-  expect(t('app.name')).toBe('RoboQuest');
+  expect(t('app.name')).toBe('Learn Arduino');
 });
 
 test('credits the Uno design files exactly as the licence requires', () => {

@@ -1,4 +1,4 @@
-// RoboQuest Stepper library — our own, header-only. Same API as the usual Arduino Stepper library (4 wires):
+// Learn Arduino Stepper library — our own, header-only. Same API as the usual Arduino Stepper library (4 wires):
 //   Stepper motor(stepsPerTurn, in1, in2, in3, in4); motor.setSpeed(rpm); motor.step(n);  (n < 0 turns back)
 // For a 28BYJ-48 on a ULN2003 board: Stepper motor(2048, 8, 10, 9, 11) — pins IN1, IN3, IN2, IN4.
 // step() waits until the motor has made every step.

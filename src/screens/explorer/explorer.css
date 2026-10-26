@@ -53,3 +53,6 @@
 .gl-guard button { min-height: 56px; padding: 0 24px; border-radius: 16px; border: 0; background: var(--primary-bg); color: var(--primary-fg); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
 /* the board runs slower than real time on this device (simulated time stays exact) */
 .status__speed { font-weight: 700; color: var(--ink-2); padding-left: 8px; border-left: 1px solid var(--line); }
+.sheet__links { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; }
+.sheet__links a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line);
+  color: var(--ink); font-size: 14px; font-weight: 800; text-decoration: none; }

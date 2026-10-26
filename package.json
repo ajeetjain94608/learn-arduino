@@ -1,5 +1,5 @@
 {
-  "name": "roboquest",
+  "name": "learn-arduino",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -20,7 +20,8 @@
     "avr:fixtures": "node tools/avr/build-fixtures.mjs",
     "avr:diagnostics": "node --experimental-strip-types tools/avr/build-fixtures.mjs --diagnostics",
     "avr:sysroot": "node --experimental-strip-types tools/avr-wasm/package-sysroot.mjs",
-    "deploy:site": "npm run build && npx wrangler deploy"
+    "deploy:site": "npm run build && npx wrangler deploy",
+    "check:live": "node tools/prod-check.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

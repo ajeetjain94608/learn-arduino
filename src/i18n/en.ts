@@ -1,6 +1,6 @@
 // Every user-facing string lives here so the app can be translated later.
 export const en = {
-  'app.name': 'RoboQuest',
+  'app.name': 'Learn Arduino',
   'credits.boardLayout': 'Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)',
   'credits.avr8js': 'Chip simulation: avr8js, Copyright (c) 2019-2025 Uri Shaked (MIT licence; notice in licenses/avr8js.txt)',
   'credits.source': 'Source code of the compiler we ship (GPL): github.com/ajeetjain94608/avr-toolchain-wasm',
@@ -72,7 +72,7 @@ export const en = {
   'compile.hint.brace': 'A { was opened but never closed',
   'compile.hint.noSetup': 'Your sketch needs a setup() function',
   'compile.hint.noLoop': 'Your sketch needs a loop() function',
-  'compile.hint.noLibrary': "This library isn't available in RoboQuest yet",
+  'compile.hint.noLibrary': "This library isn't available in Learn Arduino yet",
   'compile.hint.tooBig': "The program is too big for the UNO's 32 KB",
   'serial.title': 'Serial monitor', 'serial.baud': '9600 baud', 'serial.clear': 'Clear', 'serial.input': 'Message to the board', 'serial.placeholder': 'Send text to the board…', 'serial.send': 'Send to board', 'serial.sendShort': 'Send', 'status.speed': 'Running at {x}× speed', 'serial.expand': 'Expand serial monitor', 'serial.shrink': 'Shrink serial monitor', 'serial.empty': 'Nothing printed yet. Press Run.', 'code.uploading': 'Uploading',
   'status.high': 'Pin 13 HIGH · LED on', 'status.low': 'Pin 13 LOW · LED off',
@@ -117,8 +117,8 @@ export const en = {
   'settings.title': 'Settings',
   'menu.open': 'Menu', 'menu.close': 'Close', 'menu.view': 'View', 'menu.theme': 'Theme',
   'themeName.lab': 'Lab', 'themeName.night': 'Night Workshop', 'themeName.mint': 'Mint',
-  'about.open': 'About', 'about.title': 'About RoboQuest', 'about.close': 'Close',
-  'about.body': 'Learn Arduino and robotics by building in 3D.',
+  'about.open': 'About', 'about.title': 'About Learn Arduino', 'about.close': 'Close',
+  'about.body': 'Learn electronics and coding by building real circuits in 3D — free, with nothing to sign up for.', 'about.privacy': 'Privacy', 'about.terms': 'Terms of use',
   'gl.restoring': 'Restoring 3D…', 'gl.reload': 'Tap to reload 3D',
 
   'part.atmega328.name': 'ATmega328P', 'part.atmega328.line': 'The microcontroller that runs your code at 16 MHz.',

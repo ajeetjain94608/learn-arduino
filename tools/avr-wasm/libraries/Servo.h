@@ -1,4 +1,4 @@
-// RoboQuest Servo library — our own, header-only. Same API as the usual Arduino Servo library:
+// Learn Arduino Servo library — our own, header-only. Same API as the usual Arduino Servo library:
 //   Servo s; s.attach(pin); s.write(angle 0–180 or microseconds); s.writeMicroseconds(us); s.read(); s.detach();
 // Up to 8 servos. Timer1 makes the pulses (one after another, every 20 ms), so analogWrite() on pins 9 and 10
 // stops working while a servo is attached — as on a real UNO.

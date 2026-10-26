@@ -47,7 +47,7 @@ test('tapping a label explains the part; tapping the bench closes it', async ({ 
 test('About lists the licence credits', async ({ page }) => {
   await page.goto('/?test');
   await settings(page, 'About');
-  await expect(page.getByRole('dialog', { name: 'About RoboQuest' }).getByText('Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'About Learn Arduino' }).getByText('Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0)')).toBeVisible();
 });
 
 test('current shows only in the circuit view while pin 13 is HIGH, even with rapid toggling', async ({ page }) => {
@@ -106,4 +106,17 @@ test('Settings opens from the navigation and closes with its close button or a t
   await open();
   await page.mouse.click(30, 200); // the dimmed area outside the panel
   await expect(dialog).toBeHidden();
+});
+
+test('About links to the privacy policy and the terms, and both pages are served', async ({ page, request }) => {
+  await page.goto('/?test');
+  await settings(page, 'About');
+  const about = page.getByRole('dialog', { name: 'About Learn Arduino' });
+  await expect(about.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy.html');
+  await expect(about.getByRole('link', { name: 'Terms of use' })).toHaveAttribute('href', '/terms.html');
+  for (const path of ['/privacy.html', '/terms.html']) {
+    const r = await request.get(path);
+    expect(r.status(), path).toBe(200);
+    expect(await r.text()).toContain('Learn Arduino');
+  }
 });

@@ -1,4 +1,4 @@
-// RoboQuest OLED library — our own, header-only. For a 0.96" 128×64 SSD1306 screen on I²C (SDA A4, SCL A5):
+// Learn Arduino OLED library — our own, header-only. For a 0.96" 128×64 SSD1306 screen on I²C (SDA A4, SCL A5):
 //   OLED screen;            screen.begin();  (address 0x3C)
 //   screen.clearDisplay();  screen.setCursor(x, y);  screen.setTextSize(n);  screen.print(…) / println(…)
 //   screen.drawPixel(x, y, WHITE);  screen.drawRect / fillRect(x, y, w, h, WHITE);  drawLine(x0, y0, x1, y1, WHITE)

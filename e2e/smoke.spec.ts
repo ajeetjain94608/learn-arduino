@@ -5,6 +5,6 @@ test('app loads with no console errors', async ({ page }) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByText('RoboQuest').first()).toBeVisible();
+  await expect(page.getByText('Learn Arduino').first()).toBeVisible();
   expect(errors).toEqual([]);
 });

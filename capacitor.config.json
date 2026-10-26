@@ -1,6 +1,6 @@
 {
   "appId": "com.roboquest.app",
-  "appName": "RoboQuest",
+  "appName": "Learn Arduino",
   "webDir": "dist",
   "android": { "allowMixedContent": false }
 }

@@ -107,6 +107,10 @@ export function AboutSheet({ open, onClose }: { open: boolean; onClose(): void }
       <h2>{t('about.title')}</h2>
       <p>{t('about.body')}</p>
       <ul>{CREDITS.map((c) => <li key={c}>{c}</li>)}</ul>
+      <p className="sheet__links">
+        <a href="/privacy.html" target="_blank" rel="noopener">{t('about.privacy')}</a>
+        <a href="/terms.html" target="_blank" rel="noopener">{t('about.terms')}</a>
+      </p>
       <button type="button" className="sheet__close" onClick={onClose}>{t('about.close')}</button>
     </section>
   );
