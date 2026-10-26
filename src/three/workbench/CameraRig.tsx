@@ -17,6 +17,7 @@ type Tween = { t: number; fromP: THREE.Vector3; fromT: THREE.Vector3; fromZ: num
 // Orthographic camera framing (mm), orbit controls, and eased moves between views.
 export function CameraRig() {
   const camera = useThree((s) => s.camera) as THREE.OrthographicCamera;
+  const scene = useThree((s) => s.scene);
   const size = useThree((s) => s.size);
   const controls = useRef<OrbitControlsImpl>(null);
   const view = useWorkbenchStore((s) => s.view);
@@ -72,6 +73,35 @@ export function CameraRig() {
       const t = controls.current?.target ?? new THREE.Vector3();
       return { azimuth: Math.atan2(camera.position.x - t.x, camera.position.z - t.z), zoom: camera.zoom };
     };
+    // fit everything drawn (meshes on the outline layer) tightly in view (baking the project pictures)
+    window.__rq.debug.frameAll = (pad = 0.08) => {
+      const c = controls.current;
+      if (!c) return;
+      camera.updateMatrixWorld();
+      const box = new THREE.Box3();
+      scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.visible && m.layers.isEnabled(0)) box.expandByObject(m); });
+      if (box.isEmpty()) return;
+      const dir = camera.position.clone().sub(c.target).normalize();
+      camera.position.copy(c.target).addScaledVector(dir, 600);
+      camera.lookAt(c.target);
+      camera.updateMatrixWorld();
+      const v = new THREE.Vector3(), lo = new THREE.Vector2(Infinity, Infinity), hi = new THREE.Vector2(-Infinity, -Infinity);
+      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+        v.set(x, y, z).applyMatrix4(camera.matrixWorldInverse);
+        lo.min(new THREE.Vector2(v.x, v.y)); hi.max(new THREE.Vector2(v.x, v.y));
+      }
+      const { halfW, halfH } = fitOrtho(size.width / size.height);
+      const zoom = Math.min(halfW / (((hi.x - lo.x) / 2) * (1 + pad)), halfH / (((hi.y - lo.y) / 2) * (1 + pad)));
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      // the camera looks at the target: moving the target by the bounds' offset (in view space) centres them
+      const centre = c.target.clone().addScaledVector(right, (hi.x + lo.x) / 2).addScaledVector(up, (hi.y + lo.y) / 2);
+      c.target.copy(centre);
+      camera.position.copy(centre).addScaledVector(dir, 600);
+      camera.zoom = zoom;
+      camera.updateProjectionMatrix();
+      c.update();
+      tween.current = null;
+    };
     // look at a point (world mm) from the same direction, at this zoom (previews and screenshots)
     window.__rq.debug.lookAt = (x: number, y: number, z: number, zoom: number) => {
       const c = controls.current;
@@ -84,7 +114,7 @@ export function CameraRig() {
       c.update();
       tween.current = null;
     };
-  }, [camera]);
+  }, [camera, scene, size.width, size.height]);
 
   useFrame((_, dt) => {
     const tw = tween.current, c = controls.current;

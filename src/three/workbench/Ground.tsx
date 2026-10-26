@@ -4,9 +4,15 @@ import * as THREE from 'three';
 import { useThemeStore } from '../../theme/themeStore';
 import { THEMES } from '../../theme/themes';
 import { noOutline } from '../shared/layers';
+import { isThumbMode } from '../shared/motion';
 
 // Workbench floor: theme background, a fine + major grid, and a shadow catcher.
 export function Ground() {
+  if (isThumbMode()) return null; // (a constant for the page's life: hooks below never run in one mode and not the other)
+  return <Floor />;
+}
+
+function Floor() {
   const theme = useThemeStore((s) => s.theme);
   const t = THEMES[theme].scene;
   const scene = useThree((s) => s.scene);

@@ -3,6 +3,7 @@ import { PART_DEFS } from '../../circuit/parts';
 import type { PartInstance, PartType } from '../../circuit/types';
 import { COMPONENT_ORDER, COMPONENTS, type ComponentId } from '../../content/components';
 import { PROJECTS } from '../../content/projects';
+import { projectThumb } from '../../content/projects/thumbs';
 import { t, type StringKey } from '../../i18n/en';
 import { BuildStoreContext, useBuild } from '../../state/buildContext';
 import { createBuildStore, useBuildStore } from '../../state/buildStore';
@@ -16,7 +17,6 @@ import { PartWindow } from '../build/PartWindow';
 import { ViewerToolbar } from '../explorer/Dock';
 import { AboutSheet } from '../explorer/InfoSheet';
 import { NavBar, type Screen } from '../explorer/NavBar';
-import { PROJECT_ICON } from '../explorer/ProjectsRow';
 import { Header, SettingsPanel } from '../explorer/TopBar';
 import '../build/build.css';
 import '../explorer/explorer.css';
@@ -137,7 +137,7 @@ export function ComponentScreen({ type, onNavigate, onOpen, onUse }: { type: str
           <div className="projects__row">
             {projects.map((p) => (
               <button key={p.id} type="button" className="project" onClick={() => onOpen(p.id)}>
-                <span className="project__icon" aria-hidden><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={PROJECT_ICON[p.id]} /></svg></span>
+                <img className="project__thumb" src={projectThumb(p.id)} alt="" width={88} height={62} draggable={false} />
                 <span className="project__text"><b>{p.title}</b></span>
               </button>
             ))}

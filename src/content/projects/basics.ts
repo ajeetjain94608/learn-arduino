@@ -112,12 +112,12 @@ void loop() {
     tryIt: ['Turn the knob in 3D — drag around it', 'Type 512 in the knob’s number box', 'Make the LED blink faster as you turn the knob up'],
     build: {
       parts: [
-        { id: 'pot1', type: 'pot', params: {}, at: { col: 5, row: 'a' } },
+        { id: 'pot1', type: 'pot', params: {}, at: { col: 5, row: 'c' } },
         { id: 'led1', type: 'led', params: { color: 'yellow' }, at: { col: 15, row: 'd' } },
         { id: 'resistor1', type: 'resistor', params: { ohms: 220 }, at: { col: 16, row: 'b' } },
       ],
       wires: [
-        wire('uno.5V', 'bb.5d', 'power'), wire('bb.7d', 'uno.A0', 'data'), wire('bb.9d', 'uno.GND', 'ground'),
+        wire('uno.5V', 'bb.5a', 'power'), wire('bb.7a', 'uno.A0', 'data'), wire('bb.9a', 'uno.GND', 'ground'),
         wire('uno.D9', 'bb.15a'), wire('bb.20a', 'uno.GND', 'ground'),
       ],
       code: `const int KNOB = A0;
@@ -151,12 +151,12 @@ void loop() {
     build: {
       parts: [
         { id: 'rgb1', type: 'rgb', params: {}, at: { col: 10, row: 'e' } },
-        { id: 'resistor1', type: 'resistor', params: { ohms: 220 }, at: { col: 10, row: 'a' } },
-        { id: 'resistor2', type: 'resistor', params: { ohms: 220 }, at: { col: 12, row: 'b' } },
-        { id: 'resistor3', type: 'resistor', params: { ohms: 220 }, at: { col: 13, row: 'c' } },
+        { id: 'resistor1', type: 'resistor', params: { ohms: 220 }, at: { col: 10, row: 'd' } },
+        { id: 'resistor2', type: 'resistor', params: { ohms: 220 }, at: { col: 12, row: 'c' } },
+        { id: 'resistor3', type: 'resistor', params: { ohms: 220 }, at: { col: 13, row: 'b' } },
       ],
       wires: [
-        wire('uno.D9', 'bb.14d'), wire('uno.D10', 'bb.16a', 'extra'), wire('uno.D11', 'bb.17a', 'data'), wire('bb.11d', 'uno.GND', 'ground'),
+        wire('uno.D9', 'bb.14a'), wire('uno.D10', 'bb.16a', 'extra'), wire('uno.D11', 'bb.17a', 'data'), wire('bb.11a', 'uno.GND', 'ground'),
       ],
       code: `const int RED = 9, GREEN = 10, BLUE = 11;
 
@@ -190,13 +190,13 @@ void loop() {
     tryIt: ['Drag the desk lamp away from the sensor', 'Set the light in lux in the sensor’s window', 'Change 400 to a different threshold'],
     build: {
       parts: [
-        { id: 'ldr1', type: 'ldr', params: {}, at: { col: 5, row: 'a' } },
-        { id: 'resistor1', type: 'resistor', params: { ohms: 10000 }, at: { col: 7, row: 'c' } },
+        { id: 'ldr1', type: 'ldr', params: {}, at: { col: 5, row: 'c' } },
+        { id: 'resistor1', type: 'resistor', params: { ohms: 10000 }, at: { col: 7, row: 'd' } },
         { id: 'led1', type: 'led', params: { color: 'white' }, at: { col: 18, row: 'd' } },
         { id: 'resistor2', type: 'resistor', params: { ohms: 220 }, at: { col: 19, row: 'b' } },
       ],
       wires: [
-        wire('uno.5V', 'bb.5c', 'power'), wire('bb.7d', 'uno.A0', 'data'), wire('bb.11d', 'uno.GND', 'ground'),
+        wire('uno.5V', 'bb.5a', 'power'), wire('bb.7a', 'uno.A0', 'data'), wire('bb.11a', 'uno.GND', 'ground'),
         wire('uno.D9', 'bb.18a'), wire('bb.23a', 'uno.GND', 'ground'),
       ],
       inputs: { ldr1: { lux: 300 } },
@@ -267,8 +267,8 @@ void loop() {
     learn: ['tone(pin, frequency, duration)', 'Arrays and for loops', 'Notes are just frequencies: A = 440 Hz'],
     tryIt: ['Run it and listen (turn sound on in the toolbar)', 'Change the tempo', 'Write your own tune'],
     build: {
-      parts: [{ id: 'buzzer1', type: 'buzzer', params: {}, at: { col: 15, row: 'a' } }],
-      wires: [wire('uno.D8', 'bb.15e'), wire('bb.18e', 'uno.GND', 'ground')],
+      parts: [{ id: 'buzzer1', type: 'buzzer', params: {}, at: { col: 15, row: 'b' } }],
+      wires: [wire('uno.D8', 'bb.15a'), wire('bb.18a', 'uno.GND', 'ground')],
       code: `const int BUZZER = 8;
 // "Ode to Joy" (Beethoven): E E F G G F E D C C D E E D D
 const int NOTES[] = { 330, 330, 349, 392, 392, 349, 330, 294, 262, 262, 294, 330, 330, 294, 294 };

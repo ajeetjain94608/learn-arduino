@@ -12,3 +12,5 @@ export function useReducedMotion(): boolean {
 }
 
 export const isTestMode = (): boolean => new URLSearchParams(location.search).has('test');
+// ?test&thumb: no floor and no background, for baking the project pictures (tools/bake-projects.mjs)
+export const isThumbMode = (): boolean => isTestMode() && new URLSearchParams(location.search).has('thumb');

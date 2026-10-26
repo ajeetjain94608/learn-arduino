@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
 import { PROJECTS } from '../../content/projects';
+import { projectThumb } from '../../content/projects/thumbs';
 import type { PartType } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { AboutSheet } from '../explorer/InfoSheet';
 import { NavBar, type Screen } from '../explorer/NavBar';
-import { PROJECT_ICON } from '../explorer/ProjectsRow';
 import { Header, SettingsPanel } from '../explorer/TopBar';
 import '../explorer/explorer.css';
 import '../explorer/layout.css';
@@ -34,12 +34,8 @@ export function ProjectsScreen({ onNavigate, onOpen }: { onNavigate(s: Screen): 
         <ul className="cards" aria-label={t('projects.page.title')} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {PROJECTS.map((p, i) => (
             <li key={p.id} className="tile">
-              <div className="tile__top">
-                <span className="tile__icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={PROJECT_ICON[p.id]} /></svg>
-                </span>
-                <div><span className="tile__num">{t('projects.page.number').replace('{n}', String(i + 1))}</span><h3>{p.title}</h3></div>
-              </div>
+              <img className="tile__pic" src={projectThumb(p.id)} alt="" width={480} height={336} loading="lazy" draggable={false} />
+              <div className="tile__top"><div><span className="tile__num">{t('projects.page.number').replace('{n}', String(i + 1))}</span><h3>{p.title}</h3></div></div>
               <p>{p.summary}</p>
               <ul className="chips" aria-label={t('projects.page.parts')}>
                 <li>{t('build.uno')}</li>

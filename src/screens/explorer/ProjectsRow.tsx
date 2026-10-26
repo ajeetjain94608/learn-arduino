@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { PROJECTS } from '../../content/projects';
+import { projectThumb } from '../../content/projects/thumbs';
 import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import type { View } from '../../three/workbench/cameraViews';
-import ledThumb from '../../assets/thumbs/led-red.png';
-import unoThumb from '../../assets/thumbs/uno.png';
 
 // The ready-made projects. The first two play right here on Home (the board, and the Blink circuit); the others open
-// their own page. thumb: picture rendered from our own 3D model (npm run bake:thumbs); icon: a simple drawing.
+// their own page. Each card shows a picture of the project's real 3D build (npm run bake:projects).
 const HOME_VIEW: Record<string, View> = { board: 'board', blink: 'circuit' };
-const THUMB: Record<string, string> = { board: unoThumb, blink: ledThumb };
 export const PROJECT_ICON: Record<string, string> = {
   board: 'M6 6h12v12H6zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4',
   blink: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z',
@@ -67,8 +65,8 @@ export function ProjectsRow({ onOpen, onAll }: { onOpen?(id: string): void; onAl
             <button key={p.id} type="button"
               className={`project${here && view === here ? ' is-on' : ''}`}
               onClick={() => (here ? setView(here) : onOpen?.(p.id))}>
-              {THUMB[p.id]
-                ? <img className="project__thumb" src={THUMB[p.id]} alt="" width={88} height={62} draggable={false} />
+              {projectThumb(p.id)
+                ? <img className="project__thumb" src={projectThumb(p.id)} alt="" width={88} height={62} draggable={false} />
                 : <span className="project__icon" aria-hidden>
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={PROJECT_ICON[p.id]} /></svg>
                   </span>}

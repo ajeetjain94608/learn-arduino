@@ -31,3 +31,4 @@
   .page__body { overflow: visible; padding: 0; }
   .cards { grid-template-columns: 1fr; }
 }
+.tile__pic { width: 100%; aspect-ratio: 480 / 336; object-fit: contain; border-radius: 12px; background: var(--paper); }
