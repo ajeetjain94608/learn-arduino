@@ -1,6 +1,6 @@
 import { buildNets } from './nets';
 import {
-  fsrOhms, isPlaced, ldrOhms, LED_VF, MOTOR_FULL_A, MOTOR_OHMS, PART_DEFS, paramsOf, POT_OHMS, RGB_VF, soilVolts,
+  footprintOf, fsrOhms, isPlaced, ldrOhms, LED_VF, MOTOR_FULL_A, MOTOR_OHMS, PART_DEFS, paramsOf, POT_OHMS, RGB_VF, soilVolts,
   tmp36Volts, TRAFFIC_OHMS, TRAFFIC_VF,
 } from './parts';
 import { solve, type Element } from './solver';
@@ -46,7 +46,7 @@ const TIP120 = { vbe: 1.4, rbe: 50, ron: 2, ibOn: 1e-4 };
 // Nets depend only on the circuit, which changes far less often than the pins: work them out once per circuit.
 const netCache = new WeakMap<CircuitSpec, ReturnType<typeof buildNets>>();
 const legs = (p: PartInstance): Record<string, string> =>
-  Object.fromEntries(Object.entries(PART_DEFS[p.type].footprint(p.at, p.params) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
+  Object.fromEntries(Object.entries(footprintOf(p) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
 const netsOf = (spec: CircuitSpec) => {
   let nets = netCache.get(spec);
   if (!nets) {

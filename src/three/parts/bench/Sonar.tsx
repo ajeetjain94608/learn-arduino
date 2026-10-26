@@ -8,6 +8,7 @@ import { rbox } from '../../shared/geometry';
 import { noOutline } from '../../shared/layers';
 import { MATERIALS, std } from '../../shared/materials';
 import { useReducedMotion } from '../../shared/motion';
+import { rotatePoint } from '../../../circuit/parts';
 import type { PartView } from '../partView';
 import { castSolid, decal, legZ, noRay, pinMesh, silkHole, silkText, soic, solderJoint, useDisposeOwned } from './sensing/common';
 
@@ -186,7 +187,7 @@ function buildFx() {
   return { g, arcs, line, ticks, label, drawLabel };
 }
 
-export function Sonar({ at, inputs, onInput, state }: PartView) {
+export function Sonar({ at, rot, inputs, onInput, state }: PartView) {
   const reduced = useReducedMotion();
   const cm = Math.min(400, Math.max(2, Math.round(inputs.cm ?? 30)));
   const powered = !!state?.powered;
@@ -221,17 +222,18 @@ export function Sonar({ at, inputs, onInput, state }: PartView) {
   fx.g.visible = powered;
 
   // dragging the car along the bench sets the distance
-  const atZ = 'x' in at ? at.z : 0;
+  // (a world point's distance in front of the sensor, which may be turned: its own forward direction)
+  const forward = (x: number, z: number) => ('x' in at ? rotatePoint(x - at.x, z - at.z, -rot)[1] : z);
   const grab = useRef(0), cmNow = useRef(cm);
   cmNow.current = cm;
   const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
   const hit = useMemo(() => new THREE.Vector3(), []);
   const drag = useBenchDrag((w) => {
-    const v = cmOf(w.z - atZ - grab.current - SONAR_FACE_Z);
+    const v = cmOf(forward(w.x, w.z) - grab.current - SONAR_FACE_Z);
     if (v !== cmNow.current) { cmNow.current = v; onInput('cm', v); }
   });
   const onDown = (e: ThreeEvent<PointerEvent>) => {
-    grab.current = e.ray.intersectPlane(plane, hit) ? hit.z - atZ - nearZ : 0;
+    grab.current = e.ray.intersectPlane(plane, hit) ? forward(hit.x, hit.z) - nearZ : 0;
     drag(e);
   };
 

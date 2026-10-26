@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PART_DEFS } from '../../circuit/parts';
+import { footprintOf, PART_DEFS } from '../../circuit/parts';
 import type { PartType } from '../../circuit/types';
 import { COMPONENTS } from '../../content/components';
 import type { Project } from '../../content/projects';
@@ -32,7 +32,7 @@ export function projectHotspots(project: Project, view: View): Hotspot[] {
       const { x, z } = p.at;
       spots.push({ id: p.type, type: p.type, anchor: () => new THREE.Vector3(x, bench.h + 3, z) });
     } else {
-      const holes = Object.values(PART_DEFS[p.type].footprint(p.at, p.params) ?? {});
+      const holes = Object.values(footprintOf(p) ?? {});
       const ref = holes[Math.floor(holes.length / 2)] ?? holes[0];
       spots.push({ id: p.type, type: p.type, anchor: () => (ref ? pinWorld(`bb.${ref}`).add(new THREE.Vector3(0, (HEIGHT[p.type] ?? 8) + 2, 0)) : new THREE.Vector3(0, BB.H + 10, 0)) });
     }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BENCH_STEP, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
+import { BENCH_STEP, canTurn, footprintOf, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
 import type { PartInstance, Placement, Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { useBuild } from '../../state/buildContext';
@@ -23,7 +23,7 @@ function moved(at: Placement, dc: number, dr: number): Placement | null {
   const r = ROWS.indexOf(at.row) + dr;
   return r >= 0 && r < ROWS.length ? { col: at.col + dc, row: ROWS[r] } : null;
 }
-const legsText = (part: PartInstance) => ('x' in part.at ? '' : Object.values(PART_DEFS[part.type].footprint(part.at, part.params) ?? {}).join(' · '));
+const legsText = (part: PartInstance) => ('x' in part.at ? '' : Object.values(footprintOf(part) ?? {}).join(' · '));
 
 // A slider and a number box for one input, always showing the same value as the 3D part.
 function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
@@ -78,6 +78,7 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
   const setParam = useBuild((s) => s.setParam);
   const movePart = useBuild((s) => s.movePart);
   const canMove = useBuild((s) => s.canMove);
+  const rotatePart = useBuild((s) => s.rotatePart);
   useBuild((s) => s.parts); // the arrows' state follows every part (another part may free or take a spot)
   const ref = useRef<HTMLElement>(null);
   // opening the window moves focus into it (keyboard and screen readers follow); Escape closes it
@@ -109,6 +110,22 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
           })}
         </div>
       </div>}
+      {!fixed && (def.bench || canTurn(part.type)) && (
+        <div className="part-window__place">
+          <span>{t('build.turn')} <b>{Math.round((part.rot ?? 0) * 10) / 10}°</b></span>
+          <div className="part-window__moves">
+            <button type="button" aria-label={t('build.turn.left')} onClick={() => rotatePart(part.id, (part.rot ?? 0) - (def.bench ? 15 : 90))}>↺</button>
+            <button type="button" aria-label={t('build.turn.right')} onClick={() => rotatePart(part.id, (part.rot ?? 0) + (def.bench ? 15 : 90))}>↻</button>
+          </div>
+        </div>
+      )}
+      {!fixed && def.bench && (
+        <div className="part-window__input">
+          <label className="part-window__label">{t('build.turn.angle')}</label>
+          <input type="range" min={0} max={359} step={1} value={Math.round(part.rot ?? 0)} aria-label={t('build.turn.angle')}
+            onChange={(e) => rotatePart(part.id, Number(e.target.value))} />
+        </div>
+      )}
       {def.params.map((p) => (
         <div key={p.key} className="part-window__param" role="radiogroup" aria-label={t(`build.param.${p.key}` as StringKey)}>
           {p.options.map((o) => (

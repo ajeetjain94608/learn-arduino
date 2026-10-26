@@ -55,6 +55,8 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
   const wires = useBuild((s) => s.wires);
   const inputs = useBuild((s) => s.inputs);
   const select = useBuild((s) => s.select);
+  const dragPart = useBuild((s) => s.dragPart);
+  const selected = useBuild((s) => s.selected);
   const setInput = useBuild((s) => s.setInput);
   const addWire = useBuild((s) => s.addWire);
   const burns = useBuild((s) => s.burns);
@@ -108,7 +110,7 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} />
             <WireDragger targets={targets} parts={parts} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
-            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onInput={setInput} />
+            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onMove={dragPart} selected={selected} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill />

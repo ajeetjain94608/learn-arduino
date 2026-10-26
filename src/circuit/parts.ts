@@ -134,7 +134,7 @@ export function paramsOf(type: PartType, params: Record<string, string | number>
 }
 
 // Whether the part is connected at all: a module always is; a breadboard part when its legs are in holes.
-export const isPlaced = (p: PartInstance) => !!PART_DEFS[p.type].bench || PART_DEFS[p.type].footprint(p.at, p.params) !== null;
+export const isPlaced = (p: PartInstance) => !!PART_DEFS[p.type].bench || footprintOf(p) !== null;
 
 // The connection points a wire can go to on this part: a module's header pins (breadboard parts are wired through
 // the holes their legs are in).
@@ -170,3 +170,64 @@ export function benchRect(type: PartType, at: { x: number; z: number }, rot = 0)
 export const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.z - b.z) * 2 < a.d + b.d;
 export const inside = (a: Rect, area: Rect) =>
   Math.abs(a.x - area.x) * 2 + a.w <= area.w && Math.abs(a.z - area.z) * 2 + a.d <= area.d;
+
+// ── Turning parts that sit in the breadboard ─────────────────────────────────────────────────────────────────────────
+// Legs stay in holes, so a part turns in quarter turns around its first leg, and only where the turned shape fits on
+// the board and in one half of it (the middle gap is not crossed). The push button straddles the gap and does not turn.
+export const TURNS = [0, 90, 180, 270] as const;
+export const canTurn = (type: PartType) => !PART_DEFS[type].bench && type !== 'button';
+
+type Offsets = [dc: number, dr: number]; // columns right, rows down (row index: a = 0 … j = 9)
+const rowOf = (hole: string) => STRIP_ROWS.indexOf(hole.replace(/^\d+/, '') as Row);
+const colOf = (hole: string) => Number(hole.replace(/[a-j]$/, ''));
+
+// the part's shape unturned, measured with the part placed where nothing is near an edge
+const shapes = new Map<string, { legs: Record<string, Offsets>; body: Offsets[] } | null>();
+function shapeOf(type: PartType, params: Record<string, string | number>) {
+  const key = `${type}:${JSON.stringify(params)}`;
+  if (shapes.has(key)) return shapes.get(key)!;
+  const refRow: Row = type === 'button' ? 'e' : 'c', ref = { col: 15, row: refRow };
+  const fp = PART_DEFS[type].footprint(ref, params);
+  const off = (h: string): Offsets => [colOf(h) - 15, rowOf(h) - STRIP_ROWS.indexOf(refRow)];
+  const shape = fp ? { legs: Object.fromEntries(Object.entries(fp).map(([pin, h]) => [pin, off(h)])), body: PART_DEFS[type].covers(ref, params).map(off) } : null;
+  shapes.set(key, shape);
+  return shape;
+}
+// a quarter turn clockwise seen from above sends "right" (+column) to "towards the viewer" (+row)
+const turnOffsets = ([dc, dr]: Offsets, rot: number): Offsets => (rot === 90 ? [-dr, dc] : rot === 180 ? [-dc, -dr] : [dr, -dc]);
+
+type Placed = Pick<PartInstance, 'type' | 'params' | 'rot'> & { at: Placement };
+const normRot = (rot = 0) => ((Math.round(rot) % 360) + 360) % 360;
+
+// the holes a turned part's offsets land on, or null when any is off the board or the part would cross the middle gap
+function place(offsets: Offsets[], at: { col: number; row: Row }, rot: number): string[] | null {
+  const base = STRIP_ROWS.indexOf(at.row), half = base < 5 ? 0 : 1, out: string[] = [];
+  for (const o of offsets) {
+    const [dc, dr] = turnOffsets(o, rot), col = at.col + dc, r = base + dr;
+    if (col < 1 || col > COLUMNS || r < 0 || r > 9 || (r < 5 ? 0 : 1) !== half) return null;
+    out.push(`${col}${STRIP_ROWS[r]}`);
+  }
+  return out;
+}
+
+// Where each leg is, for a part placed at \`at\` (default: its own place) and turned by its own \`rot\`: pin → hole, or null.
+export function footprintOf(p: Placed, at: Placement = p.at): Record<string, string> | null {
+  const rot = normRot(p.rot);
+  if (onBench(at)) return null;
+  if (rot === 0) return PART_DEFS[p.type].footprint(at, p.params);
+  if (rot % 90 !== 0 || !canTurn(p.type)) return null;
+  const sh = shapeOf(p.type, p.params);
+  if (!sh) return null;
+  const pins = Object.keys(sh.legs), holes = place(pins.map((k) => sh.legs[k]), at, rot);
+  return holes ? Object.fromEntries(pins.map((k, i) => [k, holes[i]])) : null;
+}
+
+// Every hole the part's body sits over (legs included), or [] when it does not fit.
+export function coversOf(p: Placed, at: Placement = p.at): string[] {
+  const rot = normRot(p.rot);
+  if (onBench(at)) return [];
+  if (rot === 0) return PART_DEFS[p.type].covers(at, p.params);
+  if (!footprintOf(p, at)) return [];
+  const sh = shapeOf(p.type, p.params);
+  return sh ? place(sh.body, at, rot) ?? [] : [];
+}

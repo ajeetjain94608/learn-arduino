@@ -45,7 +45,7 @@ export const en = {
   'build.input.hold': 'Hold to press', 'build.input.keep': 'Keep it pressed', 'build.close': 'Close', 'build.removePart': 'Remove from the breadboard', 'build.removeModule': 'Remove from the bench',
   'build.param.ohms': 'Resistance', 'build.param.color': 'Colour',
   'build.color.red': 'Red', 'build.color.green': 'Green', 'build.color.yellow': 'Yellow', 'build.color.blue': 'Blue', 'build.color.white': 'White',
-  'build.legs': 'Legs in', 'build.move.left': 'Move left', 'build.move.right': 'Move right', 'build.move.up': 'Move up', 'build.move.down': 'Move down',
+  'build.legs': 'Legs in', 'build.turn': 'Turn', 'build.turn.left': 'Turn left', 'build.turn.right': 'Turn right', 'build.turn.angle': 'Angle in degrees', 'build.move.left': 'Move left', 'build.move.right': 'Move right', 'build.move.up': 'Move up', 'build.move.down': 'Move down',
   'build.msg.cantMove': "There's no room there.",
   'build.wiring.from': 'From', 'build.wiring.to': 'To', 'build.wiring.connect': 'Connect', 'build.wiring.list': 'Connections',
   'build.wiring.none': 'No connections yet. Pick two points, or drag from a pin to a hole in 3D.',

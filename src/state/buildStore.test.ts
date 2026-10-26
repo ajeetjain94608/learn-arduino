@@ -262,3 +262,50 @@ describe('B3: dragging and turning modules', () => {
     expect(s.parts[0].rot ?? 0).toBe(0);
   });
 });
+
+describe('B4: turning a part that sits in the breadboard', () => {
+  it('turns in quarter turns, and its legs move to the turned holes', () => {
+    const s = fresh();
+    const id = s().addPart('led')!;                      // legs 1a, 2a
+    expect(s().rotatePart(id, 90)).toBe(true);
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(90);
+    expect(s().usedPins().has('bb.1a')).toBe(true);
+    expect(s().usedPins().has('bb.1b')).toBe(true);      // the cathode is now below the anode
+    expect(s().usedPins().has('bb.2a')).toBe(false);
+    expect(s().rotatePart(id, 100)).toBe(true);          // anything between snaps to the nearest quarter
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(90);
+    s().movePart(id, { col: 5, row: 'a' });
+    expect(s().rotatePart(id, 200)).toBe(true);
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(180);   // the cathode is now left of the anode, at 4a
+  });
+  it('is refused where the turned part would not fit, and says so', () => {
+    const s = fresh();
+    const id = s().addPart('led')!;
+    s().movePart(id, { col: 5, row: 'e' });              // e → f would cross the middle gap
+    expect(s().rotatePart(id, 90)).toBe(false);
+    expect(s().parts.find((p) => p.id === id)!.rot ?? 0).toBe(0);
+    expect(s().message).not.toBeNull();
+    // another part in the way
+    const b = fresh();
+    const led = b().addPart('led')!;                     // 1a 2a
+    b().addPart('resistor')!;                            // 3a … 7a
+    b().movePart(led, { col: 8, row: 'a' });
+    const other = b().addPart('led')!;                   // takes 1a, 2a
+    b().movePart(other, { col: 8, row: 'b' });           // right under the first LED's anode
+    expect(b().rotatePart(led, 90)).toBe(false);         // its cathode would land on 8b
+  });
+  it('the push button does not turn', () => {
+    const s = fresh();
+    const id = s().addPart('button')!;
+    expect(s().rotatePart(id, 90)).toBe(false);
+    expect(s().message).not.toBeNull();
+  });
+  it('a turned part can be moved: it keeps its turn and is checked as turned', () => {
+    const s = fresh();
+    const id = s().addPart('resistor')!;                 // 1a … 5a
+    expect(s().rotatePart(id, 90)).toBe(true);           // 1a … 1e
+    expect(s().dragPart(id, { col: 10, row: 'a' })).toBe(true);
+    expect(s().usedPins().has('bb.10e')).toBe(true);
+    expect(s().dragPart(id, { col: 10, row: 'c' })).toBe(false);   // would cross the gap
+  });
+});

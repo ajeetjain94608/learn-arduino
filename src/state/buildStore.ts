@@ -1,7 +1,7 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { Burn, InputValues } from '../circuit/evaluate';
 import { BB_HOLES, UNO_PINS } from '../circuit/board';
-import { BENCH_AREA, BENCH_SLOTS, benchRect, inside, KEEP_OUT, overlaps, PART_DEFS, paramsOf, partPoints } from '../circuit/parts';
+import { BENCH_AREA, BENCH_SLOTS, benchRect, canTurn, coversOf, footprintOf, inside, KEEP_OUT, overlaps, PART_DEFS, paramsOf, partPoints } from '../circuit/parts';
 import { onBench, type CircuitSpec, type PartInstance, type PartType, type PinRef, type Placement, type Row, type Wire } from '../circuit/types';
 import { t } from '../i18n/en';
 
@@ -48,7 +48,7 @@ export type BuildState = {
 };
 export type BuildStore = UseBoundStore<StoreApi<BuildState>>;
 
-const coveredHoles = (p: PartInstance, at = p.at) => PART_DEFS[p.type].covers(at, p.params).map((h) => `bb.${h}`);
+const coveredHoles = (p: PartInstance, at = p.at, rot = p.rot) => coversOf({ ...p, rot }, at).map((h) => `bb.${h}`);
 const defaultInputs = (type: PartType) => Object.fromEntries(PART_DEFS[type].inputs.map((i) => [i.key, i.default]));
 
 const POINTS = new Set([...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`)]);
@@ -60,7 +60,7 @@ const validPart = (p: unknown): p is PartInstance => {
   if (!isObject(p) || typeof p.id !== 'string' || typeof p.type !== 'string' || !(p.type in PART_DEFS) || !isObject(p.params) || !isObject(p.at)) return false;
   const def = PART_DEFS[p.type as PartType], at = p.at as Record<string, unknown>;
   if (def.bench) return typeof at.x === 'number' && typeof at.z === 'number' && Number.isFinite(at.x) && Number.isFinite(at.z);
-  return typeof at.col === 'number' && typeof at.row === 'string' && def.footprint(p.at as Placement, p.params as Record<string, string | number>) !== null;
+  return typeof at.col === 'number' && typeof at.row === 'string' && footprintOf({ type: p.type as PartType, params: p.params as Record<string, string | number>, rot: typeof p.rot === 'number' ? p.rot : 0, at: p.at as Placement }) !== null;
 };
 const BURN_REASONS = ['led-overcurrent', 'pin-overcurrent', 'short'];
 const validBurn = (b: unknown): b is Burn => isObject(b) && typeof b.id === 'string' && BURN_REASONS.includes(b.reason as string);
@@ -106,9 +106,9 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         return inside(r, BENCH_AREA) && !KEEP_OUT.some((k) => overlaps(r, k))
           && !get().parts.some((o) => o.id !== ignore && o.id !== p.id && PART_DEFS[o.type].bench && overlaps(r, benchRect(o.type, o.at as { x: number; z: number }, o.rot ?? 0)));
       }
-      if (onBench(at) || !PART_DEFS[p.type].footprint(at, p.params)) return false;
+      if (onBench(at) || !footprintOf({ ...p, rot }, at)) return false;
       const used = taken(ignore);
-      return coveredHoles(p, at).every((h) => !used.has(h));
+      return coveredHoles(p, at, rot).every((h) => !used.has(h));
     };
     const refuse = (key: Parameters<typeof t>[0]) => { set({ message: t(key) }); return null; };
     let nextWire = 0;
@@ -151,7 +151,10 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       rotatePart(id, rot) {
         const p = get().parts.find((x) => x.id === id);
         if (!p || !Number.isFinite(rot)) return false;
-        const turned = ((Math.round(rot * 10) / 10) % 360 + 360) % 360; // 0 ≤ turned < 360, a tenth of a degree
+        if (!PART_DEFS[p.type].bench && !canTurn(p.type)) { set({ message: t('build.msg.cantTurn') }); return false; } // the push button does not turn
+        // a module turns to any angle (to a tenth of a degree); a part in the breadboard in quarter turns, to the nearest
+        const snapped = PART_DEFS[p.type].bench ? Math.round(rot * 10) / 10 : Math.round(rot / 90) * 90;
+        const turned = ((snapped % 360) + 360) % 360; // 0 ≤ turned < 360
         if (!fits(p, p.at, id, turned)) { set({ message: t('build.msg.cantTurn') }); return false; }
         set({ parts: get().parts.map((x) => (x.id === id ? { ...x, rot: turned } : x)), message: null });
         return true;

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { InputValues, PartState } from '../../circuit/evaluate';
-import type { BoardPlacement, PartInstance, Wire } from '../../circuit/types';
+import type { BoardPlacement, PartInstance, Placement, Wire } from '../../circuit/types';
 import { UnoBoard } from '../boards/uno/UnoBoard';
 import { isTestMode, soloMode } from '../shared/motion';
 import { Breadboard } from '../breadboard/Breadboard';
@@ -28,6 +28,8 @@ type Props = {
   wireVolts?: Record<string, number>; // set while the board runs and tags are on
   pin13: boolean; rx: boolean; tx: boolean;
   onPick(id: string): void;
+  onMove?(id: string, at: Placement): boolean | void; // pressing a part and dragging carries it (the Build bench only; Home just looks)
+  selected?: string | null;
   onInput(partId: string, key: string, value: number): void;
   // Home's project view ("showcase"): the circuit builds itself with this plan, and every part and wire can be hovered
   // (the name card) and tapped, like the Blink circuit. Without it: the plain Build bench.
@@ -78,7 +80,7 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
   return [colX(p.at.col) + 1.27 + BENCH.breadboard[0], 20, z + BENCH.breadboard[2]];
 }
 
-export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onInput, plan }: Props) {
+export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, onInput, plan }: Props) {
   // all wires laid out together so none passes through another or through a part
   const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
   const onBoard = parts.filter((p) => !('x' in p.at)), onBench = parts.filter((p) => 'x' in p.at);
@@ -95,7 +97,7 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
   const boardParts = onBoard.map((p) => {
     const at = p.at as BoardPlacement;
     const [x, , z] = holeLocal(at.col, at.row);
-    return showcase(p, <PartModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onInput={(key, value) => onInput(p.id, key, value)} />, [x, BB.H, z]);
+    return showcase(p, <PartModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />, [x, BB.H, z]);
   });
   return (
     <>
@@ -107,7 +109,7 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
         </PartGroup>
       ) : !solo || solo === 'breadboard' ? <Breadboard position={BENCH.breadboard}>{boardParts}</Breadboard> : <group position={BENCH.breadboard}>{boardParts}</group>}
       {onBench.map((p) => showcase(p, (
-        <BenchModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onInput={(key, value) => onInput(p.id, key, value)} />
+        <BenchModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />
       ), [(p.at as { x: number }).x, 0, (p.at as { z: number }).z]))}
       {wireVolts && <WireTags wires={wires} routes={routes} volts={wireVolts} />}
       {!solo && wires.map((w, j) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} slot={plan?.wires[j]} />)}

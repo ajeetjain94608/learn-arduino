@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { benchRect, PART_DEFS } from '../../circuit/parts';
+import { benchRect, coversOf, PART_DEFS } from '../../circuit/parts';
 import type { PartInstance } from '../../circuit/types';
 import type { Obstacle } from './wireRoute';
 import { pinWorld } from './pinPoints';
@@ -15,7 +15,7 @@ export function partBodies(parts: PartInstance[]): Obstacle[] {
       const r = benchRect(p.type, p.at, p.rot ?? 0);
       return [{ box: new THREE.Box3(new THREE.Vector3(r.x - r.w / 2, 0, r.z - r.d / 2), new THREE.Vector3(r.x + r.w / 2, bench.h, r.z + r.d / 2)) }];
     }
-    const holes = PART_DEFS[p.type].covers(p.at, p.params);
+    const holes = coversOf(p);
     if (!holes.length) return [];
     const box = new THREE.Box3();
     for (const h of holes) box.expandByPoint(pinWorld(`bb.${h}`));

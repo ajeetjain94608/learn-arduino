@@ -7,9 +7,13 @@ import type { OnInput } from '../build/controls3d';
 // top (y = 0), and their header pins' tips must be exactly at PART_DEFS[type].bench.pins (wires end there).
 // `params` has defaults filled in; `inputs` are the learner's input values (lux, cm, …); `onInput(key, value)` sets
 // one from a direct 3D control. Live module states (servo angle, OLED picture, buzzer note) are in liveDevices.
+// `rot`: how far the part is turned (degrees clockwise seen from above). The part is drawn UNTURNED: whoever places it
+// turns the whole drawing (around the first leg for a part in the breadboard, around the centre for a module), and
+// wires and legs turn with it — a model never needs to know, except where it converts pointer positions (a prop being dragged).
 export type PartView = {
   id: string;
   at: Placement;
+  rot: number;
   params: Record<string, string | number>;
   state?: PartState;
   inputs: Record<string, number>;
