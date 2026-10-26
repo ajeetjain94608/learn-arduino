@@ -7,10 +7,19 @@ type OrbitControlsImpl = ComponentRef<typeof OrbitControls>;
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { LAYER_NO_OUTLINE } from '../shared/layers';
 import { isTestMode, useReducedMotion } from '../shared/motion';
-import { clampZoom, fitOrtho, MAX_ZOOM, MIN_ZOOM, orbitAround, VIEW_DIR, VIEWS } from './cameraViews';
+import { clampZoom, fitOrtho, fitView, MAX_ZOOM, MIN_ZOOM, orbitAround, VIEW_DIR, VIEWS } from './cameraViews';
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const TWEEN_S = 0.9;
+
+// everything drawn on the bench (what "fit everything" frames): the visible meshes, not the floor or the glows
+export function sceneBox(scene: THREE.Object3D): THREE.Box3 | null {
+  const box = new THREE.Box3();
+  scene.updateMatrixWorld(true);
+  scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.layers.isEnabled(0) && shown(m)) box.expandByObject(m); });
+  return box.isEmpty() ? null : box;
+}
+const shown = (o: THREE.Object3D | null): boolean => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 
 type Tween = { t: number; fromP: THREE.Vector3; fromT: THREE.Vector3; fromZ: number; toP: THREE.Vector3; toT: THREE.Vector3; toZ: number };
 
@@ -59,13 +68,17 @@ export function CameraRig() {
     const c = controls.current;
     if (!c || !cameraCmd) return;
     const t = c.target.toArray() as [number, number, number];
-    const toT = cameraCmd.kind === 'focus' && cameraCmd.target ? new THREE.Vector3(...cameraCmd.target) : c.target.clone();
+    const here = camera.position.clone().sub(c.target); // the way the camera looks now (kept when it moves to a new target)
+    const box = cameraCmd.kind === 'fit' ? sceneBox(scene) : null;
+    if (cameraCmd.kind === 'fit' && !box) return;
+    const fit = box ? fitView(box, size.width / size.height, 0.1, here.toArray() as [number, number, number]) : null;
+    const toT = fit ? new THREE.Vector3(...fit.target) : cameraCmd.kind === 'focus' && cameraCmd.target ? new THREE.Vector3(...cameraCmd.target) : c.target.clone();
     const toP = cameraCmd.kind === 'rotate' ? new THREE.Vector3(...orbitAround(camera.position.toArray() as [number, number, number], t, cameraCmd.amount))
-      : cameraCmd.kind === 'focus' ? toT.clone().add(camera.position.clone().sub(c.target)) : camera.position.clone();
-    const toZ = cameraCmd.kind === 'zoom' ? clampZoom(camera.zoom * cameraCmd.amount) : cameraCmd.kind === 'focus' ? clampZoom(cameraCmd.amount) : camera.zoom;
+      : fit || cameraCmd.kind === 'focus' ? toT.clone().add(here) : camera.position.clone();
+    const toZ = fit ? fit.zoom : cameraCmd.kind === 'zoom' ? clampZoom(camera.zoom * cameraCmd.amount) : cameraCmd.kind === 'focus' ? clampZoom(cameraCmd.amount) : camera.zoom;
     if (reduced) { camera.position.copy(toP); c.target.copy(toT); camera.zoom = toZ; camera.updateProjectionMatrix(); c.update(); return; }
     tween.current = { t: 0, fromP: camera.position.clone(), fromT: c.target.clone(), fromZ: camera.zoom, toP, toT, toZ };
-  }, [cameraCmd, camera, reduced]);
+  }, [cameraCmd, camera, reduced, scene, size.width, size.height]);
 
   useEffect(() => {
     if (!isTestMode()) return;
@@ -75,32 +88,28 @@ export function CameraRig() {
     };
     // fit everything drawn (meshes on the outline layer) tightly in view (baking the project pictures)
     window.__rq.debug.frameAll = (pad = 0.08) => {
-      const c = controls.current;
-      if (!c) return;
-      camera.updateMatrixWorld();
-      const box = new THREE.Box3();
-      scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.visible && m.layers.isEnabled(0)) box.expandByObject(m); });
-      if (box.isEmpty()) return;
-      const dir = camera.position.clone().sub(c.target).normalize();
-      camera.position.copy(c.target).addScaledVector(dir, 600);
-      camera.lookAt(c.target);
-      camera.updateMatrixWorld();
-      const v = new THREE.Vector3(), lo = new THREE.Vector2(Infinity, Infinity), hi = new THREE.Vector2(-Infinity, -Infinity);
-      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
-        v.set(x, y, z).applyMatrix4(camera.matrixWorldInverse);
-        lo.min(new THREE.Vector2(v.x, v.y)); hi.max(new THREE.Vector2(v.x, v.y));
-      }
-      const { halfW, halfH } = fitOrtho(size.width / size.height);
-      const zoom = Math.min(halfW / (((hi.x - lo.x) / 2) * (1 + pad)), halfH / (((hi.y - lo.y) / 2) * (1 + pad)));
-      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-      // the camera looks at the target: moving the target by the bounds' offset (in view space) centres them
-      const centre = c.target.clone().addScaledVector(right, (hi.x + lo.x) / 2).addScaledVector(up, (hi.y + lo.y) / 2);
-      c.target.copy(centre);
-      camera.position.copy(centre).addScaledVector(dir, 600);
-      camera.zoom = zoom;
+      const c = controls.current, box = sceneBox(scene);
+      if (!c || !box) return;
+      const here = camera.position.clone().sub(c.target);
+      const f = fitView(box, size.width / size.height, pad, here.toArray() as [number, number, number]);
+      c.target.set(...f.target);
+      camera.position.copy(c.target).add(here);
+      camera.zoom = f.zoom;
       camera.updateProjectionMatrix();
       c.update();
       tween.current = null;
+    };
+    // how far out the farthest corner of everything drawn is, as a fraction of the half-view (≤ 1: all in view)
+    window.__rq.debug.sceneInView = () => {
+      const box = sceneBox(scene);
+      if (!box) return 0;
+      camera.updateMatrixWorld();
+      const v = new THREE.Vector3(); let worst = 0;
+      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+        v.set(x, y, z).project(camera);
+        worst = Math.max(worst, Math.abs(v.x), Math.abs(v.y));
+      }
+      return worst;
     };
     // look at a point (world mm) from the same direction, at this zoom (previews and screenshots)
     window.__rq.debug.lookAt = (x: number, y: number, z: number, zoom: number) => {

@@ -48,3 +48,31 @@ test('the low tier can be forced and reaches the renderer and the board texture'
   await page.goto('/?test&quality=low');
   await expect.poll(() => renderInfo(page)).toMatchObject({ tier: 'low', samples: [0, 0], surfacePx: 24 });
 });
+
+test.describe('the view can show a whole bench with its props', () => {
+  const inView = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __rq: { debug: { sceneInView(): number } } }).__rq.debug.sceneInView());
+
+  test('a project with props (the toy car, the lamp) fits in view once built, and the Fit button brings it back after zooming', async ({ page }) => {
+    test.setTimeout(120_000);
+    for (const id of ['distance', 'night-light']) {
+      await page.goto(`/?test#/projects/${id}`);
+      await page.reload();
+      await expect(page.locator('[data-hotspot]:visible').first()).toBeVisible({ timeout: 15_000 });
+      await expect.poll(() => inView(page), { timeout: 10_000, message: id }).toBeLessThanOrEqual(1.001);   // nothing out of the 3D view
+      // zoom in a lot: props leave the view…
+      for (let i = 0; i < 6; i++) { await page.getByRole('button', { name: 'Zoom in' }).click(); await page.waitForTimeout(1000); } // (each press glides for 0.9 s)
+      await expect.poll(() => inView(page)).toBeGreaterThan(1.2);
+      // …and one press brings everything back
+      await page.getByRole('button', { name: 'Fit everything in view' }).click();
+      await expect.poll(() => inView(page), { timeout: 10_000 }).toBeLessThanOrEqual(1.001);
+    }
+  });
+
+  test('you can zoom out much further than before', async ({ page }) => {
+    await page.goto('/?test#/projects/distance');
+    await page.reload();
+    await expect(page.locator('[data-hotspot]:visible').first()).toBeVisible({ timeout: 15_000 });
+    for (let i = 0; i < 6; i++) { await page.getByRole('button', { name: 'Zoom out' }).click(); await page.waitForTimeout(1000); }
+    await expect.poll(async () => (await page.evaluate(() => (window as unknown as { __rq: { debug: { camera(): { zoom: number } } } }).__rq.debug.camera().zoom)), { timeout: 10_000 }).toBeLessThanOrEqual(0.26);
+  });
+});

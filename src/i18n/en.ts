@@ -85,7 +85,7 @@ export const en = {
   'projects.page.number': 'Project {n}', 'projects.page.parts': 'Parts', 'projects.page.open': 'Open {name}', 'projects.page.openShort': 'Open project',
   'project.learn': 'You will learn', 'project.try': 'Try this', 'project.parts': 'Parts', 'project.wiring': 'How it is wired',
   'project.toCode': 'See the code and run it', 'project.edit': 'Edit in Build', 'project.reset': 'Reset project', 'project.resetYes': 'Yes, start over', 'project.resetNo': 'Keep my changes',
-  'build.tab.about': 'About', 'dock.sound': 'Sound',
+  'build.tab.about': 'About', 'dock.sound': 'Sound', 'dock.fit': 'Fit everything in view',
   'components.title': 'Components', 'components.text': 'Every part you can build with: what it does, its pins, its numbers and a short example. Open one to try it in 3D — turn it, press it, move the lamp — then use it in your own build.',
   'components.cat.board': 'The board', 'components.cat.basic': 'Basics', 'components.cat.output': 'Lights, sound and motion', 'components.cat.sensor': 'Sensors',
   'components.open': 'Open {name}', 'components.openShort': 'Open', 'components.tabs': 'About this part',

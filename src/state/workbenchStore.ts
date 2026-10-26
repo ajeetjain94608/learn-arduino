@@ -16,8 +16,9 @@ type WorkbenchState = {
   assembled: boolean; // the open project's circuit has finished building (labels and current wait for it)
   bootLed: boolean;  // the L LED's bootloader flashes
   resetCount: number;
-  cameraCmd: { kind: 'rotate' | 'zoom' | 'focus'; amount: number; seq: number; target?: [number, number, number] } | null; // toolbar rotate/zoom buttons; focus: look at a point (amount = zoom)
+  cameraCmd: { kind: 'rotate' | 'zoom' | 'focus' | 'fit'; amount: number; seq: number; target?: [number, number, number] } | null; // toolbar rotate/zoom buttons; focus: look at a point (amount = zoom); fit: everything in view
   focusCamera(target: [number, number, number], zoom: number): void;
+  fitCamera(): void; // ease the camera so everything on the bench (props included) is in view
   uploading: boolean;        // the sketch is being uploaded (Run pressed)
   uploadProgress: number;    // 0..1
   line: number | null;       // sketch line currently running, for highlighting
@@ -97,6 +98,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   setView: (view) => set({ view }),
   resetView: () => set({ resetTick: get().resetTick + 1 }),
   nudgeCamera: (kind, amount) => set({ cameraCmd: { kind, amount, seq: (get().cameraCmd?.seq ?? 0) + 1 } }),
+  fitCamera: () => set({ cameraCmd: { kind: 'fit', amount: 0, seq: (get().cameraCmd?.seq ?? 0) + 1 } }),
   focusCamera: (target, zoom) => set({ cameraCmd: { kind: 'focus', amount: zoom, target, seq: (get().cameraCmd?.seq ?? 0) + 1 } }),
   upload: () => {
     const { code } = get();

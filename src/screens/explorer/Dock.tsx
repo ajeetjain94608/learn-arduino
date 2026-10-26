@@ -32,7 +32,7 @@ const STEP = Math.PI / 6; // 30° per rotate press
 // The toolbar inside the 3D card (camera + what the scene shows). Run lives on the code card.
 // showCurrent: Home's "current" shortcut starts the shipped program on the lesson circuit — Build leaves it out.
 export function ViewerToolbar({ showCurrentButton = true, soundButton = false }: { showCurrentButton?: boolean; soundButton?: boolean } = {}) {
-  const { showCurrent, labels, toggleCurrent, toggleLabels, resetView, nudgeCamera } = useWorkbenchStore();
+  const { showCurrent, labels, toggleCurrent, toggleLabels, resetView, nudgeCamera, fitCamera } = useWorkbenchStore();
   const sound = useSound();
   return (
     <div className="viewer-toolbar" role="toolbar" aria-label={t('viewer.toolbar')}>
@@ -41,6 +41,7 @@ export function ViewerToolbar({ showCurrentButton = true, soundButton = false }:
       <span className="viewer-toolbar__sep" aria-hidden />
       <button type="button" aria-label={t('viewer.zoomOut')} onClick={() => nudgeCamera('zoom', 1 / 1.25)}><Icon d="M5 12h14" /></button>
       <button type="button" aria-label={t('viewer.zoomIn')} onClick={() => nudgeCamera('zoom', 1.25)}><Icon d="M12 5v14M5 12h14" /></button>
+      <button type="button" aria-label={t('dock.fit')} onClick={fitCamera}><Icon d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4M9 9h6v6H9z" /></button>
       <button type="button" aria-label={t('dock.reset')} onClick={resetView}><Icon d="M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" /></button>
       <span className="viewer-toolbar__sep" aria-hidden />
       {showCurrentButton && <button type="button" aria-label={t('dock.current')} aria-pressed={showCurrent} className={showCurrent ? 'is-on' : ''} onClick={toggleCurrent}><Icon d="M13 2 4 14h7l-1 8 9-12h-7z" /></button>}

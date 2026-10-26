@@ -30,11 +30,12 @@ export function ProjectCircuit({ parts, wires, inputs, partStates, burns, wireVo
     const instant = reduced || (isTestMode() && !ANIMATE_IN_TESTS);
     clock.t = instant ? Infinity : 0;
     useWorkbenchStore.getState().setAssembled(instant);
+    if (instant) setTimeout(() => useWorkbenchStore.getState().fitCamera(), 120); // already built: fit at once (after the first frame)
   }, [reduced, clock]);
   useFrame((_, dt) => {
     if (clock.t < plan.done) {
       clock.t += Math.min(dt, 0.1); // a long first frame (shader warm-up) must not skip the build
-      if (clock.t >= plan.done) useWorkbenchStore.getState().setAssembled(true);
+      if (clock.t >= plan.done) { useWorkbenchStore.getState().setAssembled(true); useWorkbenchStore.getState().fitCamera(); } // built: ease the camera out to show it all
     }
     if (isTestMode()) {
       const built = plan.parts.filter((s) => clock.t >= s[0] + s[1]).length + plan.wires.filter((s) => clock.t >= s[0] + s[1]).length;
