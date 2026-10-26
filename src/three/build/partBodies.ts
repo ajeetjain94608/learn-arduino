@@ -5,14 +5,14 @@ import type { Obstacle } from './wireRoute';
 import { pinWorld } from './pinPoints';
 
 // How tall each part stands above the breadboard (mm), for keeping wires out of it.
-const HEIGHT: Record<string, number> = { led: 12, resistor: 4, button: 5, pot: 13, rgb: 12, buzzer: 10, ldr: 8, tmp36: 7, fsr: 3, diode: 4, npn: 18, traffic: 26 };
+export const HEIGHT: Record<string, number> = { led: 12, resistor: 4, button: 5, pot: 13, rgb: 12, buzzer: 10, ldr: 8, tmp36: 7, fsr: 3, diode: 4, npn: 18, traffic: 26 };
 
 // The space each part's body fills: the holes it covers, up to its height.
 export function partBodies(parts: PartInstance[]): Obstacle[] {
   return parts.flatMap((p) => {
     const bench = PART_DEFS[p.type].bench;
     if (bench && 'x' in p.at) { // a module: its box on the bench (its header pins stick out of it: the router allows the wire's own end)
-      const r = benchRect(p.type, p.at);
+      const r = benchRect(p.type, p.at, p.rot ?? 0);
       return [{ box: new THREE.Box3(new THREE.Vector3(r.x - r.w / 2, 0, r.z - r.d / 2), new THREE.Vector3(r.x + r.w / 2, bench.h, r.z + r.d / 2)) }];
     }
     const holes = PART_DEFS[p.type].covers(p.at, p.params);

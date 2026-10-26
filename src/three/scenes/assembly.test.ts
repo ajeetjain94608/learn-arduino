@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { ASSEMBLY, ASSEMBLY_DONE, dropOffset, slotProgress } from './assembly';
+import { ASSEMBLY, ASSEMBLY_DONE, assemblyPlan } from './assembly';
 
-describe('circuit assembly schedule', () => {
-  it('builds in order: breadboard, LED, resistor, signal wire, ground wire', () => {
-    const order = (['breadboard', 'led', 'resistor', 'signal', 'ground'] as const).map((k) => ASSEMBLY[k][0]);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    for (const [start, dur] of Object.values(ASSEMBLY)) expect(start + dur).toBeLessThanOrEqual(ASSEMBLY_DONE);
+describe('the build-up plan for any project', () => {
+  it('for the Blink circuit (2 parts, 2 wires) it is the same shape as the original timeline', () => {
+    const p = assemblyPlan(2, 2);
+    expect(p.breadboard).toEqual(ASSEMBLY.breadboard);
+    expect(p.parts[0][0]).toBeCloseTo(ASSEMBLY.led[0], 1);
+    expect(p.parts[1][0]).toBeCloseTo(ASSEMBLY.resistor[0], 1);
+    expect(p.wires[0][0]).toBeCloseTo(ASSEMBLY.signal[0], 1);
+    expect(p.done).toBeCloseTo(ASSEMBLY_DONE, 0);
   });
-
-  it('progress runs 0 → 1 across a slot and clamps outside it', () => {
-    expect(slotProgress(-1, [0.5, 1])).toBe(0);
-    expect(slotProgress(0.5, [0.5, 1])).toBe(0);
-    expect(slotProgress(1, [0.5, 1])).toBeCloseTo(0.5);
-    expect(slotProgress(9, [0.5, 1])).toBe(1);
+  it('parts drop one after another, then each wire draws itself, and everything is done at the end', () => {
+    const p = assemblyPlan(6, 12);
+    for (let i = 1; i < p.parts.length; i++) expect(p.parts[i][0]).toBeGreaterThan(p.parts[i - 1][0]);
+    expect(p.wires[0][0]).toBeGreaterThanOrEqual(p.parts[5][0]);
+    for (let j = 1; j < p.wires.length; j++) expect(p.wires[j][0]).toBeGreaterThan(p.wires[j - 1][0]);
+    const last = p.wires[11];
+    expect(p.done).toBeGreaterThanOrEqual(last[0] + last[1]);
   });
-
-  it('a dropping part starts high, lands exactly, and never sinks far below its spot', () => {
-    expect(dropOffset(0)).toBe(1);
-    expect(dropOffset(1)).toBe(0);
-    for (let p = 0; p <= 1; p += 0.01) expect(dropOffset(p)).toBeGreaterThan(-0.12); // small settle, not a dive
+  it('a big project does not take forever: a build is over within about four seconds', () => {
+    expect(assemblyPlan(12, 30).done).toBeLessThan(4.2);
+    expect(assemblyPlan(0, 0).done).toBeGreaterThan(0.5);
   });
 });

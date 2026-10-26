@@ -14,6 +14,23 @@ export const ASSEMBLY = {
 export type AssemblyStep = keyof typeof ASSEMBLY;
 export const ASSEMBLY_DONE = 2.1;
 
+// The same build-up for any project: the breadboard slides in, each part drops into place one after another, then each
+// jumper wire draws itself. The pace speeds up for projects with many parts and wires so a build never drags on.
+export type AssemblyPlan = { breadboard: Slot; parts: Slot[]; wires: Slot[]; done: number };
+export function assemblyPlan(parts: number, wires: number): AssemblyPlan {
+  const breadboard: Slot = [0, 0.55];
+  const partGap = Math.min(0.25, 1.1 / Math.max(parts, 1));
+  const partSlots = Array.from({ length: parts }, (_, i): Slot => [0.5 + i * partGap, 0.4]);
+  const wireStart = 0.5 + Math.max(parts, 1) * partGap + 0.15;
+  const wireGap = Math.min(0.4, 2.0 / Math.max(wires, 1));
+  const wireDur = wires > 10 ? 0.4 : 0.55; // a crowded circuit draws its wires a little quicker
+  const wireSlots = Array.from({ length: wires }, (_, j): Slot => [wireStart + j * wireGap, wireDur]);
+  const end = wires > 0 ? wireStart + (wires - 1) * wireGap + wireDur : parts > 0 ? 0.5 + (parts - 1) * partGap + 0.4 : 0.55;
+  return { breadboard, parts: partSlots, wires: wireSlots, done: Math.round((end + 0.05) * 100) / 100 };
+}
+export type StepRef = AssemblyStep | Slot; // a named step of the Blink build, or a slot from a plan
+export const slotOf = (s: StepRef): Slot => (typeof s === 'string' ? ASSEMBLY[s] : s);
+
 export const BREADBOARD_SLIDE_MM = 160; // the breadboard starts this far to the right (+x)
 export const DROP_MM = 34;              // parts start this far above their holes
 

@@ -166,3 +166,21 @@ describe('review: modules that really run from 3.3 V', () => {
     expect(r.parts.t1.powered).toBe(true);
   });
 });
+
+describe('turning a module on the bench', () => {
+  it('a turned module takes the room its turned footprint needs, and its pins turn with it', async () => {
+    const { benchRect, rotatePoint } = await import('./parts');
+    const flat = benchRect('hcsr04', { x: 0, z: 0 }, 0);      // 46 × 22
+    const quarter = benchRect('hcsr04', { x: 0, z: 0 }, 90);  // 22 × 46
+    expect([flat.w, flat.d]).toEqual([46, 22]);
+    expect(quarter.w).toBeCloseTo(22, 5);
+    expect(quarter.d).toBeCloseTo(46, 5);
+    const diag = benchRect('hcsr04', { x: 0, z: 0 }, 45);
+    expect(diag.w).toBeGreaterThan(flat.d);                    // a diagonal box reaches further both ways
+    expect(diag.w).toBeCloseTo((46 + 22) * Math.SQRT1_2, 5);
+    // 90° clockwise seen from above: what pointed to the right now points towards the viewer (+z)
+    const [x, z] = rotatePoint(10, 0, 90);
+    expect(x).toBeCloseTo(0, 9);
+    expect(z).toBeCloseTo(10, 9);
+  });
+});

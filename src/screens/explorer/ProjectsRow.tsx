@@ -27,7 +27,8 @@ export const PROJECT_ICON: Record<string, string> = {
   parking: 'M8 3h8v18H8zM12 7m-1.5 0a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M12 12m-1.5 0a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0M12 17m-1.5 0a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0',
 };
 
-export function ProjectsRow({ onOpen, onAll }: { onOpen?(id: string): void; onAll?(): void } = {}) {
+// `current`: the open project's id from the address (none on a plain Home: the board / Blink views show which is open)
+export function ProjectsRow({ current, onOpen, onAll }: { current?: string; onOpen?(id: string): void; onAll?(): void } = {}) {
   const view = useWorkbenchStore((s) => s.view);
   const setView = useWorkbenchStore((s) => s.setView);
   const row = useRef<HTMLDivElement>(null);
@@ -42,6 +43,11 @@ export function ProjectsRow({ onOpen, onAll }: { onOpen?(id: string): void; onAl
     const ro = new ResizeObserver(measure); ro.observe(row.current);
     return () => ro.disconnect();
   }, []);
+  // the open project's card comes into view in the strip (only the strip scrolls, never the page)
+  useEffect(() => {
+    const el = row.current, on = el?.querySelector<HTMLElement>('.project.is-on');
+    if (el && on && typeof el.scrollTo === 'function') el.scrollTo({ left: on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2 - el.offsetLeft, behavior: 'auto' });
+  }, [current]);
   const page = (dir: number) => { const el = row.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.8 }); };
   const arrow = (dir: number) => (
     <button type="button" className="icon-btn projects__arrow" aria-label={t(dir < 0 ? 'projects.earlier' : 'projects.more')}
@@ -59,8 +65,8 @@ export function ProjectsRow({ onOpen, onAll }: { onOpen?(id: string): void; onAl
           const here = HOME_VIEW[p.id];
           return (
             <button key={p.id} type="button"
-              className={`project${here && view === here ? ' is-on' : ''}`}
-              onClick={() => (here ? setView(here) : onOpen?.(p.id))}>
+              className={`project${(current ? current === p.id : here && view === here) ? ' is-on' : ''}`}
+              onClick={() => (onOpen ? onOpen(p.id) : here && setView(here))}>
               {projectThumb(p.id)
                 ? <img className="project__thumb" src={projectThumb(p.id)} alt="" width={88} height={62} draggable={false} />
                 : <span className="project__icon" aria-hidden>

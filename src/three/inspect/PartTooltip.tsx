@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { t, type StringKey } from '../../i18n/en';
 import { useInspectStore } from '../../state/inspectStore';
 import { kindOf } from './partCatalog';
+import { cardOf } from './projectParts';
 import { placeTooltip } from './tooltipPlacement';
 
 const TOOLBAR_SPACE = 66; // the 3D card's toolbar along its bottom edge
@@ -16,7 +17,9 @@ export function PartTooltip() {
   const id = showHover ? hovered : selected;
   const mode = showHover ? 'hover' : 'selected';
   const at = showHover ? pointer : selectedAt;
+  // the UNO's own parts and the Blink circuit have their strings; the parts of any other project come from the library
   const kind = id ? kindOf(id) : null;
+  const card = kind ? { name: t(`part.${kind}.name` as StringKey), line: t(`part.${kind}.line` as StringKey) } : id ? cardOf(id) : null;
 
   useLayoutEffect(() => {
     const el = ref.current, view = el?.parentElement;
@@ -31,11 +34,11 @@ export function PartTooltip() {
     return () => removeEventListener('resize', onResize);
   }, []);
 
-  if (!id || !kind) return null;
+  if (!id || !card) return null;
   return (
     <div ref={ref} className={`part-tooltip part-tooltip--${mode}`} data-testid="part-tooltip" role="tooltip">
-      <b>{t(`part.${kind}.name` as StringKey)}</b>
-      <span>{t(`part.${kind}.line` as StringKey)}</span>
+      <b>{card.name}</b>
+      <span>{card.line}</span>
     </div>
   );
 }

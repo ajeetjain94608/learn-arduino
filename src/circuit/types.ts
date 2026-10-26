@@ -18,6 +18,8 @@ export type BenchPlacement = { x: number; z: number };   // a module's centre on
 export type Placement = BoardPlacement | BenchPlacement;
 export const onBench = (at: Placement): at is BenchPlacement => 'x' in at;
 
-export type PartInstance = { id: string; type: PartType; params: Record<string, string | number>; at: Placement };
+// rot: how far the part is turned, in degrees clockwise seen from above (0 = facing the viewer, the way it is modelled):
+// any angle for a module on the bench; a quarter turn at a time for a part in the breadboard's holes
+export type PartInstance = { id: string; type: PartType; params: Record<string, string | number>; at: Placement; rot?: number };
 export type Wire = { id: string; from: PinRef; to: PinRef; color: string };
 export type CircuitSpec = { parts: PartInstance[]; wires: Wire[] };

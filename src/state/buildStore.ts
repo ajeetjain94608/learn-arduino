@@ -28,6 +28,8 @@ export type BuildState = {
   burns: Burn[];
   addPart(type: PartType): string | null;
   movePart(id: string, at: Placement): boolean;
+  dragPart(id: string, at: Placement): boolean;   // like movePart, silently: a drag looks for a free spot as it goes
+  rotatePart(id: string, rot: number): boolean;   // turn a part to this angle (degrees)
   canMove(id: string, at: Placement): boolean;
   removePart(id: string): void;
   setParam(id: string, key: string, value: string | number): void;
@@ -54,6 +56,7 @@ const POINTS = new Set([...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) 
 const isPoint = (ref: string, parts: PartInstance[]) => POINTS.has(ref) || parts.some((p) => partPoints(p).includes(ref));
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
 const validPart = (p: unknown): p is PartInstance => {
+  if (isObject(p) && 'rot' in p && !(typeof p.rot === 'number' && Number.isFinite(p.rot))) delete p.rot; // a bad turn: the part stays, unturned
   if (!isObject(p) || typeof p.id !== 'string' || typeof p.type !== 'string' || !(p.type in PART_DEFS) || !isObject(p.params) || !isObject(p.at)) return false;
   const def = PART_DEFS[p.type as PartType], at = p.at as Record<string, unknown>;
   if (def.bench) return typeof at.x === 'number' && typeof at.z === 'number' && Number.isFinite(at.x) && Number.isFinite(at.z);
@@ -96,12 +99,12 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       for (const w of get().wires) for (const end of [w.from, w.to]) if (!end.startsWith('uno.')) used.add(end);
       return used;
     };
-    const fits = (p: PartInstance, at: Placement, ignore?: string) => {
+    const fits = (p: PartInstance, at: Placement, ignore?: string, rot = p.rot ?? 0) => {
       if (PART_DEFS[p.type].bench) { // a module: on the bench, clear of the UNO, the breadboard and the other modules
         if (!onBench(at)) return false;
-        const r = benchRect(p.type, at);
+        const r = benchRect(p.type, at, rot);
         return inside(r, BENCH_AREA) && !KEEP_OUT.some((k) => overlaps(r, k))
-          && !get().parts.some((o) => o.id !== ignore && o.id !== p.id && PART_DEFS[o.type].bench && overlaps(r, benchRect(o.type, o.at as { x: number; z: number })));
+          && !get().parts.some((o) => o.id !== ignore && o.id !== p.id && PART_DEFS[o.type].bench && overlaps(r, benchRect(o.type, o.at as { x: number; z: number }, o.rot ?? 0)));
       }
       if (onBench(at) || !PART_DEFS[p.type].footprint(at, p.params)) return false;
       const used = taken(ignore);
@@ -137,6 +140,20 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         if (!p) return false;
         if (!fits(p, at, id)) { set({ message: t('build.msg.cantMove') }); return false; }
         set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)), message: null });
+        return true;
+      },
+      dragPart(id, at) {
+        const p = get().parts.find((x) => x.id === id);
+        if (!p || !fits(p, at, id)) return false;
+        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)), message: null });
+        return true;
+      },
+      rotatePart(id, rot) {
+        const p = get().parts.find((x) => x.id === id);
+        if (!p || !Number.isFinite(rot)) return false;
+        const turned = ((Math.round(rot * 10) / 10) % 360 + 360) % 360; // 0 ≤ turned < 360, a tenth of a degree
+        if (!fits(p, p.at, id, turned)) { set({ message: t('build.msg.cantTurn') }); return false; }
+        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, rot: turned } : x)), message: null });
         return true;
       },
       canMove(id, at) { const p = get().parts.find((x) => x.id === id); return !!p && fits(p, at, id); },

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 export type Route =
   | { page: 'home' }
   | { page: 'projects' }
-  | { page: 'project'; id: string }
+  | { page: 'project'; id: string }       // Home, with this project open
+  | { page: 'project-build'; id: string } // the project's own Build page (change its parts and wires)
   | { page: 'components' }
   | { page: 'component'; type: string }
   | { page: 'build' };
@@ -18,6 +19,7 @@ export function parseRoute(hash: string): Route {
   const [a, b] = parts;
   if (a === 'projects' && parts.length === 1) return { page: 'projects' };
   if (a === 'projects' && parts.length === 2) { const id = decode(b); return id === null ? { page: 'projects' } : { page: 'project', id }; }
+  if (a === 'projects' && parts.length === 3 && parts[2] === 'build') { const id = decode(b); return id === null ? { page: 'projects' } : { page: 'project-build', id }; }
   if (a === 'components' && parts.length === 1) return { page: 'components' };
   if (a === 'components' && parts.length === 2) { const type = decode(b); return type === null ? { page: 'components' } : { page: 'component', type }; }
   if (a === 'build' && parts.length === 1) return { page: 'build' };
@@ -27,6 +29,7 @@ export function parseRoute(hash: string): Route {
 export function routeHash(r: Route): string {
   switch (r.page) {
     case 'project': return `#/projects/${encodeURIComponent(r.id)}`;
+    case 'project-build': return `#/projects/${encodeURIComponent(r.id)}/build`;
     case 'component': return `#/components/${encodeURIComponent(r.type)}`;
     case 'home': return '#/';
     default: return `#/${r.page}`;

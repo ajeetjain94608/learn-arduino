@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BB, colX, RAIL_Z, type Row } from '../breadboard/breadboardGeometry';
 import { BLINK, headerTopWorld, holeWorld } from '../scenes/blinkLayout';
-import { PART_DEFS } from '../../circuit/parts';
+import { PART_DEFS, rotatePoint } from '../../circuit/parts';
 import type { PartInstance } from '../../circuit/types';
 
 // The Build bench uses the same layout as the Blink project: UNO on the left, breadboard on the right.
@@ -18,7 +18,8 @@ export function pinWorld(ref: string, parts: readonly PartInstance[] = []): THRE
   const bench = module && PART_DEFS[module.type].bench;
   if (module && bench && 'x' in module.at) {
     const [dx, y, dz] = bench.pins[pin] ?? [0, 0, 0];
-    return new THREE.Vector3(module.at.x + dx, y, module.at.z + dz);
+    const [rx, rz] = rotatePoint(dx, dz, module.rot ?? 0);
+    return new THREE.Vector3(module.at.x + rx, y, module.at.z + rz);
   }
   if (part === 'uno') {
     const label = UNO_LABEL[pin] ?? (pin.startsWith('D') ? pin.slice(1) : pin);

@@ -35,3 +35,15 @@ describe('modules on the bench', () => {
     expect([KEEP_OUT[1].x, KEEP_OUT[1].z]).toEqual([BLINK.breadboard[0], BLINK.breadboard[2]]);
   });
 });
+
+describe('modules turned on the bench', () => {
+  it("a turned module's pins are at its place plus the pin's offset, turned", () => {
+    const base = { id: 'servo1', type: 'servo' as const, params: {}, at: { x: 30, z: 75 } };
+    const flat = pinWorld('servo1.SIG', [base]);
+    const turned = pinWorld('servo1.SIG', [{ ...base, rot: 90 }]);
+    // SIG is 16 mm towards the viewer from the centre; turned a quarter it is 16 mm to the left?? no: (2.54, 16) → (−16, 2.54)
+    expect(turned.x).toBeCloseTo(30 - (flat.z - 75), 5);
+    expect(turned.z).toBeCloseTo(75 + (flat.x - 30), 5);
+    expect(pinWorld('servo1.SIG', [{ ...base, rot: 360 }]).x).toBeCloseTo(flat.x, 5);
+  });
+});

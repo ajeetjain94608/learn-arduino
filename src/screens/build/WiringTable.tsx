@@ -2,23 +2,16 @@ import { useMemo, useState } from 'react';
 import { BB_HOLES, UNO_PINS } from '../../circuit/board';
 import { partPoints } from '../../circuit/parts';
 import type { PartInstance, PinRef } from '../../circuit/types';
-import { t, type StringKey } from '../../i18n/en';
+import { t } from '../../i18n/en';
+import { pinLabel } from '../../circuit/pointLabel';
+
+export { pinLabel };
 import { useBuild, useBuildApi } from '../../state/buildContext';
 
 const COLORS: { value: string; name: string }[] = [
   { value: '#F28C16', name: 'Orange' }, { value: '#2563EB', name: 'Blue' }, { value: '#10B981', name: 'Green' },
   { value: '#E2483D', name: 'Red' }, { value: '#8B5CF6', name: 'Purple' }, { value: '#2B2F38', name: 'Black' },
 ];
-
-// A connection point in words: "UNO D13", "Hole 12c", "Top + rail, column 9".
-export function pinLabel(ref: PinRef): string {
-  const [part, pin] = [ref.slice(0, ref.indexOf('.')), ref.slice(ref.indexOf('.') + 1)];
-  if (part === 'uno') return `UNO ${pin}`;
-  if (part !== 'bb') { const type = part.replace(/\d+$/, ''); return `${t(`build.part.${type}` as StringKey)} ${part.slice(type.length)} › ${pin}`; } // a module's pin
-  const rail = pin.match(/^([TB][+-])(\d+)$/);
-  if (rail) return `${t(`build.wiring.rail.${rail[1]}` as StringKey)} ${rail[2]}`;
-  return `Hole ${pin}`;
-}
 
 const HOLE_COLS = Array.from({ length: 30 }, (_, i) => i + 1);
 const strip = (col: number) => BB_HOLES.filter((h) => h.match(/^(\d+)[a-j]$/)?.[1] === String(col));

@@ -219,3 +219,46 @@ describe('B3: a project has its own copy of its build', () => {
     expect(p().burns).toEqual([]);
   });
 });
+
+describe('B3: dragging and turning modules', () => {
+  it('a module can be put anywhere on the bench that is free, a millimetre at a time', () => {
+    const s = fresh();
+    const id = s().addPart('oled')!;
+    expect(s().dragPart(id, { x: 123, z: -88 })).toBe(true);
+    expect(s().parts.find((p) => p.id === id)!.at).toEqual({ x: 123, z: -88 });
+    expect(s().dragPart(id, { x: -38, z: 2 })).toBe(false);        // on the UNO: stays where it was
+    expect(s().parts.find((p) => p.id === id)!.at).toEqual({ x: 123, z: -88 });
+    expect(s().message).toBeNull();                                // dragging says nothing while it looks for a spot
+  });
+  it('turning a module: any angle, kept between 0 and 360, refused if the turned box would not fit', () => {
+    const s = fresh();
+    const id = s().addPart('hcsr04')!;                              // 46 × 22: wider than deep
+    expect(s().rotatePart(id, 30)).toBe(true);
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(30);
+    expect(s().rotatePart(id, -90)).toBe(true);
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(270);
+    expect(s().rotatePart(id, 725)).toBe(true);
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(5);
+    // squeeze it against the breadboard's keep-out: a quarter turn would push it into the board
+    s().dragPart(id, { x: 50, z: -38 });
+    s().rotatePart(id, 0);
+    const before = s().parts.find((p) => p.id === id)!.rot;
+    expect(s().rotatePart(id, 90)).toBe(false);
+    expect(s().parts.find((p) => p.id === id)!.rot).toBe(before);
+    expect(s().message).not.toBeNull();
+  });
+  it('the turn is saved with the build', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const a = createBuildStore(storage).getState;
+    const id = a().addPart('servo')!;
+    a().rotatePart(id, 135);
+    expect(createBuildStore(storage).getState().parts[0].rot).toBe(135);
+  });
+  it('a save with a bad turn keeps the part and drops the turn', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    storage.setItem('rq-build-v1', JSON.stringify({ v: 1, code: 'x', parts: [{ id: 'servo1', type: 'servo', params: {}, at: { x: 30, z: -72 }, rot: 'sideways' }], wires: [] }));
+    const s = createBuildStore(storage).getState();
+    expect(s.parts).toHaveLength(1);
+    expect(s.parts[0].rot ?? 0).toBe(0);
+  });
+});

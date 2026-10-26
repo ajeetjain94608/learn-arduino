@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { t } from '../../i18n/en';
 import { useWorkbenchStore } from '../../state/workbenchStore';
-import type { Hotspot } from './hotspots';
+import { hotName, hotSub, type Hotspot } from './hotspots';
 import { layoutCallout, separateCards } from './layoutCallout';
 import './callouts.css';
 
@@ -32,7 +31,7 @@ export function CalloutProjector({ hotspots, bridge }: { hotspots: Hotspot[]; br
       const x = (p.x * 0.5 + 0.5) * size.width, y = (-p.y * 0.5 + 0.5) * size.height;
       const w = card.offsetWidth, hgt = card.offsetHeight;
       const r = layoutCallout({ anchor: { x, y }, offset: h.offset, card: { w, h: hgt }, viewport: { w: size.width, h: size.height }, top: TOP_BAR, bottom: DOCK });
-      const show = r.visible && (!h.view || h.view === view) && (h.view !== 'circuit' || assembled);
+      const show = r.visible && (!h.view || h.view === view) && (!h.view || h.view === 'board' || assembled); // (the circuit's labels wait for its build-up)
       if (show && card.style.display === 'none') {
         for (const el of [card, dot, line]) el.style.setProperty('--i', String(entering));
         entering++;
@@ -72,8 +71,8 @@ export function CalloutLayer({ hotspots, bridge, selected, onSelect }: { hotspot
           ref={(el) => { bridge.cards[i] = el; }}
           onClick={(e) => { e.stopPropagation(); onSelect(h.id); }}
         >
-          <b>{t(h.nameKey)}</b>
-          <small>{t(h.subKey)}</small>
+          <b>{hotName(h)}</b>
+          <small>{hotSub(h)}</small>
         </button>
       ))}
     </div>

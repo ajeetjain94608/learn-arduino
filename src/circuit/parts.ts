@@ -142,7 +142,7 @@ export const partPoints = (p: PartInstance): string[] => (PART_DEFS[p.type].benc
 
 // The bench around the UNO and the breadboard (world mm, x by z). Modules stand anywhere on it except on those two.
 export type Rect = { x: number; z: number; w: number; d: number }; // centre and size
-export const BENCH_AREA: Rect = { x: 30, z: 5, w: 330, d: 230 };
+export const BENCH_AREA: Rect = { x: 30, z: 5, w: 520, d: 380 };
 export const KEEP_OUT: Rect[] = [
   { x: -38, z: 2, w: 72, d: 58 }, // the UNO (blinkLayout BLINK.board, 68.6 × 53.3 mm and a margin)
   { x: 50, z: 8, w: 86, d: 59 },  // the breadboard (blinkLayout BLINK.breadboard, 82 × 55 mm and a margin)
@@ -156,9 +156,16 @@ export const BENCH_SLOTS = [
 ];
 export const BENCH_STEP = 10; // a move arrow moves a module this far
 
-export function benchRect(type: PartType, at: { x: number; z: number }): Rect {
+// A point (dx, dz) turned `rot` degrees clockwise seen from above (0° = unturned, 90° sends "right" to "towards the viewer").
+export function rotatePoint(dx: number, dz: number, rot: number): [number, number] {
+  const a = (rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  return [dx * c - dz * s, dx * s + dz * c];
+}
+// The room a module takes when turned: the box around its turned footprint.
+export function benchRect(type: PartType, at: { x: number; z: number }, rot = 0): Rect {
   const b = PART_DEFS[type].bench!;
-  return { x: at.x, z: at.z, w: b.w, d: b.d };
+  const a = (rot * Math.PI) / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+  return { x: at.x, z: at.z, w: b.w * c + b.d * s, d: b.w * s + b.d * c };
 }
 export const overlaps = (a: Rect, b: Rect) => Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.z - b.z) * 2 < a.d + b.d;
 export const inside = (a: Rect, area: Rect) =>

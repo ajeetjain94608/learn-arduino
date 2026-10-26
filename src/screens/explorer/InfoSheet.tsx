@@ -1,9 +1,8 @@
-import { useState, type CSSProperties } from 'react';
-import { PROJECT_INFO, type Icon, type Rich } from '../../content/en/projects';
+import { useState, type CSSProperties, type ReactNode } from 'react';
+import type { Icon, ProjectInfo, Rich } from '../../content/en/projects';
 import { t, type StringKey } from '../../i18n/en';
 import { CREDITS } from '../../legal/credits';
 import { ExpandButton } from './ExpandButton';
-import type { View } from '../../three/workbench/cameraViews';
 
 type Tab = 'overview' | 'pinout' | 'example' | 'specs';
 const TABS: Tab[] = ['overview', 'pinout', 'example', 'specs'];
@@ -21,11 +20,12 @@ const RichText = ({ parts }: { parts: Rich }) => <>{parts.map((p, i) => (typeof 
 const stagger = (i: number) => ({ '--i': i }) as CSSProperties;
 
 // Tabbed explanation card in four formats (overview, wiring table, code steps, spec cards) for the open project.
-// Tapping a part or label shows that instead, in the Overview tab.
-export function InfoCard({ project, focus, expanded, onExpand }: { project: View; focus: { title: string; text: string } | null; expanded: boolean; onExpand(): void }) {
+// Tapping a part or label shows that instead, in the Overview tab. `infoKey` names the project (the card re-plays its entrance
+// when it changes); `footer` is for an action under the tabs (Edit in Build).
+export function InfoCard({ info, infoKey, focus, expanded, onExpand, footer }: { info: ProjectInfo; infoKey: string; focus: { title: string; text: string } | null; expanded: boolean; onExpand(): void; footer?: ReactNode }) {
   const [tab, setTab] = useState<Tab>('overview');
   const shown = focus ? 'overview' : tab;
-  const info = PROJECT_INFO[project === 'bench' ? 'circuit' : project]; // (Home never shows the Build bench)
+  const project = infoKey;
   return (
     <section className="card info-card" data-testid="info-card" aria-label={t('info.tabs')}>
       <div className="info-card__head">
@@ -94,6 +94,7 @@ export function InfoCard({ project, focus, expanded, onExpand }: { project: View
             </div>
           </div>
         )}
+        {footer && <div className="info-card__footer">{footer}</div>}
       </div>
     </section>
   );

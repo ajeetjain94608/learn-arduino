@@ -6,7 +6,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { castAll, disposeOwned } from '../shared/geometry';
 import { MATERIALS, std } from '../shared/materials';
 import { HOUSING_H, jumperCurves } from './jumperCurves';
-import { ASSEMBLY, slotProgress, useAssemblyClock, type AssemblyStep } from '../scenes/assembly';
+import { slotOf, slotProgress, useAssemblyClock, type StepRef } from '../scenes/assembly';
 import type { Route } from '../build/wireRoute';
 
 const easeInOut = (p: number) => (p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2);
@@ -21,7 +21,7 @@ const housingGeo = mergeGeometries([
 // the wire router; a 'flat' route is a pre-cut jumper lying on the breadboard (thin solid wire, bare bent ends).
 // With `step`, it draws itself during the circuit build: plug at the start end, the wire grows along its
 // path, then the far plug appears. `fromB` draws from b to a (so every wire starts at the board).
-export function Jumper({ a, b, color, lift = 22, step, fromB = false, route }: { a: THREE.Vector3; b: THREE.Vector3; color: string; lift?: number; step?: AssemblyStep; fromB?: boolean; route?: Route }) {
+export function Jumper({ a, b, color, lift = 22, step, fromB = false, route }: { a: THREE.Vector3; b: THREE.Vector3; color: string; lift?: number; step?: StepRef; fromB?: boolean; route?: Route }) {
   const clock = useAssemblyClock();
   const fx = useMemo(() => {
     const wire = route?.curve ?? jumperCurves(a, b, lift).wire;
@@ -47,7 +47,7 @@ export function Jumper({ a, b, color, lift = 22, step, fromB = false, route }: {
 
   useFrame(() => {
     if (!step) return;
-    const p = easeInOut(slotProgress(clock.t, ASSEMBLY[step]));
+    const p = easeInOut(slotProgress(clock.t, slotOf(step)));
     const n = Math.round((fx.total * p) / 6) * 6; // whole quads (two triangles), in path order
     fx.tube.geometry.setDrawRange(fromB ? fx.total - n : 0, n);
     fx.tube.visible = n > 0;
