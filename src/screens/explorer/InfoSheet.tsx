@@ -106,6 +106,7 @@ export function AboutSheet({ open, onClose }: { open: boolean; onClose(): void }
     <section className="sheet sheet--about" role="dialog" aria-label={t('about.title')}>
       <h2>{t('about.title')}</h2>
       <p>{t('about.body')}</p>
+      <p>{t('about.madeBy')}</p>
       <ul>{CREDITS.map((c) => <li key={c}>{c}</li>)}</ul>
       <p className="sheet__links">
         <a href="/privacy.html" target="_blank" rel="noopener">{t('about.privacy')}</a>
