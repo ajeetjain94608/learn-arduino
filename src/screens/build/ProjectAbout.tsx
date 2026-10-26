@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Project } from '../../content/projects';
 import { t } from '../../i18n/en';
-import { useBuild, useBuildApi } from '../../state/buildContext';
+import { useBuildApi } from '../../state/buildContext';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { partsInWords } from '../projects/ProjectsScreen';
 import { pinLabel } from './WiringTable';
@@ -9,10 +9,12 @@ import { pinLabel } from './WiringTable';
 // A project's About tab: what it is, what you learn, what to try, how it is wired, and a way back to the original.
 export function ProjectAbout({ project, onRun }: { project: Project; onRun(): void }) {
   const api = useBuildApi();
-  const wires = useBuild((s) => s.wires);
   const [confirm, setConfirm] = useState(false);
   const reset = () => {
-    useWorkbenchStore.getState().setRunning(false);
+    const wb = useWorkbenchStore.getState();
+    wb.setRunning(false);
+    // the simulator keeps its own set of burns: ask it to forget each one (the board's own with 'uno')
+    for (const id of new Set(api.getState().burns.map((b) => (b.id.startsWith('uno') ? 'uno' : b.id)))) wb.replacePart(id);
     api.getState().restart(project.build);
     useWorkbenchStore.getState().setCode(project.build.code);
     setConfirm(false);
@@ -27,13 +29,13 @@ export function ProjectAbout({ project, onRun }: { project: Project; onRun(): vo
       <ol>{project.tryIt.map((s) => <li key={s}>{s}</li>)}</ol>
       <h3>{t('project.parts')}</h3>
       <ul className="chips"><li>{t('build.uno')}</li>{partsInWords(project.build.parts.map((p) => p.type)).map((s) => <li key={s}>{s}</li>)}</ul>
-      {wires.length > 0 && (
+      {project.build.wires.length > 0 && (
         <>
           <h3>{t('project.wiring')}</h3>
           <table className="project-about__wiring">
             <thead><tr><th>{t('build.wiring.from')}</th><th>{t('build.wiring.to')}</th></tr></thead>
             <tbody>
-              {wires.map((w) => (
+              {project.build.wires.map((w) => (
                 <tr key={w.id}><td><span className="dot" style={{ background: w.color }} aria-hidden /> {pinLabel(w.from)}</td><td>{pinLabel(w.to)}</td></tr>
               ))}
             </tbody>

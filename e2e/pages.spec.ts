@@ -67,3 +67,40 @@ test.describe('Components', () => {
     await expect(page.getByRole('list', { name: 'On the bench' })).toContainText('Light sensor 1');
   });
 });
+
+test.describe('addresses and Reset (review fixes)', () => {
+  test('a broken or unknown address shows the list, and the address is corrected', async ({ page }) => {
+    await page.goto('/?test#/projects/%E0%A4%A');
+    await expect(page.getByTestId('projects-screen')).toBeVisible();
+    await page.goto('/?test#/projects/nope');
+    await page.reload();
+    await expect(page.getByTestId('projects-screen')).toBeVisible();
+    await expect(page).toHaveURL(/#\/projects$/);
+    await page.goto('/?test#/components/warp-drive');
+    await page.reload();
+    await expect(page.getByTestId('components-screen')).toBeVisible();
+    await expect(page).toHaveURL(/#\/components$/);
+  });
+
+  test('Reset project also clears what burnt: the burnt LED does not come back', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto('/?test#/projects/blink');
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Blink an LED' })).toBeVisible();
+    await page.evaluate(() => { // the classic mistake: no resistor, ground straight on the LED's cathode
+      const b = (window as unknown as { __rq: { debug: { build(): { removePart(id: string): void; addWire(a: string, b: string): unknown } } } }).__rq.debug.build();
+      b.removePart('resistor1');
+      b.addWire('bb.9a', 'uno.GND');
+    });
+    await page.getByRole('tab', { name: 'Code' }).click();
+    await page.getByTestId('code-card').getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByTestId('burn-card')).toContainText('The LED burnt out', { timeout: 60_000 });
+    await page.getByRole('tab', { name: 'About' }).click();
+    await page.getByRole('button', { name: 'Reset project' }).click();
+    await page.getByRole('button', { name: 'Yes, start over' }).click();
+    await expect(page.getByTestId('burn-card')).toBeHidden();
+    await page.waitForTimeout(2500); // long enough for a stale burn to be sent back from the simulator
+    await expect(page.getByTestId('burn-card')).toBeHidden();
+    expect((await build(page)).parts.map((p) => p.id).sort()).toEqual(['led1', 'resistor1']);
+  });
+});

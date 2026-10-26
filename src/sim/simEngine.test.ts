@@ -365,3 +365,56 @@ describe('B3: a program loaded after the circuit was already solved still gets i
     expect(e.snapshot().devices!.oled1.on).toBe(true);
   });
 });
+
+describe('B3 review: modules survive Reset and circuit edits', { timeout: 120_000 }, () => {
+  const w = (from: string, to: string): Wire => ({ id: `${from}-${to}`, from, to, color: '#000' });
+  const hc = { id: 'hcsr041', type: 'hcsr04' as const, params: {}, at: { x: -15, z: -72 } };
+  const sonarWires = [w('uno.D9', 'hcsr041.TRIG'), w('hcsr041.ECHO', 'uno.D10'), w('uno.5V', 'hcsr041.VCC'), w('hcsr041.GND', 'uno.GND')];
+
+  it('Reset in the middle of an echo does not leave the distance sensor stuck', () => {
+    for (const resetAt of [3, 11, 19, 27]) { // ms into the first (38 ms) echo
+      const e = new SimEngine();
+      e.setCircuit({ parts: [hc], wires: sonarWires });
+      e.setInput('hcsr041', 'cm', 500);
+      const { flash, lines } = prog('sonar');
+      e.load(flash, lines, 0);
+      let now = play(e, 0, resetAt);
+      e.reset(); e.resume(now);
+      e.setInput('hcsr041', 'cm', 20);
+      now = play(e, now, 900);
+      const printed = e.snapshot().serial.trim().split(String.fromCharCode(13, 10)).map(Number);
+      expect(Math.abs(printed.at(-1)! - 20), `reset at ${resetAt} ms`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('a buzzer is silent while the board is rebooting, and plays again after (never a negative note)', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [{ id: 'buzzer1', type: 'buzzer', params: {}, at: { col: 20, row: 'b' } }], wires: [w('uno.D8', 'bb.20c'), w('bb.23c', 'uno.GND')] });
+    const { flash, lines } = prog('tone');
+    e.load(flash, lines, 0);
+    const now = play(e, 0, 300);
+    expect(e.snapshot().devices!.buzzer1.hz).toBeGreaterThan(400);
+    e.reset();
+    expect(e.snapshot().devices!.buzzer1.hz ?? 0).toBe(0);
+    e.resume(now);
+    const later = play(e, now, 300);
+    expect(Math.abs(e.snapshot().devices!.buzzer1.hz! - 440)).toBeLessThan(5);
+    expect(later).toBeGreaterThan(now);
+  });
+
+  it('adding another module while running leaves the OLED showing what it drew', () => {
+    const e = new SimEngine();
+    const oled = { id: 'oled1', type: 'oled' as const, params: {}, at: { x: 30, z: -72 } };
+    const oledWires = [w('uno.A4', 'oled1.SDA'), w('uno.A5', 'oled1.SCL'), w('uno.5V', 'oled1.VCC'), w('oled1.GND', 'uno.GND')];
+    e.setCircuit({ parts: [oled], wires: oledWires });
+    const { flash, lines } = prog('oled');
+    e.load(flash, lines, 0);
+    const now = play(e, 0, 1500);
+    expect(e.snapshot().devices!.oled1.on).toBe(true);
+    e.setCircuit({ parts: [oled, { id: 'servo1', type: 'servo', params: {}, at: { x: -60, z: -72 } }], wires: [...oledWires, w('uno.D9', 'servo1.SIG'), w('uno.5V', 'servo1.V+'), w('servo1.GND', 'uno.GND')] });
+    play(e, now, 200);
+    const d = e.snapshot().devices!;
+    expect(d.oled1.on).toBe(true);
+    expect(d.oled1.frame!.some((b) => b !== 0)).toBe(true);
+  });
+});

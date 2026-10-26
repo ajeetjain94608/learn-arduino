@@ -10,13 +10,16 @@ export type Route =
   | { page: 'component'; type: string }
   | { page: 'build' };
 
+// decodeURIComponent throws on a broken escape (%E0%A4%A): then the address names nothing
+function decode(s: string): string | null { try { return decodeURIComponent(s); } catch { return null; } }
+
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#?\/?/, '').split('/').filter(Boolean);
   const [a, b] = parts;
   if (a === 'projects' && parts.length === 1) return { page: 'projects' };
-  if (a === 'projects' && parts.length === 2) return { page: 'project', id: decodeURIComponent(b) };
+  if (a === 'projects' && parts.length === 2) { const id = decode(b); return id === null ? { page: 'projects' } : { page: 'project', id }; }
   if (a === 'components' && parts.length === 1) return { page: 'components' };
-  if (a === 'components' && parts.length === 2) return { page: 'component', type: decodeURIComponent(b) };
+  if (a === 'components' && parts.length === 2) { const type = decode(b); return type === null ? { page: 'components' } : { page: 'component', type }; }
   if (a === 'build' && parts.length === 1) return { page: 'build' };
   return { page: 'home' };
 }

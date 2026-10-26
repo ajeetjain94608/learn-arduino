@@ -90,39 +90,46 @@ const isHole = (ref: string) => ref.startsWith('bb.');
 const straight = (a: THREE.Vector3, b: THREE.Vector3) => Math.abs(a.x - b.x) < 0.1 || Math.abs(a.z - b.z) < 0.1;
 
 // Lays out every wire so none touches another or passes through a part: shortest wires first, each taking the
-// lowest arch (or flat path) that keeps CLEAR mm from everything already laid. Same input, same layout.
-// A wire that found no clear path goes first in the next round (up to 4 rounds); the round with fewest such wins.
+// lowest arch (or flat path) that keeps CLEAR mm from everything already laid and does not hide a part from the camera.
+// Same input, same layout. A wire that found no clear path goes first in the next round (up to 3 rounds); the round
+// with fewest such wins. The whole layout may try at most MAX_TRIES candidate paths (a count, not a clock, so the same
+// wires always route the same way): a wire that runs out takes the best path found so far, so a crowded build never
+// freezes the page (and a wire never goes through a part: that rule is never given up).
+const MAX_TRIES = 500;
 export function routeWires(wires: WireEnds[], obstacles: Obstacle[]): Map<string, Route> {
+  const budget = { left: MAX_TRIES };
   let order = [...wires].sort((x, y) => flatSpan(x.a, x.b) - flatSpan(y.a, y.b) || (x.id < y.id ? -1 : 1));
   let best: { out: Map<string, Route>; crowded: WireEnds[] } | null = null;
-  for (let round = 0; round < 4; round++) {
-    const r = routePass(order, wires, obstacles);
+  for (let round = 0; round < 3; round++) {
+    const r = routePass(order, wires, obstacles, budget);
     if (!best || r.crowded.length < best.crowded.length) best = r;
-    if (!r.crowded.length) break;
+    if (!r.crowded.length || budget.left <= 0) break;
     order = [...r.crowded, ...order.filter((w) => !r.crowded.includes(w))];
   }
   routeWires.crowded += best!.crowded.length;
   return best!.out;
 }
 
-function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[]): { out: Map<string, Route>; crowded: WireEnds[] } {
-  const out = new Map<string, Route>(), crowded: WireEnds[] = [];
+const BULGES = [0, 8, 18, 30, 44, -8]; // plan-view bow of the arch's apex: positive = towards the back of the bench
+const LIFT_STEP = 5;
 
+function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[], budget: { left: number }): { out: Map<string, Route>; crowded: WireEnds[] } {
+  const out = new Map<string, Route>(), crowded: WireEnds[] = [];
   const ray = new THREE.Ray(), spot = new THREE.Vector3();
-  const hitsParts = (w: WireEnds, r: Route) => r.points.some((p) => {
-    if ([w.a, w.b].some((e) => Math.hypot(p.x - e.x, p.z - e.z) <= 4)) return false; // next to its own plugs: allowed
+  const own = (w: WireEnds, p: THREE.Vector3) => Math.hypot(p.x - w.a.x, p.z - w.a.z) <= 4 || Math.hypot(p.x - w.b.x, p.z - w.b.z) <= 4; // next to its own plugs: allowed
+  // HARD: a point inside a part (or touching it). SOFT: a point between the camera and a part, which would hide it.
+  const hardHit = (w: WireEnds, r: Route) => r.points.some((p) => !own(w, p) && obstacles.some((o) => o.box.distanceToPoint(p) < (r.kind === 'flat' ? 0.3 : CLEAR)));
+  const softHit = (w: WireEnds, r: Route) => r.kind === 'arch' && r.points.some((p) => {
+    if (own(w, p)) return false;
     ray.set(p, AWAY);
-    return obstacles.some((o) => o.box.distanceToPoint(p) < (r.kind === 'flat' ? 0.3 : CLEAR)
-      || (r.kind === 'arch' && ray.intersectBox(o.box, spot) !== null && spot.distanceTo(p) < HIDE_REACH));
+    return obstacles.some((o) => ray.intersectBox(o.box, spot) !== null && spot.distanceTo(p) < HIDE_REACH);
   });
   // every laid wire's points in a grid of CLEAR-sized cells, so a candidate only checks its neighbourhood
   const grid = new Map<string, { p: THREE.Vector3; l: number }[]>(); // l: the wire's place in `order`
   const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
   const cell = (v: number) => Math.floor(v / CLEAR);
-  // how many of the candidate's points come too close to a laid wire (0 = clear)
-  const conflicts = (w: WireEnds, r: Route, stopAt: number) => {
-    const me = order.indexOf(w);
-    const zones = order.map((o) => sharedEnds([w.a, w.b], [o.a, o.b]));
+  // how many of the candidate's points come too close to a laid wire (0 = clear); `me`, `zones` belong to the wire being routed
+  const conflicts = (r: Route, me: number, zones: THREE.Vector3[][], stopAt: number) => {
     let n = 0;
     for (const p of r.points) {
       const cx = cell(p.x), cy = cell(p.y), cz = cell(p.z);
@@ -147,29 +154,35 @@ function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[]):
   // every plug stands where it stands whatever path its wire takes: all of them are obstacles from the start
   order.forEach((w, l) => { for (const e of [w.a, w.b]) for (const p of vertical(e, HOUSING_H - 0.5).slice(1)) put(p, l); });
 
-  for (const w of order) {
+  order.forEach((w, me) => {
     const span = flatSpan(w.a, w.b);
+    const zones = order.map((o) => sharedEnds([w.a, w.b], [o.a, o.b]));
     const candidates: (() => Route)[] = [];
     if (isHole(w.from) && isHole(w.to) && straight(w.a, w.b) && span <= FLAT_MAX && span > 0.1 && !endsUnder(w)) candidates.push(() => flatRoute(w.a, w.b));
     // the natural height for its length first, then higher, then lower (under the wires that cross it)
     const base = Math.min(30, Math.max(6, 4 + span * 0.12));
-    const lifts = [...Array.from({ length: 16 }, (_, i) => base + i * 3.5), ...Array.from({ length: Math.floor((base - 6) / 3.5) }, (_, i) => base - (i + 1) * 3.5)];
-    for (const lift of lifts) for (const steep of [false, true]) for (const bulge of [0, 6, 12, 20, 30, 42, -6, -14]) {
+    const lifts = [...Array.from({ length: 8 }, (_, i) => base + i * LIFT_STEP), ...(base > 11 ? [base - LIFT_STEP] : [])];
+    for (const bulge of BULGES) for (const lift of lifts) for (const steep of [false, true]) {
       candidates.push(() => archRoute(w.a, w.b, lift, bulge * Math.min(1, span / 30), steep));
     }
-    let pick: Route | null = null, fewest = Infinity, fallback: Route | null = null;
+    let pick: Route | null = null, bestScore = Infinity, fallback: Route | null = null, lastSafe: Route | null = null;
     for (const make of candidates) {
+      if (budget.left-- <= 0) break;
       const r = make();
-      if (hitsParts(w, r)) continue;
-      const n = conflicts(w, r, fewest);
-      if (n === 0) { pick = r; break; }
-      if (n < fewest) { fewest = n; fallback = r; }
+      if (hardHit(w, r)) continue;          // never through a part
+      lastSafe = r;
+      const soft = softHit(w, r) ? 1 : 0;
+      const n = conflicts(r, me, zones, soft ? bestScore : Math.min(bestScore, 1000));
+      if (n === 0 && !soft) { pick = r; break; }
+      const score = n + soft * 1000;
+      if (score < bestScore) { bestScore = score; fallback = r; }
     }
     if (!pick) crowded.push(w);
-    pick ??= fallback ?? candidates[candidates.length - 1]();
-    for (const p of pick.points) put(p, order.indexOf(w));
+    // no clear path: the least-bad one that avoids parts; if even that was not found (time ran out), a plain arch
+    pick ??= fallback ?? lastSafe ?? archRoute(w.a, w.b, base, BULGES[1] * Math.min(1, span / 30));
+    for (const p of pick.points) put(p, me);
     out.set(w.id, pick);
-  }
+  });
   return { out, crowded };
 }
 routeWires.crowded = 0; // how many wires found no clear path (tests and tuning)

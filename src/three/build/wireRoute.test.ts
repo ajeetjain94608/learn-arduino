@@ -122,3 +122,41 @@ describe('wires never hide parts (random builds)', () => {
     }
   });
 });
+
+describe('routing stays fast, and always ends in a path', () => {
+  const build = (n: number, seed: number) => {
+    const r = rng(seed), used = new Set<string>(), wires: WireEnds[] = [];
+    const bodies = Array.from({ length: 10 }, (_, i) => ({ box: new THREE.Box3().setFromCenterAndSize(pinWorld(`bb.${2 + i * 3}${'cd'[i % 2]}`).add(new THREE.Vector3(0, 6, 0)), new THREE.Vector3(8, 12, 8)) }));
+    while (wires.length < n) {
+      const from = `uno.${UNO[Math.floor(r() * UNO.length)]}`;
+      const to = `bb.${1 + Math.floor(r() * 30)}${'abfghij'[Math.floor(r() * 7)]}`;
+      if (used.has(to)) continue;
+      used.add(to);
+      wires.push(wire(`w${wires.length}`, from, to));
+    }
+    return { wires, bodies };
+  };
+  it('25 wires with 10 parts route in well under half a second', () => {
+    const { wires, bodies } = build(25, 21);
+    const t0 = performance.now();
+    const routes = routeWires(wires, bodies);
+    expect(performance.now() - t0).toBeLessThan(500);
+    expect(routes.size).toBe(25);
+  });
+  it('60 wires (more than a board can hold) still finish within a second and every wire gets a path', () => {
+    const { wires, bodies } = build(60, 22);
+    const t0 = performance.now();
+    const routes = routeWires(wires, bodies);
+    expect(performance.now() - t0).toBeLessThan(1000);
+    expect(routes.size).toBe(60);
+  });
+  it('no wire is ever left passing through a part body', () => {
+    const { wires, bodies } = build(25, 23);
+    const routes = routeWires(wires, bodies);
+    for (const w of wires) {
+      const near = (p: THREE.Vector3) => Math.hypot(p.x - w.a.x, p.z - w.a.z) < 4 || Math.hypot(p.x - w.b.x, p.z - w.b.z) < 4;
+      const inside = routes.get(w.id)!.points.filter((p) => !near(p) && bodies.some((o) => o.box.containsPoint(p)));
+      expect(inside, `${w.from} → ${w.to}`).toEqual([]);
+    }
+  });
+});

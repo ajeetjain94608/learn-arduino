@@ -14,3 +14,11 @@ describe('page addresses', () => {
     for (const h of ['', '#', '#/', '#/nope', '#/projects/a/b', 'garbage']) expect(parseRoute(h)).toEqual({ page: 'home' });
   });
 });
+
+describe('malformed addresses never break the app', () => {
+  it('a broken percent-escape is just an unknown page', () => {
+    for (const h of ['#/projects/%E0%A4%A', '#/components/%', '#/projects/%zz']) expect(() => parseRoute(h)).not.toThrow();
+    expect(parseRoute('#/projects/%E0%A4%A')).toEqual({ page: 'projects' });
+    expect(parseRoute('#/components/%')).toEqual({ page: 'components' });
+  });
+});

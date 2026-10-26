@@ -149,3 +149,20 @@ describe('wire voltages (for the live wire tags)', () => {
     expect(r.wireVolts.c).toBeCloseTo(0, 3);
   });
 });
+
+describe('review: modules that really run from 3.3 V', () => {
+  it('the soil sensor works from the 3.3 V pin (its supply droops a little under load)', () => {
+    const soil = part('s1', 'soil', { x: 120, z: -72 });
+    const spec: CircuitSpec = { parts: [soil], wires: [w('uno.3V3', 's1.VCC'), w('s1.GND', 'uno.GND'), w('s1.AOUT', 'uno.A0')] };
+    const r = run(spec, pins(), { s1: { moisture: 0 } });
+    expect(r.parts.s1.powered).toBe(true);
+    expect(reading(r.pinVolts[A0])).toBeGreaterThan(400);
+  });
+  it('the OLED and the TMP36 also run from 3.3 V', () => {
+    const spec: CircuitSpec = { parts: [part('o1', 'oled', { x: 0, z: -72 }), part('t1', 'tmp36', { col: 4, row: 'c' })],
+      wires: [w('uno.3V3', 'o1.VCC'), w('o1.GND', 'uno.GND'), w('uno.3V3', 'bb.4a'), w('bb.6a', 'uno.GND')] };
+    const r = run(spec);
+    expect(r.parts.o1.powered).toBe(true);
+    expect(r.parts.t1.powered).toBe(true);
+  });
+});

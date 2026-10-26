@@ -39,7 +39,7 @@ const POWER: Partial<Record<PartType, { vcc: string; gnd: string; ohms: number; 
   hcsr04: { vcc: 'VCC', gnd: 'GND', ohms: 333, min: 4.5 },
   stepper: { vcc: '+', gnd: '-', ohms: 200, min: 4.5 },
   oled: { vcc: 'VCC', gnd: 'GND', ohms: 250, min: 3 },
-  soil: { vcc: 'VCC', gnd: 'GND', ohms: 1000, min: 3.3 },
+  soil: { vcc: 'VCC', gnd: 'GND', ohms: 1000, min: 3.0 }, // runs from 3.3 V too (the pin's supply droops to ~3.298 V under load)
 };
 const TIP120 = { vbe: 1.4, rbe: 50, ron: 2, ibOn: 1e-4 };
 

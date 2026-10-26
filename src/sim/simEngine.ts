@@ -58,7 +58,7 @@ export class SimEngine {
   private replaced = 0;
   private links: Record<string, Record<string, Link>> = {};
   private devices = new Map<string, Device>();
-  private deviceSig = '';
+  private deviceSigs = new Map<string, string>(); // what each running module was set up for
   private devicePins = new Set<number>(); // pins a module drives itself (HC-SR04 ECHO): the circuit leaves them alone
 
   load(flash: Uint8Array, lines: LineEntry[], now: number): void {
@@ -71,7 +71,7 @@ export class SimEngine {
   }
 
   // The reset button: the chip restarts and waits (the bootloader's flashes play first), then resume().
-  reset(): void { this.chip?.reset(); this.paused = true; this.serial = this.lastChar = ''; }
+  reset(): void { this.dropDevices(); this.dirty = true; this.chip?.reset(); this.paused = true; this.serial = this.lastChar = ''; }
 
   resume(now: number): void {
     this.paused = false;
@@ -82,7 +82,7 @@ export class SimEngine {
   }
 
   stop(): void { this.dropDevices(); this.chip = null; this.signature = ''; this.dirty = true; }
-  private dropDevices() { for (const d of this.devices.values()) d.detach(); this.devices.clear(); this.devicePins.clear(); this.deviceSig = ''; }
+  private dropDevices() { for (const d of this.devices.values()) d.detach(); this.devices.clear(); this.deviceSigs.clear(); this.devicePins.clear(); }
 
   // The learner's circuit around the UNO (null = none: the chip runs on its own, as on Home).
   setCircuit(spec: CircuitSpec | null): void {
@@ -153,14 +153,20 @@ export class SimEngine {
       }
       if (p.type === 'oled' && L.SDA === SDA && L.SCL === SCL) want.push({ id: p.id, sig: 'i2c', make: () => new Oled(chip) });
     }
-    const sig = want.map((w) => `${w.id}:${w.sig}`).join('|');
-    if (sig === this.deviceSig) return;
-    this.dropDevices();
-    this.deviceSig = sig;
+    // a module whose own wiring did not change keeps running (an OLED keeps its picture, a stepper its position);
+    // only modules that changed or went away are detached, and only new ones are created
+    const keep = new Map(want.map((w) => [w.id, w.sig]));
+    for (const [id, d] of [...this.devices]) {
+      if (keep.get(id) === this.deviceSigs.get(id)) continue;
+      d.detach(); this.devices.delete(id); this.deviceSigs.delete(id);
+    }
+    this.devicePins.clear();
     for (const w of want) {
+      if (w.drives !== undefined) this.devicePins.add(w.drives);
+      if (this.devices.has(w.id)) continue;
       if (w.sig === 'i2c' && [...this.devices.values()].some((d) => d instanceof Oled)) continue; // one screen on the bus
       this.devices.set(w.id, w.make());
-      if (w.drives !== undefined) this.devicePins.add(w.drives);
+      this.deviceSigs.set(w.id, w.sig);
     }
   }
   private get shorted() { return this.burnt.has('uno'); }

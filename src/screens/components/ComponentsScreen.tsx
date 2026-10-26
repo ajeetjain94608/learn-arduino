@@ -91,13 +91,14 @@ export function ComponentScreen({ type, onNavigate, onOpen, onUse }: { type: str
 
   useEffect(() => {
     const wb = useWorkbenchStore.getState();
+    const homeView = wb.view === 'bench' ? 'circuit' : wb.view; // Home's own view comes back when this page closes
     const part = store.getState().parts[0];
     wb.setView(part && 'x' in part.at ? 'bench' : 'circuit');
     const at = !part ? (id === 'uno' ? [-38, 4, 2] : [50, 6, 8])
       : 'x' in part.at ? [part.at.x, 12, part.at.z] : pinWorld(`bb.${Object.values(PART_DEFS[part.type].footprint(part.at, part.params) ?? {})[0]}`).toArray();
     const timer = setTimeout(() => wb.focusCamera(at as [number, number, number], part ? 3 : 1.6), 60); // after the view settles
     if (part) store.getState().select(part.id);
-    return () => { clearTimeout(timer); };
+    return () => { clearTimeout(timer); useWorkbenchStore.getState().setView(homeView); };
   }, [store, id]);
 
   const use = () => { if (isPart(id)) { const added = useBuildStore.getState().addPart(id); if (added) useBuildStore.getState().select(added); } onUse(); };

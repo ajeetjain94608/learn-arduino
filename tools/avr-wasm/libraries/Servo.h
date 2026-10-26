@@ -50,9 +50,9 @@ class Servo {
     return index_;
   }
   void detach() { if (index_ < MAX_SERVOS) { servoSlots_[index_].on = false; digitalWrite(servoSlots_[index_].pin, LOW); } }
-  // below 200: an angle in degrees; otherwise a pulse width in microseconds
+  // below the shortest pulse (544): an angle in degrees; otherwise a pulse width in microseconds
   void write(int value) {
-    if (value < 200) value = map(constrain(value, 0, 180), 0, 180, min_, max_);
+    if (value < MIN_PULSE_WIDTH) value = map(constrain(value, 0, 180), 0, 180, min_, max_);
     writeMicroseconds(value);
   }
   void writeMicroseconds(int us) {

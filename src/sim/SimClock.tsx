@@ -57,7 +57,7 @@ export function SimClock({ circuit, inputs, burns, onBurns }: Props = {}) {
     };
     if (HOLD) w.postMessage({ t: 'hold', on: true } satisfies SimCommand);
     worker.current = w;
-    return () => { w.terminate(); worker.current = null; loaded.current = null; snap.current = null; };
+    return () => { w.terminate(); worker.current = null; loaded.current = null; snap.current = null; liveDevices.states = {}; };
   }, []);
 
   // the circuit and the inputs follow the props (sent only when they change)
@@ -125,6 +125,7 @@ export function SimClock({ circuit, inputs, burns, onBurns }: Props = {}) {
       const led = bootLed(phaseT.current);
       if (led !== s.bootLed) s.setBootLed(led);
       if (s.pinHigh) s.setPinHigh(false);
+      liveDevices.states = {}; // the old note stops, the screen blanks, while the bootloader runs
       if (phaseT.current >= BOOT_S) s.setBooting(false);
       return;
     }

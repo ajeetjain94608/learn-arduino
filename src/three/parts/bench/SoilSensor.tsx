@@ -95,8 +95,8 @@ function buildProbe() {
       c.beginPath(); path.forEach(([x, y], i) => (i ? c.lineTo(...toPx(x, y)) : c.moveTo(...toPx(x, y)))); c.stroke();
     }
     ['GND', 'VCC', 'AOUT'].forEach((t, i) => silkText(c, t, ...toPx(PINS_X[i] * 1.18, 48.9), 0.95 * PX, 700));
-    silkText(c, 'Capacitive Soil', ...toPx(0, 35.6), 1.25 * PX, 600);
-    silkText(c, 'Moisture Sensor v1.2', ...toPx(0, 33.9), 1.25 * PX, 600);
+    silkText(c, 'SOIL', ...toPx(0, 35.6), 1.25 * PX, 600);
+    silkText(c, 'MOISTURE SENSOR', ...toPx(0, 33.9), 1.25 * PX, 600);
     c.fillStyle = '#F2F2EE'; c.fillRect(0, (PROBE.top - 32.1) * PX, PROBE.w * PX, 0.9 * PX); // the line: soil up to here
   });
   silk.position.set(0, y0 + DH / 2, PROBE_FRONT + 0.01); g.add(silk);

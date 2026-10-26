@@ -29,8 +29,8 @@ export class Buzzer implements Device {
     });
   }
   state(): DeviceState {
-    const r = this.rises;
-    if (r.length < 3 || this.chip.cycles - r[r.length - 1] > 0.05 * CPU_HZ) return { hz: 0 }; // quiet for 50 ms: silent
+    const r = this.rises, since = this.chip.cycles - r[r.length - 1];
+    if (r.length < 3 || since < 0 || since > 0.05 * CPU_HZ) return { hz: 0 }; // quiet for 50 ms (or the chip rebooted): silent
     return { hz: Math.round(((r.length - 1) * CPU_HZ) / (r[r.length - 1] - r[0]) * 10) / 10 };
   }
   detach() { this.stop(); }
@@ -59,6 +59,7 @@ export class Servo implements Device {
 export class Sonar implements Device {
   private riseAt = -1;
   private busy = false;
+  private dead = false; // detached: a pending echo must not touch the pin any more
   private stop: () => void;
   constructor(chip: AvrRunner, trig: number, private echo: number, private cm: () => number) {
     chip.setInput(echo, false);
@@ -70,13 +71,14 @@ export class Sonar implements Device {
       const d = this.cm();
       const width = d > 400 ? 38_000 : d * 58;
       chip.after(250 * US, () => { // the 8-pulse burst goes out first
+        if (this.dead) return;
         chip.setInput(this.echo, true);
-        chip.after(width * US, () => { chip.setInput(this.echo, false); this.busy = false; });
+        chip.after(width * US, () => { if (this.dead) return; chip.setInput(this.echo, false); this.busy = false; });
       });
     });
   }
   state(): DeviceState { return {}; }
-  detach() { this.stop(); }
+  detach() { this.dead = true; this.stop(); }
 }
 
 // 28BYJ-48 on a ULN2003: the coils energised (IN1–IN4) step the shaft; 2048 full steps (4096 half steps) a turn.
