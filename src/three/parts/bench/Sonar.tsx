@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
+import { soloMode } from '../../shared/motion';
 import { useBenchDrag } from '../../build/controls3d';
 import { makeCanvasTexture } from '../../shared/canvasTexture';
 import { rbox } from '../../shared/geometry';
@@ -249,8 +250,8 @@ export function Sonar({ at, inputs, onInput, state }: PartView) {
   return (
     <group>
       <primitive object={parts.root} />
-      <primitive object={parts.carHolder} onPointerDown={onDown}
-        onPointerOver={() => { document.body.style.cursor = 'grab'; }} onPointerOut={() => { document.body.style.cursor = ''; }} />
+      {!soloMode() && <primitive object={parts.carHolder} onPointerDown={onDown}
+        onPointerOver={() => { document.body.style.cursor = 'grab'; }} onPointerOut={() => { document.body.style.cursor = ''; }} />}
     </group>
   );
 }

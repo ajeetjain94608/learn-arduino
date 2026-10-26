@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
+import { soloMode } from '../../shared/motion';
 import { makeCanvasTexture } from '../../shared/canvasTexture';
 import { rbox } from '../../shared/geometry';
 import { noOutline } from '../../shared/layers';
@@ -280,8 +281,8 @@ export function SoilSensor({ inputs, onInput }: PartView) {
   return (
     <group>
       <primitive object={parts.root} />
-      <primitive object={parts.canHolder} onPointerDown={onDown}
-        onPointerOver={() => { document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }} />
+      {!soloMode() && <primitive object={parts.canHolder} onPointerDown={onDown}
+        onPointerOver={() => { document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }} />}
     </group>
   );
 }

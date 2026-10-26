@@ -15,7 +15,7 @@
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "build:device": "tsc -b && vite build --mode device",
     "bake:thumbs": "node tools/bake-thumbs.mjs",
-    "bake:projects": "node tools/bake-projects.mjs",
+    "bake:components": "node tools/bake-components.mjs",
     "avr:core": "node tools/avr/build-core.mjs && node tools/avr/record-commands.mjs",
     "avr:fixtures": "node tools/avr/build-fixtures.mjs",
     "avr:diagnostics": "node --experimental-strip-types tools/avr/build-fixtures.mjs --diagnostics",

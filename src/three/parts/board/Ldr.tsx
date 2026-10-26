@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { soloMode } from '../../shared/motion';
 import { BB, colX, ROW } from '../../breadboard/breadboardGeometry';
 import { useBenchDrag } from '../../build/controls3d';
 import { BENCH } from '../../build/pinPoints';
@@ -146,7 +147,7 @@ export function Ldr({ at, inputs, onInput }: PartView) {
   return (
     <>
       <primitive object={ldr.g} />
-      <primitive object={lamp.g} onPointerDown={(e: Parameters<typeof drag>[0]) => { start.current = null; drag(e); }} />
+      {!soloMode() && <primitive object={lamp.g} onPointerDown={(e: Parameters<typeof drag>[0]) => { start.current = null; drag(e); }} />}
     </>
   );
 }

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type { InputValues, PartState } from '../../circuit/evaluate';
 import type { PartInstance, Wire } from '../../circuit/types';
 import { UnoBoard } from '../boards/uno/UnoBoard';
-import { isTestMode } from '../shared/motion';
+import { isTestMode, soloMode } from '../shared/motion';
 import { Breadboard } from '../breadboard/Breadboard';
 import { Jumper } from '../parts/Jumper';
 import { BurnEffect } from './BurnEffect';
@@ -71,22 +71,23 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
   // all wires laid out together so none passes through another or through a part
   const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
   const onBoard = parts.filter((p) => !('x' in p.at)), onBench = parts.filter((p) => 'x' in p.at);
+  // (picture baking: with ?solo only the one thing asked for is drawn — see soloMode)
+  const solo = soloMode();
+  const boardParts = onBoard.map((p) => (
+    <PartModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={(e) => { e.stopPropagation(); onPick(p.id); }}
+      onInput={(key, value) => onInput(p.id, key, value)} />
+  ));
   return (
     <>
       <ScreenProbe />
-      <UnoBoard position={BENCH.board} pin13={pin13} rx={rx} tx={tx} />
-      <Breadboard position={BENCH.breadboard}>
-        {onBoard.map((p) => (
-          <PartModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={(e) => { e.stopPropagation(); onPick(p.id); }}
-            onInput={(key, value) => onInput(p.id, key, value)} />
-        ))}
-      </Breadboard>
+      {(!solo || solo === 'uno') && <UnoBoard position={BENCH.board} pin13={pin13} rx={rx} tx={tx} />}
+      {!solo || solo === 'breadboard' ? <Breadboard position={BENCH.breadboard}>{boardParts}</Breadboard> : <group position={BENCH.breadboard}>{boardParts}</group>}
       {onBench.map((p) => (
         <BenchModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={(e) => { e.stopPropagation(); onPick(p.id); }}
           onInput={(key, value) => onInput(p.id, key, value)} />
       ))}
       {wireVolts && <WireTags wires={wires} routes={routes} volts={wireVolts} />}
-      {wires.map((w) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} />)}
+      {!solo && wires.map((w) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} />)}
       {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} />; })}
     </>
   );

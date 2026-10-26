@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 
-const dir = resolve('src/assets/projects');
+const dir = resolve(process.argv[3] ?? 'src/assets/components');
 const files = readdirSync(dir).filter((f) => f.endsWith('.png'));
 const html = `<body style="margin:0;background:#E9EDF2;display:grid;grid-template-columns:repeat(4,320px);gap:6px">${files
   .map((f) => `<div style="font:12px sans-serif"><img src="data:image/png;base64,${readFileSync(resolve(dir, f)).toString('base64')}" width="320">${f}</div>`).join('')}</body>`;

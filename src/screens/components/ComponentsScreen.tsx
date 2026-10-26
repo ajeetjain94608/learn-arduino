@@ -3,7 +3,7 @@ import { PART_DEFS } from '../../circuit/parts';
 import type { PartInstance, PartType } from '../../circuit/types';
 import { COMPONENT_ORDER, COMPONENTS, type ComponentId } from '../../content/components';
 import { PROJECTS } from '../../content/projects';
-import { projectThumb } from '../../content/projects/thumbs';
+import { componentThumb, projectThumb } from '../../content/projects/thumbs';
 import { t, type StringKey } from '../../i18n/en';
 import { BuildStoreContext, useBuild } from '../../state/buildContext';
 import { createBuildStore, useBuildStore } from '../../state/buildStore';
@@ -56,6 +56,7 @@ export function ComponentsScreen({ onNavigate, onOpen }: { onNavigate(s: Screen)
                 const c = COMPONENTS[id];
                 return (
                   <li key={id} className="tile">
+                    <img className="tile__pic" src={componentThumb(id)} alt="" width={480} height={336} loading="lazy" draggable={false} />
                     <div className="tile__top"><h3>{c.name}</h3></div>
                     <p>{c.overview.split('. ')[0]}.</p>
                     <button type="button" className="tile__open" aria-label={t('components.open').replace('{name}', c.name)} onClick={() => onOpen(id)}>{t('components.openShort')}</button>

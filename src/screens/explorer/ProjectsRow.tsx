@@ -51,11 +51,7 @@ export function ProjectsRow({ onOpen, onAll }: { onOpen?(id: string): void; onAl
   );
   return (
     <section className="projects" data-testid="projects" aria-label={t('projects.title')}>
-      <div className="projects__head">
-        <h2>{t('projects.title')}</h2>
-        {onAll && <button type="button" className="projects__all" onClick={onAll}>{t('projects.all')}</button>}
-        <p className="credit">{t('credits.boardLayout')}</p>
-      </div>
+      <div className="projects__head"><h2>{t('projects.title')}</h2><p className="credit">{t('credits.boardLayout')}</p></div>
       <div className="projects__strip">
       {arrow(-1)}
       <div className="projects__row" ref={row} onScroll={measure}>
@@ -74,6 +70,14 @@ export function ProjectsRow({ onOpen, onAll }: { onOpen?(id: string): void; onAl
             </button>
           );
         })}
+        {onAll && (
+          <button type="button" className="project project--all" onClick={onAll}>
+            <span className="project__icon" aria-hidden>
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16v14H4zM4 9h16M9 5v14" /></svg>
+            </span>
+            <span className="project__text"><b>{t('projects.all')}</b></span>
+          </button>
+        )}
       </div>
       {arrow(1)}
       </div>

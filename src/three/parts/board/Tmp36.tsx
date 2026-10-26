@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { soloMode } from '../../shared/motion';
 import { BB, colX, ROW } from '../../breadboard/breadboardGeometry';
 import { useBenchDrag } from '../../build/controls3d';
 import { BENCH } from '../../build/pinPoints';
@@ -151,10 +152,12 @@ export function Tmp36({ at, inputs, onInput }: PartView) {
   return (
     <>
       <primitive object={sensor.g} />
-      <primitive object={prop} onPointerDown={(e: Parameters<typeof drag>[0]) => { start.current = null; drag(e); }}>
-        <primitive object={dryer.g} />
-        <primitive object={stand.g} />
-      </primitive>
+      {!soloMode() && (
+        <primitive object={prop} onPointerDown={(e: Parameters<typeof drag>[0]) => { start.current = null; drag(e); }}>
+          <primitive object={dryer.g} />
+          <primitive object={stand.g} />
+        </primitive>
+      )}
     </>
   );
 }
