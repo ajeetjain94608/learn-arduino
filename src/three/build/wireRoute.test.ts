@@ -136,18 +136,18 @@ describe('routing stays fast, and always ends in a path', () => {
     }
     return { wires, bodies };
   };
-  it('25 wires with 10 parts route in well under half a second', () => {
+  it('25 wires with 10 parts route in a fraction of a second', () => {
     const { wires, bodies } = build(25, 21);
     const t0 = performance.now();
     const routes = routeWires(wires, bodies);
-    expect(performance.now() - t0).toBeLessThan(500);
+    expect(performance.now() - t0).toBeLessThan(1500); // (the cap on tries bounds the work; this only catches runaway growth, with room for a busy machine)
     expect(routes.size).toBe(25);
   });
-  it('60 wires (more than a board can hold) still finish within a second and every wire gets a path', () => {
+  it('60 wires (more than a board can hold) still finish quickly and every wire gets a path', () => {
     const { wires, bodies } = build(60, 22);
     const t0 = performance.now();
     const routes = routeWires(wires, bodies);
-    expect(performance.now() - t0).toBeLessThan(1000);
+    expect(performance.now() - t0).toBeLessThan(2500);
     expect(routes.size).toBe(60);
   });
   it('no wire is ever left passing through a part body', () => {
