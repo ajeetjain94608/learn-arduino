@@ -4,7 +4,7 @@ import { t, type StringKey } from '../../i18n/en';
 import { useBuild } from '../../state/buildContext';
 import { useWorkbenchStore } from '../../state/workbenchStore';
 
-const SUPPLY_WORDS: Record<string, string> = { '5V': '5 V', '3V3': '3.3 V', GND: 'GND' };
+const SUPPLY_WORDS: Record<string, string> = { '5V': '5 V', '3V3': '3.3 V', VIN: 'VIN', GND: 'GND' };
 
 // What burnt, in plain words, and the way back: Replace part (an LED) or Replace board (a short or a damaged pin).
 export function BurnCard() {
@@ -46,7 +46,9 @@ export function WiringWarnings() {
     <ul className="wiring-warnings" aria-label={t('build.warnings')}>
       {warnings.map((w, i) => (
         <li key={i}>
-          {w.kind === 'short' ? t(`warn.short.${w.supply}` as StringKey) : t('warn.pin').replace('{pin}', w.pin).replace('{to}', SUPPLY_WORDS[w.to])}
+          {w.kind === 'short' ? t(`warn.short.${w.supply}` as StringKey)
+            : w.kind === 'clash' ? t('warn.clash').replace('{a}', SUPPLY_WORDS[w.a]).replace('{b}', SUPPLY_WORDS[w.b])
+            : t('warn.pin').replace('{pin}', w.pin).replace('{to}', SUPPLY_WORDS[w.to])}
         </li>
       ))}
     </ul>

@@ -11,6 +11,9 @@
 .part-card__add, .bench-list__remove { appearance: none; flex: none; width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--card); color: var(--ink); font: inherit; font-size: 22px; font-weight: 800; cursor: pointer; }
 .part-card__add { background: var(--primary-bg); color: var(--primary-fg); border: 0; }
+.bench-list__switch { display: flex; align-items: center; gap: 10px; min-height: 48px; flex: 1; font-weight: 700; cursor: pointer; }
+.bench-list__switch input { width: 24px; height: 24px; }
+.part-window__param .part-window__label { align-self: center; font-size: 14px; font-weight: 700; color: var(--ink-2); }
 .bench-list li { display: flex; align-items: center; gap: 8px; min-height: 48px; font-size: 15px; padding-left: 4px; }
 .bench-list__name { appearance: none; flex: 1; text-align: left; min-height: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 .bench-list__name small { font-size: 14px; color: var(--ink-2); font-weight: 600; margin-left: 6px; }

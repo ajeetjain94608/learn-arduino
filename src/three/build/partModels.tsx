@@ -2,7 +2,7 @@ import { useMemo, type ComponentType } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PartState } from '../../circuit/evaluate';
-import { PART_DEFS, paramsOf } from '../../circuit/parts';
+import { LOOSE_LEG_Y, looseAnchor, PART_DEFS, paramsOf } from '../../circuit/parts';
 import type { BoardPlacement, PartInstance, PartType } from '../../circuit/types';
 import { BB, colX, holeLocal, ROW } from '../breadboard/breadboardGeometry';
 import { Led5mm, type LedColor } from '../parts/Led5mm';
@@ -74,9 +74,9 @@ type Props = {
 const view = ({ part, state, inputs, onInput }: Props): PartView => ({ id: part.id, at: part.at, rot: part.rot ?? 0, params: paramsOf(part.type, part.params), state, inputs: inputs ?? {}, onInput });
 const RAD = Math.PI / 180;
 
-// One placed part, in breadboard-local coordinates (render inside <Breadboard>).
-export function PartModel(props: Props) {
-  const { part, state, inputs, onPick, onInput } = props;
+// A part's own drawing, built for the holes its first leg is in (`part.at` is a breadboard placement), unturned.
+function modelOf(props: Props): React.ReactNode {
+  const { part, state, inputs, onInput } = props;
   const { col, row } = part.at as BoardPlacement;
   const params = paramsOf(part.type, part.params);
   const [, , z] = holeLocal(col, row);
@@ -97,11 +97,35 @@ export function PartModel(props: Props) {
   else if (part.type === 'button') model = <Button6mm col={col} pressed={(inputs?.pressed ?? 0) >= 0.5} onInput={onInput} />;
   else if (part.type === 'pot') model = <Potentiometer id={part.id} col={col} row={row} position={inputs?.position ?? 0.5} onInput={onInput} />;
   else if (Own) model = <Own {...view(props)} />;
+  return model;
+}
+
+// One placed part, in breadboard-local coordinates (render inside <Breadboard>).
+export function PartModel(props: Props) {
+  const { part, onPick } = props;
+  const { col, row } = part.at as BoardPlacement;
+  const [, , z] = holeLocal(col, row);
+  const model = modelOf(props);
   // turned: the whole drawing turns around the first leg's hole (the legs stay in their holes, one quarter turn at a time)
   const rot = part.rot ?? 0, ax = colX(col);
   const turned = rot ? <group position={[ax, 0, z]} rotation={[0, -rot * RAD, 0]}><group position={[-ax, 0, -z]}>{model}</group></group> : model;
   const carry = useBoardDrag(() => part.at as BoardPlacement, (to) => props.onMove?.(to as never), !!props.selected);
   return <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick} onPointerDown={props.onMove ? carry : undefined}>{turned}</group>;
+}
+
+// A part standing on the table with its legs free (no breadboard), in world coordinates: placed by its first leg, turned to any
+// angle around it. Its drawing is the one made for the holes, moved so the first leg is where the part is.
+export function LooseModel(props: Props) {
+  const { part, onPick } = props;
+  const at = part.at as { x: number; z: number };
+  const anchor = looseAnchor(part.type), [ax, , az] = holeLocal(anchor.col, anchor.row);
+  const carry = useMoveDrag(() => part.at as { x: number; z: number }, (to) => props.onMove?.(to as never), !!props.selected);
+  return (
+    <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick} position={[at.x, 0, at.z]} rotation={[0, -(part.rot ?? 0) * RAD, 0]}
+      onPointerDown={props.onMove ? carry : undefined}>
+      <group position={[-ax, LOOSE_LEG_Y - BB.H, -az]}>{modelOf({ ...props, part: { ...part, at: anchor, rot: 0 } })}</group>
+    </group>
+  );
 }
 
 // A module standing on the bench, in world coordinates (render outside <Breadboard>); its model is drawn around its

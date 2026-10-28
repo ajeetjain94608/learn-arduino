@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ComponentProps } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { InputValues, PartState } from '../../circuit/evaluate';
+import { PART_DEFS } from '../../circuit/parts';
 import type { BoardPlacement, PartInstance, Placement, Wire } from '../../circuit/types';
 import { UnoBoard } from '../boards/uno/UnoBoard';
 import { isTestMode, soloMode } from '../shared/motion';
@@ -11,7 +12,7 @@ import { Jumper } from '../parts/Jumper';
 import { Arrive } from '../scenes/Arrive';
 import type { AssemblyPlan } from '../scenes/assembly';
 import { BurnEffect } from './BurnEffect';
-import { BenchModel, PartModel } from './partModels';
+import { BenchModel, LooseModel, PartModel } from './partModels';
 import { BB, colX, holeLocal } from '../breadboard/breadboardGeometry';
 import { BENCH, pinWorld } from './pinPoints';
 import { partBodies } from './partBodies';
@@ -30,6 +31,7 @@ type Props = {
   onPick(id: string): void;
   onMove?(id: string, at: Placement): boolean | void; // pressing a part and dragging carries it (the Build bench only; Home just looks)
   selected?: string | null;
+  breadboard?: boolean; // whether the breadboard is on the bench (default: yes)
   onInput(partId: string, key: string, value: number): void;
   // Home's project view ("showcase"): the circuit builds itself with this plan, and every part and wire can be hovered
   // (the name card) and tapped, like the Blink circuit. Without it: the plain Build bench.
@@ -68,6 +70,9 @@ function WireModel({ wire, route, parts, onPick, slot }: { wire: Wire; route: Ro
   return <PartGroup id={`wire-${wire.id}`} kind="wire" center={mid}>{jumper}</PartGroup>;
 }
 
+// a module, or a part standing on the table with its legs free
+const FreeModel = (props: ComponentProps<typeof BenchModel>) => (PART_DEFS[props.part.type].bench ? <BenchModel {...props} /> : <LooseModel {...props} />);
+
 // The Build bench: the UNO and the breadboard where they sit in the Blink project, the learner's parts and wires.
 // Where to show a burn: on the LED, on the damaged pin, or on the supply pin that was shorted.
 function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number, number, number] | null {
@@ -80,7 +85,7 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
   return [colX(p.at.col) + 1.27 + BENCH.breadboard[0], 20, z + BENCH.breadboard[2]];
 }
 
-export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, onInput, plan }: Props) {
+export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, breadboard = true, onInput, plan }: Props) {
   // all wires laid out together so none passes through another or through a part
   const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
   const onBoard = parts.filter((p) => !('x' in p.at)), onBench = parts.filter((p) => 'x' in p.at);
@@ -103,13 +108,13 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
     <>
       <ScreenProbe />
       {(!solo || solo === 'uno') && <UnoBoard position={BENCH.board} pin13={pin13} rx={rx} tx={tx} />}
-      {plan ? (
+      {!breadboard ? null : plan ? (
         <PartGroup id="breadboard" kind="breadboard" center={BENCH.breadboard}>
           <Arrive step={plan.breadboard} from="right"><Breadboard position={BENCH.breadboard}>{boardParts}</Breadboard></Arrive>
         </PartGroup>
       ) : !solo || solo === 'breadboard' ? <Breadboard position={BENCH.breadboard}>{boardParts}</Breadboard> : <group position={BENCH.breadboard}>{boardParts}</group>}
       {onBench.map((p) => showcase(p, (
-        <BenchModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />
+        <FreeModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />
       ), [(p.at as { x: number }).x, 0, (p.at as { z: number }).z]))}
       {wireVolts && <WireTags wires={wires} routes={routes} volts={wireVolts} />}
       {!solo && wires.map((w, j) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} slot={plan?.wires[j]} />)}

@@ -27,7 +27,7 @@ export type CircuitResult = {
 
 // The UNO's electrical behaviour (spec §5.3, plan Global Constraints)
 const PIN_OHMS = 25, PULLUP_OHMS = 35_000;
-const SUPPLIES = [{ pin: '5V', volts: 5, ohms: 0.05 }, { pin: '3V3', volts: 3.3, ohms: 0.5 }];
+const SUPPLIES = [{ pin: '5V', volts: 5, ohms: 0.05 }, { pin: '3V3', volts: 3.3, ohms: 0.5 }, { pin: 'VIN', volts: 4.7, ohms: 0.6 }];
 const LED_RON = 15, LED_FULL_A = 0.02;
 const LED_BURN_A = 0.05, PIN_BURN_A = 0.04, SHORT_A = 1;
 const unoPinName = (n: number) => (n < 14 ? `D${n}` : `A${n - 14}`);
@@ -69,7 +69,9 @@ export function unoLinks(spec: CircuitSpec): Record<string, Record<string, Link>
 }
 
 // Solves the circuit for the chip's current pin states and the learner's inputs, applying the burn rules (unless
-// `burnRules` is false: the board stopped, nothing burns until Run). `burnt` holds everything already burnt: part ids,
+// `burnRules` is false). The board is powered from USB the moment it is plugged in, so supply shorts and an LED on a
+// supply burn with no program running; with the board stopped every pin is an input, so pin drives cannot burn.
+// `burnt` holds everything already burnt: part ids,
 // 'uno.D<n>' pins, 'uno' (a shorted board).
 export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>, burnRules = true): CircuitResult {
   const nets = netsOf(spec);

@@ -309,3 +309,71 @@ describe('B4: turning a part that sits in the breadboard', () => {
     expect(s().dragPart(id, { col: 10, row: 'c' })).toBe(false);   // would cross the gap
   });
 });
+
+describe('parts on the table, no breadboard', () => {
+  it('a part can stand on the table: its legs are free pins a wire goes straight to', () => {
+    const s = fresh();
+    const id = s().addPart('led', 'table')!;
+    const led = s().parts.find((p) => p.id === id)!;
+    expect('x' in led.at).toBe(true);
+    expect(s().addWire('uno.D13', `${id}.A`)).not.toBeNull();
+    expect(s().addWire('uno.GND_P1', `${id}.K`)).not.toBeNull();
+    expect(s().addWire('uno.D12', `${id}.A`)).toBeNull();      // a leg takes one wire, like a module's pin
+  });
+  it('every part type can stand on the table', () => {
+    const s = fresh();
+    for (const type of ['led', 'resistor', 'button', 'pot', 'rgb', 'buzzer', 'ldr', 'tmp36', 'fsr', 'diode', 'npn', 'traffic'] as const) {
+      expect(s().addPart(type, 'table'), type).not.toBeNull();
+    }
+    expect(s().parts.every((p) => 'x' in p.at)).toBe(true);
+  });
+  it('loose parts do not overlap each other and turn to any angle', () => {
+    const s = fresh();
+    const a = s().addPart('resistor', 'table')!, b = s().addPart('resistor', 'table')!;
+    expect(s().parts.find((p) => p.id === a)!.at).not.toEqual(s().parts.find((p) => p.id === b)!.at);
+    expect(s().rotatePart(a, 37.5)).toBe(true);
+    expect(s().parts.find((p) => p.id === a)!.rot).toBe(37.5);
+    const btn = s().addPart('button', 'table')!;
+    expect(s().rotatePart(btn, 45)).toBe(true);                // the button turns on the table (not in the holes)
+  });
+  it('moving a part between the breadboard and the table', () => {
+    const s = fresh();
+    const id = s().addPart('led')!;
+    expect(s().placeOn(id, 'table')).toBe(true);
+    expect('x' in s().parts.find((p) => p.id === id)!.at).toBe(true);
+    s().addWire('uno.D13', `${id}.A`);
+    expect(s().placeOn(id, 'board')).toBe(true);
+    expect(s().wires).toHaveLength(0);                          // the wire on its free leg went with it
+    expect('col' in s().parts.find((p) => p.id === id)!.at).toBe(true);
+  });
+  it('the breadboard can be switched off only when nothing uses it, and stays off for new parts', () => {
+    const s = fresh();
+    const led = s().addPart('led')!;
+    expect(s().setBreadboard(false)).toBe(false);               // an LED is in its holes
+    s().placeOn(led, 'table');
+    expect(s().setBreadboard(false)).toBe(true);
+    const r = s().addPart('resistor')!;                         // no holes: it goes on the table
+    expect('x' in s().parts.find((p) => p.id === r)!.at).toBe(true);
+    expect(s().addWire('uno.D13', 'bb.5a')).toBeNull();
+    expect(s().setBreadboard(true)).toBe(true);
+  });
+  it('a part on the table is saved and comes back', () => {
+    const storage = new MemoryStorage() as unknown as Storage;
+    const a = createBuildStore(storage).getState;
+    const id = a().addPart('pot', 'table')!;
+    a().setBreadboard(false);
+    const b = createBuildStore(storage).getState;
+    expect(b().parts.find((p) => p.id === id)?.at).toEqual(a().parts.find((p) => p.id === id)!.at);
+    expect(b().breadboard).toBe(false);
+  });
+});
+
+describe('where a new distance sensor stands', () => {
+  it('on the open right-hand side, turned to face away from the UNO and the breadboard', () => {
+    const s = fresh();
+    const id = s().addPart('hcsr04')!;
+    const p = s().parts.find((x) => x.id === id)!;
+    expect((p.at as { x: number }).x).toBeGreaterThan(100);
+    expect(p.rot).toBe(270);
+  });
+});

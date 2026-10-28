@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BENCH_STEP, canTurn, footprintOf, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
+import { BENCH_STEP, canTurn, footprintOf, isFree, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
 import type { PartInstance, Placement, Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { useBuild } from '../../state/buildContext';
@@ -79,6 +79,8 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
   const movePart = useBuild((s) => s.movePart);
   const canMove = useBuild((s) => s.canMove);
   const rotatePart = useBuild((s) => s.rotatePart);
+  const placeOn = useBuild((s) => s.placeOn);
+  const breadboard = useBuild((s) => s.breadboard);
   useBuild((s) => s.parts); // the arrows' state follows every part (another part may free or take a spot)
   const ref = useRef<HTMLElement>(null);
   // opening the window moves focus into it (keyboard and screen readers follow); Escape closes it
@@ -87,6 +89,7 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
   const select = useBuild((s) => s.select);
   if (!selected || !part) return null;
   const def = PART_DEFS[part.type];
+  const free = isFree(part); // on the table: turns to any angle, wires go to its legs
   const params = paramsOf(part.type, part.params);
   const name = `${t(`build.part.${part.type}` as StringKey)} ${part.id.slice(part.type.length)}`;
   return (
@@ -110,16 +113,23 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
           })}
         </div>
       </div>}
-      {!fixed && (def.bench || canTurn(part.type)) && (
+      {!fixed && !def.bench && (
+        <div className="part-window__param" role="radiogroup" aria-label={t('build.placeOn')}>
+          <span className="part-window__label">{t('build.placeOn')}</span>
+          <button type="button" role="radio" aria-checked={!free} className={!free ? 'is-on' : ''} disabled={!breadboard && free} onClick={() => placeOn(part.id, 'board')}>{t('build.on.board')}</button>
+          <button type="button" role="radio" aria-checked={free} className={free ? 'is-on' : ''} onClick={() => placeOn(part.id, 'table')}>{t('build.on.table')}</button>
+        </div>
+      )}
+      {!fixed && (free || canTurn(part.type)) && (
         <div className="part-window__place">
           <span>{t('build.turn')} <b>{Math.round((part.rot ?? 0) * 10) / 10}°</b></span>
           <div className="part-window__moves">
-            <button type="button" aria-label={t('build.turn.left')} onClick={() => rotatePart(part.id, (part.rot ?? 0) - (def.bench ? 15 : 90))}>↺</button>
-            <button type="button" aria-label={t('build.turn.right')} onClick={() => rotatePart(part.id, (part.rot ?? 0) + (def.bench ? 15 : 90))}>↻</button>
+            <button type="button" aria-label={t('build.turn.left')} onClick={() => rotatePart(part.id, (part.rot ?? 0) - (free ? 15 : 90))}>↺</button>
+            <button type="button" aria-label={t('build.turn.right')} onClick={() => rotatePart(part.id, (part.rot ?? 0) + (free ? 15 : 90))}>↻</button>
           </div>
         </div>
       )}
-      {!fixed && def.bench && (
+      {!fixed && free && (
         <div className="part-window__input">
           <label className="part-window__label">{t('build.turn.angle')}</label>
           <input type="range" min={0} max={359} step={1} value={Math.round(part.rot ?? 0)} aria-label={t('build.turn.angle')}

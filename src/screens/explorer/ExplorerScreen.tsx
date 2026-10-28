@@ -77,6 +77,7 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
   const wires = store((s) => s.wires);
   const inputs = store((s) => s.inputs);
   const burns = store((s) => s.burns);
+  const breadboard = store((s) => s.breadboard);
   const setBurns = store((s) => s.setBurns);
   const setInput = store((s) => s.setInput);
   const circuit = useMemo(() => ({ parts, wires }), [parts, wires]);
@@ -143,7 +144,7 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
             {generic ? <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} /> : <SimClock />}
             <Inspectable onEmptyTap={clearAll}>
               {generic ? (
-                <ProjectCircuit key={generic.id} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} burns={burns}
+                <ProjectCircuit key={generic.id} breadboard={breadboard} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} burns={burns}
                   wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onInput={setInput} />
               ) : (
                 <BlinkCircuit pinHigh={pinHigh} bootLed={bootLed} rx={rxLed} tx={txLed} showCircuit={view === 'circuit'} showCurrent={showCurrent} />
@@ -166,7 +167,7 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
       <div className="side" data-expand={panel ?? undefined}>
         {generic && <BuildStoreContext.Provider value={store}><BurnCard /></BuildStoreContext.Provider>}
         <InfoCard info={info} infoKey={generic?.id ?? view} focus={focus} expanded={panel === 'info'} onExpand={() => setPanel(panel === 'info' ? null : 'info')}
-          footer={generic && (
+          footer={!generic ? (project && onEditProject ? <button type="button" onClick={() => onEditProject(project.id)}>{t('project.edit')}</button> : undefined) : (
             <>
               <button type="button" onClick={() => onEditProject?.(generic.id)}>{t('project.edit')}</button>
               {confirmReset

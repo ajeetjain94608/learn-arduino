@@ -4,8 +4,10 @@ import { COLUMNS, connectedHoles, isRailColumn, type Row } from '../three/breadb
 export const UNO_PINS: string[] = [
   ...Array.from({ length: 14 }, (_, i) => `D${i}`),
   ...Array.from({ length: 6 }, (_, i) => `A${i}`),
-  '5V', '3V3', 'VIN', 'GND', 'AREF',
+  '5V', '3V3', 'VIN', 'GND', 'GND_P1', 'GND_P2', 'AREF',
 ];
+// The board has three GND sockets (one beside pin 13, two on the power header): all one wire inside, named GND.
+export const GND_SOCKETS = ['GND_P1', 'GND_P2'];
 // Uno pin number (0–19, A0 = 14) of a D/A pin name, else null.
 export function unoPinNumber(name: string): number | null {
   const m = name.match(/^([DA])(\d+)$/);

@@ -3,7 +3,8 @@ import { buildNets } from './nets';
 import { footprintOf } from './parts';
 import type { CircuitSpec, PartInstance } from './types';
 
-export type Warning = { kind: 'short'; supply: '5V' | '3V3' } | { kind: 'pin'; pin: string; to: '5V' | '3V3' | 'GND' };
+export type Supply = '5V' | '3V3' | 'VIN';
+export type Warning = { kind: 'short'; supply: Supply } | { kind: 'clash'; a: Supply; b: Supply } | { kind: 'pin'; pin: string; to: Supply | 'GND' };
 
 const legs = (p: PartInstance) =>
   Object.fromEntries(Object.entries(footprintOf(p) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
@@ -14,10 +15,13 @@ export function checkWiring(spec: CircuitSpec): Warning[] {
   const nets = buildNets(spec, legs);
   const net = (pin: string) => nets.netOf(`uno.${pin}`);
   const out: Warning[] = [];
-  for (const supply of ['5V', '3V3'] as const) if (net(supply) === net('GND')) out.push({ kind: 'short', supply });
+  const supplies: Supply[] = ['5V', '3V3', 'VIN'];
+  for (const supply of supplies) if (net(supply) === net('GND')) out.push({ kind: 'short', supply });
+  // two supplies wired together fight each other
+  supplies.forEach((a, i) => supplies.slice(i + 1).forEach((b) => { if (net(a) === net(b) && net(a) !== net('GND')) out.push({ kind: 'clash', a, b }); }));
   for (const pin of UNO_PINS) {
     if (unoPinNumber(pin) === null) continue;
-    const to = (['5V', '3V3', 'GND'] as const).find((s) => net(s) === net(pin));
+    const to = (['5V', '3V3', 'VIN', 'GND'] as const).find((s) => net(s) === net(pin));
     if (to) out.push({ kind: 'pin', pin, to });
   }
   return out;

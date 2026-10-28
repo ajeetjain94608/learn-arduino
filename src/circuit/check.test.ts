@@ -3,6 +3,16 @@ import { checkWiring } from './check';
 import type { CircuitSpec, Wire } from './types';
 
 const w = (from: string, to: string): Wire => ({ id: `${from}-${to}`, from, to, color: '#000' });
+
+describe('every supply and GND socket', () => {
+  it('a supply wired to the power header GND is a short', () => {
+    expect(checkWiring({ parts: [], wires: [w('uno.5V', 'uno.GND_P1')] })).toContainEqual({ kind: 'short', supply: '5V' });
+    expect(checkWiring({ parts: [], wires: [w('uno.VIN', 'uno.GND_P2')] })).toContainEqual({ kind: 'short', supply: 'VIN' });
+  });
+  it('two supplies wired together clash', () => {
+    expect(checkWiring({ parts: [], wires: [w('uno.5V', 'uno.3V3')] })).toContainEqual({ kind: 'clash', a: '5V', b: '3V3' });
+  });
+});
 const spec = (wires: Wire[], parts: CircuitSpec['parts'] = []): CircuitSpec => ({ parts, wires });
 
 describe('checking the wiring before Run', () => {

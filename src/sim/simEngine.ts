@@ -124,7 +124,7 @@ export class SimEngine {
     if (!this.dirty && signature === this.signature) return;
     this.signature = signature;
     this.dirty = false;
-    const r = evaluate(this.spec!, drives, this.inputs, this.burnt, !!chip); // stopped: lit, but nothing burns until Run
+    const r = evaluate(this.spec!, drives, this.inputs, this.burnt); // powered from USB even when stopped: a short burns at once
     this.evaluations++;
     for (const b of r.newBurns) { this.burnt.add(b.id); this.burns.push(b); }
     this.circuitState = { seq: (this.circuitState?.seq ?? 0) + 1, wireVolts: r.wireVolts, parts: r.parts, burns: [...this.burns], board: r.board };

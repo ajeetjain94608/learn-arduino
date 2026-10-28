@@ -1,5 +1,5 @@
-import { COLUMNS, type Row } from '../three/breadboard/breadboardGeometry';
-import { onBench, type BoardPlacement, type PartInstance, type PartType, type Placement } from './types';
+import { COLUMNS, ROW, type Row } from '../three/breadboard/breadboardGeometry';
+import { onBench, type BoardPlacement, type PartInstance, type PartType, type Placement, type Wire } from './types';
 
 export type ParamDef = { key: string; options: (string | number)[]; default: string | number };
 export type InputDef = { key: string; min: number; max: number; step: number; unit: string; default: number };
@@ -133,12 +133,13 @@ export function paramsOf(type: PartType, params: Record<string, string | number>
   return Object.fromEntries(PART_DEFS[type].params.map((p) => [p.key, params[p.key] ?? p.default]));
 }
 
-// Whether the part is connected at all: a module always is; a breadboard part when its legs are in holes.
-export const isPlaced = (p: PartInstance) => !!PART_DEFS[p.type].bench || footprintOf(p) !== null;
+// Whether the part is connected at all: a module or a part standing on the table always is; a breadboard part when its
+// legs are in holes.
+export const isPlaced = (p: PartInstance) => isFree(p) || footprintOf(p) !== null;
 
-// The connection points a wire can go to on this part: a module's header pins (breadboard parts are wired through
-// the holes their legs are in).
-export const partPoints = (p: PartInstance): string[] => (PART_DEFS[p.type].bench ? PART_DEFS[p.type].pins.map((pin) => `${p.id}.${pin}`) : []);
+// The connection points a wire can go to on this part: the pins of a module or of a part standing on the table (a part in
+// the breadboard is wired through the holes its legs are in).
+export const partPoints = (p: PartInstance): string[] => (isFree(p) ? PART_DEFS[p.type].pins.map((pin) => `${p.id}.${pin}`) : []);
 
 // The bench around the UNO and the breadboard (world mm, x by z). Modules stand anywhere on it except on those two.
 export type Rect = { x: number; z: number; w: number; d: number }; // centre and size
@@ -231,3 +232,38 @@ export function coversOf(p: Placed, at: Placement = p.at): string[] {
   const sh = shapeOf(p.type, p.params);
   return sh ? place(sh.body, at, rot) ?? [] : [];
 }
+
+// ── Parts standing on the table, no breadboard ───────────────────────────────────────────────────────────────────────
+// Any part can also stand on the bench with its legs free: it is placed by its first leg (x, z in world mm), turns to any
+// angle like a module, and a wire goes straight to each of its legs, as to a module's header pin.
+export const isFree = (p: Pick<PartInstance, 'type' | 'at'>) => !!PART_DEFS[p.type].bench || onBench(p.at);
+export const isLoose = (p: Pick<PartInstance, 'type' | 'at'>) => !PART_DEFS[p.type].bench && onBench(p.at);
+// Whether a build needs the breadboard at all: a part in its holes, or a wire to one of them.
+export const usesBreadboard = (parts: readonly PartInstance[], wires: readonly Wire[]) =>
+  parts.some((p) => !onBench(p.at)) || wires.some((w) => w.from.startsWith('bb.') || w.to.startsWith('bb.'));
+export const LOOSE_LEG_Y = 2.4; // how high a leg's lower end is above the table: where a wire plugs in
+// the breadboard hole a loose part's drawing is built around (the models are made for holes and moved onto the table)
+export const looseAnchor = (type: PartType): BoardPlacement => ({ col: 15, row: type === 'button' ? 'e' : 'c' });
+
+// where each leg is, from the first leg (mm; x to the right, z towards the viewer)
+export function loosePins(type: PartType, params: Record<string, string | number>): Record<string, [number, number, number]> {
+  const sh = shapeOf(type, params), a = looseAnchor(type), i0 = STRIP_ROWS.indexOf(a.row);
+  if (!sh) return {};
+  return Object.fromEntries(Object.entries(sh.legs).map(([pin, [dc, dr]]) => [pin, [dc * 2.54, LOOSE_LEG_Y, ROW[STRIP_ROWS[i0 + dr]] - ROW[a.row]] as [number, number, number]]));
+}
+// The room a part takes on the table, turned: a module's box, or the legs and body of a loose part.
+export function partRect(p: Pick<PartInstance, 'type' | 'params'>, at: { x: number; z: number }, rot = 0): Rect {
+  if (PART_DEFS[p.type].bench) return benchRect(p.type, at, rot);
+  const pts = Object.values(loosePins(p.type, p.params)).map(([x, , z]) => rotatePoint(x, z, rot)), PAD = 6;
+  const x0 = Math.min(...pts.map((q) => q[0])) - PAD, x1 = Math.max(...pts.map((q) => q[0])) + PAD;
+  const z0 = Math.min(...pts.map((q) => q[1])) - PAD, z1 = Math.max(...pts.map((q) => q[1])) + PAD;
+  return { x: at.x + (x0 + x1) / 2, z: at.z + (z0 + z1) / 2, w: x1 - x0, d: z1 - z0 };
+}
+// where a new loose part goes first: in rows behind and in front of the modules
+// (nearest to the UNO and the breadboard first)
+export const LOOSE_SLOTS = [-115, 112, -145, 142, 172].flatMap((z) => [-158, -124, -90, -56, -22, 12, 46, 80, 114, 148].map((x) => ({ x, z })))
+  .sort((a, b) => Math.hypot(a.x - 20, a.z) - Math.hypot(b.x - 20, b.z));
+// The distance sensor looks along its own front, and the toy obstacle stands that far in front of it: a new one is turned to
+// face the open right-hand side of the bench, so the obstacle never ends up on the UNO or the breadboard.
+export const START_TURN: Partial<Record<PartType, number>> = { hcsr04: 270 };
+export const FACING_SLOTS = [{ x: 150, z: 5 }, { x: 150, z: -70 }, { x: 150, z: 80 }];

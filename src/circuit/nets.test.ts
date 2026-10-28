@@ -38,7 +38,9 @@ describe('nets', () => {
   it('unconnected UNO pins are each alone', () => {
     const n = buildNets(empty, noLegs);
     const nets = new Set(UNO_PINS.map((p) => n.netOf(`uno.${p}`)));
-    expect(nets.size).toBe(UNO_PINS.length);
+    expect(nets.size).toBe(UNO_PINS.length - 2); // …except the board's three GND sockets, which are one wire
+    expect(n.netOf('uno.GND_P1')).toBe(n.netOf('uno.GND'));
+    expect(n.netOf('uno.GND_P2')).toBe(n.netOf('uno.GND'));
     expect(UNO_PINS).toEqual(expect.arrayContaining(['D0', 'D13', 'A0', 'A5', '5V', '3V3', 'VIN', 'GND', 'AREF']));
   });
 

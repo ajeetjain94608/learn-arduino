@@ -75,3 +75,23 @@ describe('B3: a short says which supply', () => {
     expect(r.newBurns).toEqual([{ id: 'uno', reason: 'short', supply: '3V3' }]);
   });
 });
+
+describe('parts standing on the table, wired leg to leg (no breadboard)', () => {
+  const tled: PartInstance = { id: 'led1', type: 'led', params: { color: 'red' }, at: { x: 0, z: 110 } };
+  const tres: PartInstance = { id: 'r1', type: 'resistor', params: { ohms: 220 }, at: { x: 40, z: 110 } };
+  const spec: CircuitSpec = { parts: [tled, tres], wires: [w('uno.D13', 'r1.1'), w('r1.2', 'led1.A'), w('led1.K', 'uno.GND_P2')] };
+  it('an LED and a resistor wired directly light like the breadboard version', () => {
+    expect(evaluate(spec, HIGH13, {}, new Set()).parts.led1.brightness).toBeCloseTo((5 - 1.9) / 260 / 0.02, 2);
+  });
+  it('without the resistor the LED burns', () => {
+    const bare: CircuitSpec = { parts: [tled], wires: [w('uno.D13', 'led1.A'), w('led1.K', 'uno.GND')] };
+    expect(evaluate(bare, HIGH13, {}, new Set()).newBurns).toEqual([{ id: 'led1', reason: 'led-overcurrent' }]);
+  });
+  it('a button on the table: its two sides are joined only while pressed', () => {
+    const btn: PartInstance = { id: 'button1', type: 'button', params: {}, at: { x: 0, z: -115 } };
+    const s: CircuitSpec = { parts: [btn, tres], wires: [w('uno.5V', 'button1.1'), w('button1.4', 'uno.A0'), w('uno.A0', 'r1.1'), w('r1.2', 'uno.GND')] };
+    const a0 = (v: number) => evaluate(s, pins(), { button1: { pressed: v } }, new Set()).pinVolts[14];
+    expect(a0(0)).toBeCloseTo(0, 1);
+    expect(a0(1)).toBeGreaterThan(4.5);
+  });
+});

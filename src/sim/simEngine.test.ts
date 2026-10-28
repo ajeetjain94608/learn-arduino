@@ -234,14 +234,27 @@ describe('B3: the board as it really is', { timeout: 60_000 }, () => {
     expect(s.circuit!.parts.led1.brightness).toBeGreaterThan(0.5);
   });
 
-  it('with no program nothing burns yet (warnings first; Run is plugging the board in)', () => {
+  it('the board is powered from USB, so a short burns even with no program (the second GND socket counts too)', () => {
     const e = new SimEngine();
-    e.setCircuit({ parts: [led], wires: [w('uno.5V', 'bb.10c'), w('bb.11c', 'uno.GND'), w('uno.3V3', 'uno.GND')] });
+    e.setCircuit({ parts: [led], wires: [w('uno.5V', 'bb.10c'), w('bb.11c', 'uno.GND_P2'), w('uno.3V3', 'uno.GND_P1')] });
     play(e, 0, 50);
     const s = e.snapshot().circuit!;
-    expect(s.burns).toEqual([]);
-    expect(s.board.shorted).toBe(false);
-    expect(s.parts.led1.burnt).toBeFalsy();
+    expect(s.board.shorted).toBe(true);
+    expect(s.burns.map((b) => b.reason)).toContain('short');
+  });
+
+  it('with no program an LED wired straight across 5 V burns', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [led], wires: [w('uno.5V', 'bb.10c'), w('bb.11c', 'uno.GND_P1')] });
+    play(e, 0, 50);
+    expect(e.snapshot().circuit!.parts.led1.burnt).toBe(true);
+  });
+
+  it('VIN wired to GND is a short too', () => {
+    const e = new SimEngine();
+    e.setCircuit({ parts: [], wires: [w('uno.VIN', 'uno.GND_P1')] });
+    play(e, 0, 50);
+    expect(e.snapshot().circuit!.board.shorted).toBe(true);
   });
 
   it('burns handed back to the engine (after a screen switch) stay burnt', () => {

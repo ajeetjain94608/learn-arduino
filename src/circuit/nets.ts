@@ -1,4 +1,4 @@
-import { BB_HOLES, bbInternalNets, UNO_PINS } from './board';
+import { BB_HOLES, bbInternalNets, GND_SOCKETS, UNO_PINS } from './board';
 import type { CircuitSpec, PartInstance, PinRef } from './types';
 
 // Which connection points are electrically the same (a "net"): breadboard strips and rails, wires, and part legs
@@ -17,6 +17,7 @@ export function buildNets(spec: CircuitSpec, legs: (p: PartInstance) => Record<s
   for (const p of UNO_PINS) id(`uno.${p}`);
   for (const h of BB_HOLES) id(`bb.${h}`);
   for (const group of bbInternalNets()) for (let k = 1; k < group.length; k++) join(`bb.${group[0]}`, `bb.${group[k]}`);
+  for (const g of GND_SOCKETS) join('uno.GND', `uno.${g}`);
   for (const w of spec.wires) join(w.from, w.to);
   for (const p of spec.parts) for (const [pin, hole] of Object.entries(legs(p))) join(`${p.id}.${pin}`, hole);
 
