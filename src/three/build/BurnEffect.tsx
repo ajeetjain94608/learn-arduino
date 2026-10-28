@@ -5,13 +5,16 @@ import { makeCanvasTexture } from '../shared/canvasTexture';
 import { disposeOwned } from '../shared/geometry';
 import { noOutline } from '../shared/layers';
 import { useReducedMotion } from '../shared/motion';
+import { playBurn } from '../../sim/burnSound';
 
 const PUFF_S = 1.8;  // how long the smoke rises
 const PUFFS = 6;
+const SPARKS = 9, SPARK_S = 0.55;
 
-// A small, friendly "burnt" moment: a quick flash, a few soft smoke puffs rising and fading, and a dark scorch mark that
-// stays. Reduced motion: just the scorch mark.
-export function BurnEffect({ position }: { position: [number, number, number] }) {
+// A small, friendly "burnt" moment: a quick flash, a few little sparks, a few soft smoke puffs rising and fading, and a dark scorch
+// mark that stays. `fresh`: it just happened (not a burn the page is only showing again): the sparks fly and it goes "zzt".
+// Reduced motion: just the scorch mark.
+export function BurnEffect({ position, fresh = false }: { position: [number, number, number]; fresh?: boolean }) {
   const reduced = useReducedMotion();
   const t = useRef(0);
   const fx = useMemo(() => {
@@ -27,6 +30,13 @@ export function BurnEffect({ position }: { position: [number, number, number] })
       group.add(s);
       return s;
     });
+    const sparks = Array.from({ length: SPARKS }, (_, i) => {
+      const s = noOutline(new THREE.Sprite(new THREE.SpriteMaterial({ map: soft, color: i % 2 ? '#FFB347' : '#FFE08A', transparent: true, depthWrite: false, opacity: 0 })));
+      const a = (i / SPARKS) * Math.PI * 2 + i, up = 5 + (i % 3) * 3;
+      s.userData = { vx: Math.cos(a) * (8 + (i % 4) * 2), vz: Math.sin(a) * (8 + (i % 4) * 2), vy: up };
+      group.add(s);
+      return s;
+    });
     const flash = noOutline(new THREE.Sprite(new THREE.SpriteMaterial({ map: soft, color: '#FFD27A', transparent: true, depthWrite: false, opacity: 0 })));
     group.add(flash);
     const scorch = noOutline(new THREE.Mesh(new THREE.CircleGeometry(3.2, 24), new THREE.MeshBasicMaterial({ map: soft, color: '#1A1A1A', transparent: true, opacity: 0.55, depthWrite: false })));
@@ -34,8 +44,9 @@ export function BurnEffect({ position }: { position: [number, number, number] })
     scorch.position.y = -6;
     group.add(scorch);
     for (const o of group.children) o.raycast = () => {}; // decoration: never in the way of taps
-    return { group, puffs, flash };
+    return { group, puffs, flash, sparks };
   }, []);
+  useEffect(() => { if (fresh) playBurn(); }, [fresh]);
 
   useEffect(() => () => disposeOwned(fx.group), [fx]);
 
@@ -45,6 +56,13 @@ export function BurnEffect({ position }: { position: [number, number, number] })
     const f = (fx.flash.material as THREE.SpriteMaterial);
     f.opacity = Math.max(0, 1 - t.current / 0.25);
     fx.flash.scale.setScalar(6 + 10 * t.current);
+    for (const s of fx.sparks) {                                      // sparks: out, up, and falling back
+      const k = fresh ? t.current / SPARK_S : 1, m = s.material as THREE.SpriteMaterial;
+      if (k >= 1) { m.opacity = 0; continue; }
+      s.position.set(s.userData.vx * k, 3 + s.userData.vy * k * 2 - 22 * k * k, s.userData.vz * k);
+      s.scale.setScalar(1.6 * (1 - 0.6 * k));
+      m.opacity = 1 - k;
+    }
     for (const p of fx.puffs) {
       const k = (t.current - p.userData.delay) / PUFF_S;
       const m = p.material as THREE.SpriteMaterial;

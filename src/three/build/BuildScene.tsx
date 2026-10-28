@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ComponentProps } from 'react';
+import { useEffect, useMemo, useRef, type ComponentProps } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { InputValues, PartState } from '../../circuit/evaluate';
@@ -122,6 +122,9 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
     const fwd = flowForward(w.from, w.to, flow.volts[w.id] ?? 0), route = routes.get(w.id);
     return fwd === null || !route ? [] : [{ path: [fwd ? route.curve : new Reversed(route.curve)] }];
   })), [flow, wires, routes]);
+  // burns that were already there when this scene opened are only shown again: the sparks and the sound are for a burn that happens now
+  const shownAtStart = useRef(new Set(burns.map((b) => b.id)));
+  useEffect(() => { for (const id of [...shownAtStart.current]) if (!burns.some((b) => b.id === id)) shownAtStart.current.delete(id); }, [burns]); // replaced: the next burn is new
   // the breadboards, and everything else: in a breadboard's holes, or standing on the bench
   const boards = parts.filter((p) => p.type === 'breadboard'), plain = parts.filter((p) => p.type !== 'breadboard');
   const onBoard = plain.filter((p) => !('x' in p.at)), onBench = plain.filter((p) => 'x' in p.at);
@@ -165,7 +168,7 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
       <CurrentFlow wires={flowWires} active={!!flow?.active && flowWires.length > 0} />
       {wireVolts && <WireTags wires={wires} routes={routes} volts={wireVolts} />}
       {!solo && wires.map((w, j) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} slot={plan?.wires[j]} />)}
-      {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} />; })}
+      {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} fresh={!shownAtStart.current.has(b.id)} />; })}
     </>
   );
 }
