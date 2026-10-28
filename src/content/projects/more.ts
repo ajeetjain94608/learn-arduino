@@ -316,7 +316,7 @@ void loop() {
     tryIt: ['Drag the obstacle towards the sensor', 'Make yellow start at 40 cm', 'Add a beeping buzzer for red'],
     build: {
       parts: [
-        { id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 30, z: -72 } },
+        { id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 150, z: 5 }, rot: 270 }, // facing the open right side: its obstacle stays off the breadboard
         { id: 'traffic1', type: 'traffic', params: {}, at: { col: 15, row: 'c' } },
       ],
       wires: [

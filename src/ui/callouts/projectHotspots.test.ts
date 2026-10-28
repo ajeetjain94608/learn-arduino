@@ -15,6 +15,10 @@ describe('the labels on a project in the 3D view', () => {
     const hs = projectHotspots(PROJECTS.find((x) => x.id === 'distance')!, 'bench');
     expect(hs.map((h) => h.name)).toContain('Distance sensor');
   });
+  it('a project that uses no breadboard has no breadboard label', () => {
+    expect(projectHotspots(PROJECTS.find((x) => x.id === 'distance')!, 'bench').map((h) => h.name)).not.toContain('Breadboard');
+    expect(projectHotspots(PROJECTS.find((x) => x.id === 'parking')!, 'bench').map((h) => h.name)).toContain('Breadboard');
+  });
   it('every label has its own id, a short second line, a text for the info card, and sits above the bench', () => {
     for (const p of PROJECTS) {
       const hs = projectHotspots(p, 'circuit');

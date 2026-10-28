@@ -67,7 +67,7 @@ const validPart = (p: unknown): p is PartInstance => {
   if (def.bench || 'x' in at) return typeof at.x === 'number' && typeof at.z === 'number' && Number.isFinite(at.x) && Number.isFinite(at.z); // a module, or a part standing on the table
   return typeof at.col === 'number' && typeof at.row === 'string' && footprintOf({ type: p.type as PartType, params: p.params as Record<string, string | number>, rot: typeof p.rot === 'number' ? p.rot : 0, at: p.at as Placement }) !== null;
 };
-const BURN_REASONS = ['led-overcurrent', 'pin-overcurrent', 'short'];
+const BURN_REASONS = ['led-overcurrent', 'pin-overcurrent', 'short', 'reversed'];
 const validBurn = (b: unknown): b is Burn => isObject(b) && typeof b.id === 'string' && BURN_REASONS.includes(b.reason as string);
 const validWire = (parts: PartInstance[]) => (w: unknown): w is Wire =>
   isObject(w) && typeof w.id === 'string' && typeof w.color === 'string' && isPoint(w.from as string, parts) && isPoint(w.to as string, parts);

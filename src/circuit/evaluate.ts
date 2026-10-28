@@ -16,7 +16,7 @@ export type PartState = {
   speed?: number;                               // a motor, 0–1
   powered?: boolean;                            // a module with its supply and ground wired
 };
-export type Burn = { id: string; reason: 'led-overcurrent' | 'pin-overcurrent' | 'short'; supply?: string }; // supply: which one was shorted
+export type Burn = { id: string; reason: 'led-overcurrent' | 'pin-overcurrent' | 'short' | 'reversed'; supply?: string }; // supply: which one was shorted
 export type CircuitResult = {
   pinVolts: number[];
   wireVolts: Record<string, number>; // each wire's voltage (the live wire tags)
@@ -41,6 +41,7 @@ const POWER: Partial<Record<PartType, { vcc: string; gnd: string; ohms: number; 
   oled: { vcc: 'VCC', gnd: 'GND', ohms: 250, min: 3 },
   soil: { vcc: 'VCC', gnd: 'GND', ohms: 1000, min: 3.0 }, // runs from 3.3 V too (the pin's supply droops to ~3.298 V under load)
 };
+const REVERSED_V = 2.5; // how far below its ground a module's supply pin may be before it burns
 const TIP120 = { vbe: 1.4, rbe: 50, ron: 2, ibOn: 1e-4 };
 
 // Nets depend only on the circuit, which changes far less often than the pins: work them out once per circuit.
@@ -102,7 +103,7 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
       const prm = paramsOf(p.type, p.params);
       const R = (tag: string, a: number, b: number, ohms: number) => add(tag, { kind: 'R', a, b, ohms });
       const power = POWER[p.type];
-      if (power) R(`load:${p.id}`, pin(power.vcc), pin(power.gnd), power.ohms);
+      if (power && !burns.has(p.id)) R(`load:${p.id}`, pin(power.vcc), pin(power.gnd), power.ohms);
       switch (p.type) {
         case 'led': if (!burns.has(p.id)) add(`led:${p.id}`, { kind: 'D', a: pin('A'), k: pin('K'), vf: LED_VF[String(prm.color)] ?? 1.9, ron: LED_RON }); break;
         case 'resistor': R(`r:${p.id}`, pin('1'), pin('2'), Number(prm.ohms)); break;
@@ -142,9 +143,15 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
 
   // which modules have power: a first solve with every module's own outputs off
   const probe = (() => { const b = build(null, new Set()); return solve(b.t.map((x) => x.el), b.nodes, ground); })();
+  // a module wired with its supply and ground swapped burns the moment it is powered
+  for (const p of placed) {
+    const pw = POWER[p.type];
+    if (!burnRules || !pw || burns.has(p.id)) continue;
+    if (probe.volts[net(`${p.id}.${pw.vcc}`)] - probe.volts[net(`${p.id}.${pw.gnd}`)] <= -REVERSED_V) { burns.add(p.id); newBurns.push({ id: p.id, reason: 'reversed' }); }
+  }
   const powered = new Set(placed.filter((p) => {
     const pw = POWER[p.type];
-    if (!pw) return false;
+    if (!pw || burns.has(p.id)) return false;
     const vcc = probe.volts[net(`${p.id}.${pw.vcc}`)], gnd = probe.volts[net(`${p.id}.${pw.gnd}`)];
     return vcc - gnd >= pw.min && Math.abs(gnd) < 0.5;
   }).map((p) => p.id));
@@ -203,7 +210,7 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
       }
       case 'diode': parts[p.id] = { current: Math.max(0, currentOf(s, `d:${p.id}`)) }; break;
       default:
-        if (POWER[p.type]) parts[p.id] = { powered: powered.has(p.id) };
+        if (POWER[p.type]) parts[p.id] = burnt ? { powered: false, burnt: true } : { powered: powered.has(p.id) };
     }
   }
 

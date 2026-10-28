@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { footprintOf, PART_DEFS } from '../../circuit/parts';
+import { footprintOf, PART_DEFS, usesBreadboard } from '../../circuit/parts';
 import type { PartType } from '../../circuit/types';
 import { COMPONENTS } from '../../content/components';
 import type { Project } from '../../content/projects';
@@ -31,15 +31,17 @@ export function projectHotspots(project: Project, view: View): Hotspot[] {
     if (bench && 'x' in p.at) {
       const { x, z } = p.at;
       spots.push({ id: p.type, type: p.type, anchor: () => new THREE.Vector3(x, bench.h + 3, z) });
+    } else if ('x' in p.at) { // a part standing on the table
+      const { x, z } = p.at;
+      spots.push({ id: p.type, type: p.type, anchor: () => new THREE.Vector3(x, (HEIGHT[p.type] ?? 8) + 4, z) });
     } else {
       const holes = Object.values(footprintOf(p) ?? {});
       const ref = holes[Math.floor(holes.length / 2)] ?? holes[0];
       spots.push({ id: p.type, type: p.type, anchor: () => (ref ? pinWorld(`bb.${ref}`).add(new THREE.Vector3(0, (HEIGHT[p.type] ?? 8) + 2, 0)) : new THREE.Vector3(0, BB.H + 10, 0)) });
     }
   }
-  const hasBoardParts = project.build.parts.some((p) => !('x' in p.at));
   spots.push({ id: 'uno', type: 'uno', anchor: () => pinWorld('uno.D13').add(new THREE.Vector3(-12, 4, 14)) });
-  if (hasBoardParts || true) spots.push({ id: 'breadboard', type: 'breadboard', anchor: () => new THREE.Vector3(colX(24) + BENCH.breadboard[0], BB.H + BENCH.breadboard[1], ROW.h + BENCH.breadboard[2]) });
+  if (usesBreadboard(project.build.parts, project.build.wires)) spots.push({ id: 'breadboard', type: 'breadboard', anchor: () => new THREE.Vector3(colX(24) + BENCH.breadboard[0], BB.H + BENCH.breadboard[1], ROW.h + BENCH.breadboard[2]) });
   return spots.map((s, i) => ({
     id: s.id, view, offset: OFFSETS[i % OFFSETS.length], anchor: s.anchor,
     name: COMPONENTS[s.type as keyof typeof COMPONENTS].name,

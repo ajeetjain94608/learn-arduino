@@ -17,6 +17,7 @@ export function BurnCard() {
   const warnings = useMemo(() => checkWiring({ parts, wires }), [parts, wires]);
   if (!burns.length) return null;
   const lines = burns.map((b) => {
+    if (b.reason === 'reversed') return { key: b.id, text: t('burn.reversed'), action: { label: t('burn.replacePart'), id: b.id } };
     if (b.reason === 'led-overcurrent') return { key: b.id, text: t('burn.led'), action: { label: t('burn.replacePart'), id: b.id } };
     if (b.reason === 'short') return { key: b.id, text: t('burn.short').replace('{supply}', SUPPLY_WORDS[b.supply ?? '5V']), action: { label: t('burn.replaceBoard'), id: 'uno' } };
     const pin = b.id.slice(4);

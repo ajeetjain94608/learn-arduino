@@ -95,3 +95,26 @@ describe('parts standing on the table, wired leg to leg (no breadboard)', () => 
     expect(a0(1)).toBeGreaterThan(4.5);
   });
 });
+
+describe('a module wired the wrong way round', () => {
+  const sonar: PartInstance = { id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 150, z: 5 } };
+  it('burns when its supply and ground are swapped, and no longer counts as powered', () => {
+    const swapped: CircuitSpec = { parts: [sonar], wires: [w('uno.GND', 'hcsr041.VCC'), w('uno.5V', 'hcsr041.GND')] };
+    const r = evaluate(swapped, pins(), {}, new Set());
+    expect(r.newBurns).toEqual([{ id: 'hcsr041', reason: 'reversed' }]);
+    expect(r.parts.hcsr041).toMatchObject({ burnt: true, powered: false });
+    expect(evaluate(swapped, pins(), {}, new Set(['hcsr041'])).newBurns).toEqual([]); // already burnt: reported once
+  });
+  it('is fine the right way round', () => {
+    const ok: CircuitSpec = { parts: [sonar], wires: [w('uno.5V', 'hcsr041.VCC'), w('uno.GND_P1', 'hcsr041.GND')] };
+    const r = evaluate(ok, pins(), {}, new Set());
+    expect(r.newBurns).toEqual([]);
+    expect(r.parts.hcsr041.powered).toBe(true);
+  });
+});
+describe('pins fighting each other', () => {
+  it('one pin HIGH wired to another that is LOW burns a pin', () => {
+    const r = evaluate({ parts: [], wires: [w('uno.D12', 'uno.D13')] }, pins({ 12: { mode: 'output', high: false }, 13: { mode: 'output', high: true } }), {}, new Set());
+    expect(r.newBurns.map((b) => b.reason)).toEqual(['pin-overcurrent']);
+  });
+});

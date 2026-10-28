@@ -55,6 +55,7 @@ export const en = {
   'build.wiring.rail.T+': 'Top + rail', 'build.wiring.rail.T-': 'Top − rail', 'build.wiring.rail.B+': 'Bottom + rail', 'build.wiring.rail.B-': 'Bottom − rail',
   'burn.led': 'The LED burnt out: too much current. Add a resistor in series (220 Ω).',
   'burn.pin': 'Pin {pin} was damaged: it was wired straight to {to}. Remove that wire.',
+  'burn.reversed': 'A module burnt out: its + and − were wired the wrong way round. Swap those two wires.',
   'burn.pinOther': 'a supply or another pin',
   'burn.short': 'Short circuit! {supply} is wired straight to GND or to another supply. Remove that wire, then replace the board.',
   'burn.replacePart': 'Replace part', 'burn.replaceBoard': 'Replace board',

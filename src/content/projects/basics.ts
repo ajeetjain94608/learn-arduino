@@ -232,7 +232,7 @@ void loop() {
     learn: ['Making a precise pulse with delayMicroseconds()', 'Timing a pulse with pulseIn()', 'Turning time into distance'],
     tryIt: ['Drag the obstacle closer and farther', 'Type a distance in the sensor’s window', 'Print “Too close!” under 10 cm'],
     build: {
-      parts: [{ id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 30, z: -72 } }],
+      parts: [{ id: 'hcsr041', type: 'hcsr04', params: {}, at: { x: 150, z: 5 }, rot: 270 }], // facing the open right side
       wires: [
         wire('uno.5V', 'hcsr041.VCC', 'power'), wire('uno.D9', 'hcsr041.TRIG'), wire('hcsr041.ECHO', 'uno.D10', 'data'), wire('hcsr041.GND', 'uno.GND', 'ground'),
       ],

@@ -57,3 +57,21 @@ test('the board has three GND sockets and every one of them is a wire point', as
   await openBuild(page);
   for (const pin of ['GND', 'GND_P1', 'GND_P2']) expect(await call(page, 'addWire', `uno.${pin}`, `bb.${pin === 'GND' ? 1 : pin === 'GND_P1' ? 2 : 3}a`)).toBeTruthy();
 });
+
+test.describe('Edit in Build', () => {
+  for (const id of ['blink', 'board', 'distance']) {
+    test(`${id} opens in Build with its own parts and wires`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto('/?test');
+      await page.evaluate(() => localStorage.clear());
+      await page.goto(`/?test#/projects/${id}`);
+      await page.getByRole('button', { name: 'Edit in Build' }).click();
+      await expect(page).toHaveURL(new RegExp(`#/projects/${id}/build$`));
+      await expect(page.getByTestId('build-screen')).toBeVisible();
+      await expect(page.getByTestId('viewer').locator('canvas[data-engine]')).toBeVisible();
+      await expect(page.getByRole('tab', { name: 'About' })).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
+});
