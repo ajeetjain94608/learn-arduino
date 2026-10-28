@@ -74,7 +74,7 @@ export function unoLinks(spec: CircuitSpec): Record<string, Record<string, Link>
 // supply burn with no program running; with the board stopped every pin is an input, so pin drives cannot burn.
 // `burnt` holds everything already burnt: part ids,
 // 'uno.D<n>' pins, 'uno' (a shorted board).
-export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>, burnRules = true): CircuitResult {
+export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValues, burnt: Set<string>, burnRules = true, usb = true): CircuitResult {
   const nets = netsOf(spec);
   const net = (ref: string) => nets.netOf(ref);
   const ground = net('uno.GND');
@@ -90,6 +90,7 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
     const out: Tagged[] = [];
     let nodes = nets.count;
     const add = (tag: string, el: Element) => out.push({ tag, el });
+    if (!usb) return { t: out, nodes }; // the USB cable is not plugged in: the board has no power at all
     if (!burns.has('uno')) for (const s of SUPPLIES) add(`supply:${s.pin}`, { kind: 'V', node: net(`uno.${s.pin}`), volts: s.volts, ohms: s.ohms });
     pins.forEach((d, n) => {
       if (burns.has(`uno.${unoPinName(n)}`) || burns.has('uno')) return;
@@ -225,3 +226,9 @@ export function evaluate(spec: CircuitSpec, pins: PinDrive[], inputs: InputValue
     },
   };
 }
+
+// Whether anything in the solved circuit is drawing current (a lit LED, a spinning motor, a powered module…): when nothing is,
+// there is no current to show on the wires.
+export const anyCurrent = (parts: Record<string, PartState>): boolean => Object.values(parts).some((p) =>
+  (p.brightness ?? 0) > 0.01 || (p.speed ?? 0) > 0.01 || (p.current ?? 0) > 0.002 || !!p.powered
+  || !!p.rgb?.some((v) => v > 0.01) || (!!p.lights && Object.values(p.lights).some((v) => v > 0.01)));

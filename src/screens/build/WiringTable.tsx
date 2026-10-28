@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { BB_HOLES, UNO_PINS } from '../../circuit/board';
-import { partPoints } from '../../circuit/parts';
+import { boardOf, DEFAULT_BOARD, footprintOf, partPoints } from '../../circuit/parts';
 import type { PartInstance, PinRef } from '../../circuit/types';
-import { t } from '../../i18n/en';
+import { t, type StringKey } from '../../i18n/en';
 import { pinLabel } from '../../circuit/pointLabel';
 
 export { pinLabel };
 import { useBuild, useBuildApi } from '../../state/buildContext';
+import { Schematic } from './Schematic';
 
 const COLORS: { value: string; name: string }[] = [
   { value: '#F28C16', name: 'Orange' }, { value: '#2563EB', name: 'Blue' }, { value: '#10B981', name: 'Green' },
@@ -18,8 +19,17 @@ const strip = (col: number) => BB_HOLES.filter((h) => h.match(/^(\d+)[a-j]$/)?.[
 const rails = BB_HOLES.filter((h) => /^[TB][+-]\d+$/.test(h));
 
 // The From / To pickers: UNO pins, then the breadboard column by column, then the rails. Used points say so.
+// which part's leg is in each hole: "LED 1 · A"
+const partName = (p: PartInstance) => `${t(`build.part.${p.type}` as StringKey)} ${p.id.slice(p.type.length)}`.trim();
+function legsIn(parts: readonly PartInstance[]): Map<PinRef, string> {
+  const owners = new Map<PinRef, string>();
+  for (const p of parts) for (const [pin, hole] of Object.entries(footprintOf(p) ?? {})) owners.set(`${boardOf(p) ?? DEFAULT_BOARD}.${hole}`, `${partName(p)} · ${pin}`);
+  return owners;
+}
+
 function PointSelect({ label, value, onChange, used, parts }: { label: string; value: string; onChange(v: string): void; used: Set<PinRef>; parts: PartInstance[] }) {
-  const opt = (ref: PinRef) => <option key={ref} value={ref}>{pinLabel(ref)}{used.has(ref) ? ` ${t('build.wiring.inUse')}` : ''}</option>;
+  const owners = useMemo(() => legsIn(parts), [parts]);
+  const opt = (ref: PinRef) => <option key={ref} value={ref}>{pinLabel(ref)}{owners.has(ref) ? ` — ${owners.get(ref)}` : ''}{used.has(ref) ? ` ${t('build.wiring.inUse')}` : ''}</option>;
   return (
     <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">{t('build.wiring.choose')}</option>
@@ -38,8 +48,44 @@ function PointSelect({ label, value, onChange, used, parts }: { label: string; v
   );
 }
 
+// What is plugged into each breadboard, and into which holes.
+function OnBoard({ parts }: { parts: PartInstance[] }) {
+  const boards = parts.filter((p) => p.type === 'breadboard');
+  if (!boards.length) return null;
+  return (
+    <section className="wiring__board" aria-label={t('build.wiring.onBoard')}>
+      {boards.map((b) => {
+        const inside = parts.filter((p) => !('x' in p.at) && boardOf(p) === b.id);
+        return (
+          <div key={b.id}>
+            <h4>{t('build.breadboard')}{b.id === 'bb' ? '' : ` ${b.id.slice(10)}`} {t('build.wiring.holes')}</h4>
+            {inside.length === 0 ? <p className="build-note">{t('build.wiring.boardEmpty')}</p> : (
+              <ul>{inside.map((p) => <li key={p.id}><b>{partName(p)}</b> {Object.entries(footprintOf(p) ?? {}).map(([pin, hole]) => `${pin} ${hole}`).join(' · ')}</li>)}</ul>
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 // Wiring tab: the list of connections (recolour, delete) and a From → To row to add one.
+// The wiring tab: the schematic (a drawing with symbols and net labels, the way a PCB tool shows it) or the list of connections.
 export function WiringTable() {
+  const [view, setView] = useState<'schematic' | 'list'>('schematic');
+  return (
+    <div>
+      <div className="part-window__param" role="radiogroup" aria-label={t('build.wiring.view')}>
+        {(['schematic', 'list'] as const).map((v) => (
+          <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'is-on' : ''} onClick={() => setView(v)}>{t(`build.wiring.view.${v}` as StringKey)}</button>
+        ))}
+      </div>
+      {view === 'schematic' ? <Schematic /> : <WiringList />}
+    </div>
+  );
+}
+
+function WiringList() {
   const wires = useBuild((s) => s.wires);
   const selected = useBuild((s) => s.selected);
   const addWire = useBuild((s) => s.addWire);
@@ -59,6 +105,7 @@ export function WiringTable() {
         <PointSelect label={t('build.wiring.to')} value={to} onChange={setTo} used={used} parts={parts} />
         <button type="button" className="wiring__connect" disabled={!from || !to} onClick={connect}>{t('build.wiring.connect')}</button>
       </div>
+      <OnBoard parts={parts} />
       {wires.length === 0 ? <p className="build-note">{t('build.wiring.none')}</p> : (
         <ul className="wiring__list" aria-label={t('build.wiring.list')}>
           {wires.map((w) => (

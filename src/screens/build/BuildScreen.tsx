@@ -1,3 +1,4 @@
+import { anyCurrent } from '../../circuit/evaluate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BB_HOLES, UNO_PINS } from '../../circuit/board';
 import { partPoints } from '../../circuit/parts';
@@ -65,6 +66,7 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const labels = useWorkbenchStore((s) => s.labels);
+  const showCurrent = useWorkbenchStore((s) => s.showCurrent);
   const running = useWorkbenchStore((s) => s.running);
   const rxLed = useWorkbenchStore((s) => s.rxLed);
   const txLed = useWorkbenchStore((s) => s.txLed);
@@ -111,11 +113,11 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} />
             <WireDragger targets={targets} parts={parts} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
-            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onMove={dragPart} selected={selected} onInput={setInput} />
+            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} flow={{ active: showCurrent && !!circuitState && anyCurrent(circuitState.parts), volts: circuitState?.wireVolts ?? {} }} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onMove={dragPart} selected={selected} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill pin13={false} />
-        <ViewerToolbar showCurrentButton={false} soundButton />
+        <ViewerToolbar parts={parts} />
         <BuzzerSound />
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>

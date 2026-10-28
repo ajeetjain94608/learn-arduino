@@ -51,7 +51,7 @@ describe('workbench store: Run compiles changed code', () => {
   const fake: Compiler = { compile: (sketch) => new Promise((resolve) => pending.push({ sketch, resolve })) };
   const ok = (hex: string): CompileResult => ({ ok: true, program: { ...BLINK.program, hex }, diagnostics: [], ms: 5 });
 
-  beforeEach(() => { pending = []; setCompiler(fake); s().setRunning(false); s().setCode(BLINK.code); s().loadProgram(BLINK.program); s().setRunning(false); });
+  beforeEach(() => { pending = []; useWorkbenchStore.setState({ usb: true }); setCompiler(fake); s().setRunning(false); s().setCode(BLINK.code); s().loadProgram(BLINK.program); s().setRunning(false); });
 
   it('unchanged project code runs instantly without compiling', () => {
     s().upload();

@@ -293,3 +293,19 @@ export const LOOSE_SLOTS = [-115, 112, -145, 142, 172].flatMap((z) => [-158, -12
 // face the open right-hand side of the bench, so the obstacle never ends up on the UNO or the breadboard.
 export const START_TURN: Partial<Record<PartType, number>> = { hcsr04: 270 };
 export const FACING_SLOTS = [{ x: 150, z: 5 }, { x: 150, z: -70 }, { x: 150, z: 80 }];
+
+// ── The table seen from above (the little map in the corner of the 3D view) ──────────────────────────────────────────
+export type MapItem = { kind: 'uno' | 'board' | 'part'; x: number; z: number; w: number; d: number };
+export const UNO_RECT: Rect = { x: -38, z: 2, w: 68.6, d: 53.3 };
+// the UNO, every breadboard, and everything else standing on the bench (parts in a breadboard's holes are on the board);
+// with no parts given (Home's Blink and board views) the table is the UNO and the first breadboard
+export function mapItems(parts?: readonly PartInstance[]): MapItem[] {
+  const out: MapItem[] = [{ kind: 'uno', ...UNO_RECT }];
+  if (!parts) return [...out, { kind: 'board', x: BOARD_AT.x, z: BOARD_AT.z, w: 82, d: 55 }];
+  for (const p of parts) {
+    if (!onBench(p.at)) continue;
+    const r = partRect(p, p.at, p.rot ?? 0);
+    out.push({ kind: p.type === 'breadboard' ? 'board' : 'part', x: r.x, z: r.z, w: r.w, d: r.d });
+  }
+  return out;
+}

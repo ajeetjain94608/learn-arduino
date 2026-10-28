@@ -38,7 +38,11 @@ test('main navigation: Home, Projects, Components, Build, Settings', async ({ pa
 test('the viewer toolbar rotates and zooms the camera', async ({ page }) => {
   await page.goto('/?test');
   const bar = page.getByRole('toolbar', { name: '3D view' });
-  for (const name of ['Rotate left', 'Rotate right', 'Zoom out', 'Zoom in', 'Reset view', 'Current', 'Labels']) await expect(bar.getByRole('button', { name })).toBeVisible();
+  for (const name of ['Rotate left', 'Rotate right', 'Zoom out', 'Zoom in', 'Reset view']) await expect(bar.getByRole('button', { name })).toBeVisible();
+  // the same three switches and the table map in the corner of every page's 3D view
+  const options = page.getByRole('toolbar', { name: 'View options' });
+  for (const name of ['Current', 'Labels', 'Sound']) await expect(options.getByRole('button', { name })).toBeVisible();
+  await expect(page.getByTestId('minimap')).toBeVisible();
   type Cam = { azimuth: number; zoom: number };
   // null until the 3D scene has registered its test hook
   const cam = () => page.evaluate(() => (window as unknown as { __rq?: { debug: { camera?(): Cam } } }).__rq?.debug.camera?.() ?? null);

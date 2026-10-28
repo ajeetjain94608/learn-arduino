@@ -15,7 +15,8 @@ export type SimCommand =
   | { t: 'circuit'; spec: CircuitSpec | null }
   | { t: 'input'; partId: string; key: string; value: number }
   | { t: 'replace'; id: string }
-  | { t: 'burns'; burns: Burn[] };
+  | { t: 'burns'; burns: Burn[] }
+  | { t: 'power'; on: boolean };
 export type SimMessage = { gen: number; snap: SimSnapshot };
 
 const engine = new SimEngine();
@@ -54,6 +55,7 @@ self.onmessage = (e: MessageEvent<SimCommand>) => {
   else if (m.t === 'input') engine.setInput(m.partId, m.key, m.value);
   else if (m.t === 'replace') engine.replace(m.id);
   else if (m.t === 'burns') engine.setBurns(m.burns);
+  else if (m.t === 'power') engine.setPower(m.on);
   if (m.t === 'stop') self.postMessage({ gen, snap: engine.snapshot() } satisfies SimMessage);
   schedule(0);
 };

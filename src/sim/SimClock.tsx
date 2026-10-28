@@ -75,6 +75,8 @@ export function SimClock({ circuit, inputs, burns, onBurns }: Props = {}) {
       (sentInputs.current[partId] ??= {})[key] = value;
     }
   }, [inputs]);
+  const usb = useWorkbenchStore((s) => s.usb);
+  useEffect(() => { worker.current?.postMessage({ t: 'power', on: usb } satisfies SimCommand); }, [usb]); // the cable is the board's power
   const replaceRequest = useWorkbenchStore((s) => s.replaceRequest);
   useEffect(() => {
     if (!replaceRequest) return;

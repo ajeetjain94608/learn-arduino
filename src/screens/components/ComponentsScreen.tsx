@@ -115,7 +115,7 @@ export function ComponentScreen({ type, onNavigate, onOpen, onUse }: { type: str
               <SandboxScene />
             </Workbench>
           </GlErrorBoundary>
-          <ViewerToolbar showCurrentButton={false} />
+          <ViewerToolbar />
           <GlGuardCard state={guard.state} onReload={guard.reload} />
         </section>
         <div className="side">

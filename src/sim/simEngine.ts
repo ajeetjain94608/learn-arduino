@@ -53,6 +53,7 @@ export class SimEngine {
   private burns: Burn[] = [];
   private circuitState: CircuitSnapshot | null = null;
   private signature = '';      // the chip's pin drives last time the circuit was solved
+  private usb = true;          // the USB cable is plugged in (the board has power)
   private dirty = true;        // the circuit or an input changed: solve again
   evaluations = 0;             // how many times the circuit was solved (tests keep this low)
   private replaced = 0;
@@ -95,6 +96,8 @@ export class SimEngine {
     this.burns = this.burns.filter((b) => this.burnt.has(b.id));
     if (!spec) { this.circuitState = null; this.chip && this.releasePins(this.chip); }
   }
+  // The board is powered through its USB cable: with it unplugged nothing in the circuit has power.
+  setPower(on: boolean): void { if (on !== this.usb) { this.usb = on; this.dirty = true; } }
   setInput(partId: string, key: string, value: number): void { (this.inputs[partId] ??= {})[key] = value; this.dirty = true; }
   // "Replace part" / "Replace board": forget a burn ('uno' also clears the short and every burnt pin).
   replace(id: string): void {
@@ -124,7 +127,7 @@ export class SimEngine {
     if (!this.dirty && signature === this.signature) return;
     this.signature = signature;
     this.dirty = false;
-    const r = evaluate(this.spec!, drives, this.inputs, this.burnt); // powered from USB even when stopped: a short burns at once
+    const r = evaluate(this.spec!, drives, this.inputs, this.burnt, true, this.usb); // powered from USB even when stopped: a short burns at once
     this.evaluations++;
     for (const b of r.newBurns) { this.burnt.add(b.id); this.burns.push(b); }
     this.circuitState = { seq: (this.circuitState?.seq ?? 0) + 1, wireVolts: r.wireVolts, parts: r.parts, burns: [...this.burns], board: r.board };

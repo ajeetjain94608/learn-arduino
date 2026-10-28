@@ -20,7 +20,7 @@ test.describe('Projects', () => {
     await expect(page.getByTestId('info-card').getByRole('heading', { name: 'Night light' })).toBeVisible();
     await expect(page.getByTestId('code-card')).toContainText('const int DARK = 400;');
     await expect(page.locator('[data-hotspot="ldr"]')).toBeVisible();        // the labels, like Blink's
-    expect((await build(page)).parts.map((p) => p.type).sort()).toEqual(['ldr', 'led', 'resistor', 'resistor']);
+    expect((await build(page)).parts.map((p) => p.type).sort()).toEqual(['breadboard', 'ldr', 'led', 'resistor', 'resistor']);
   });
 
   test("Home's project strip opens every project right on Home, the way Blink does", async ({ page }) => {
@@ -41,6 +41,7 @@ test.describe('Projects', () => {
     await page.getByTestId('info-card').getByRole('button', { name: 'Edit in Build' }).click();
     await expect(page).toHaveURL(/#\/projects\/knob\/build$/);
     await page.getByRole('tab', { name: 'Wiring' }).click();
+    await page.getByRole('radio', { name: 'List' }).click();
     await page.getByRole('button', { name: /^Delete/ }).first().click();
     expect((await build(page)).wires).toHaveLength(4);
     await nav(page, 'Build');
@@ -105,7 +106,7 @@ test.describe('addresses and Reset (review fixes)', () => {
     await expect(page.getByTestId('burn-card')).toBeHidden();
     await page.waitForTimeout(2500); // long enough for a stale burn to be sent back from the simulator
     await expect(page.getByTestId('burn-card')).toBeHidden();
-    expect((await build(page)).parts.map((p) => p.id).sort()).toEqual(['led1', 'pot1', 'resistor1']);
+    expect((await build(page)).parts.map((p) => p.id).sort()).toEqual(['bb', 'led1', 'pot1', 'resistor1']);
   });
 });
 

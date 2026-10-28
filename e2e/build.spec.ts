@@ -124,6 +124,7 @@ async function ledAndResistor(page: Page) {
   await expect(page.getByTestId('part-window')).toContainText('2b');
 }
 async function connect(page: Page, from: string, to: string) {
+  await page.getByRole('radio', { name: 'List' }).click(); // the wiring tab opens on the schematic; the list has the pickers
   await page.getByRole('combobox', { name: 'From' }).selectOption(from);
   await page.getByRole('combobox', { name: 'To' }).selectOption(to);
   await page.getByRole('button', { name: 'Connect', exact: true }).click();
@@ -160,6 +161,7 @@ test.describe('Build: wiring', () => {
       await page.mouse.up();
     }
     await page.getByRole('tab', { name: 'Wiring' }).click();
+    await page.getByRole('radio', { name: 'List' }).click();
     await expect(page.getByRole('list', { name: 'Connections' }).getByRole('listitem')).toHaveCount(2);
     await expectBlinkLights(page);
   });
@@ -205,9 +207,11 @@ test.describe('Build: burns and warnings', () => {
   });
 });
 
-test('review fix: Home and Build each keep their own program; Build has no "show current" shortcut', async ({ page }) => {
+test('review fix: Home and Build each keep their own program; Current in Build only shows the current, it does not start a program', async ({ page }) => {
   await openBuild(page);
-  await expect(page.getByRole('toolbar', { name: /3D view/ }).getByRole('button', { name: /current/i })).toHaveCount(0);
+  await page.getByRole('toolbar', { name: 'View options' }).getByRole('button', { name: /current/i }).click();
+  expect(await page.evaluate(() => (window as unknown as { __rq: { debug: { store(): { running: boolean } } } }).__rq.debug.store().running)).toBe(false);
+  await page.getByRole('toolbar', { name: 'View options' }).getByRole('button', { name: /current/i }).click(); // off again
   await page.getByRole('tab', { name: 'Code' }).click();
   await page.getByRole('textbox', { name: 'Sketch code' }).fill('void setup() {\n  pinMode(13, OUTPUT)\n}\n\nvoid loop() {\n}\n'); // a mistake
   await page.getByTestId('code-card').getByRole('button', { name: 'Run' }).click();
@@ -216,7 +220,7 @@ test('review fix: Home and Build each keep their own program; Build has no "show
   const home = await page.evaluate(() => (window as unknown as { __rq: { debug: { store(): { code: string; diagnostics: unknown[]; program: { hex: string } } } } }).__rq.debug.store());
   expect(home.code).toContain('digitalWrite(13, HIGH);'); // Home's Blink, not the build's code
   expect(home.diagnostics).toEqual([]);                   // the build's errors stay with the build
-  await expect(page.getByRole('toolbar', { name: /3D view/ }).getByRole('button', { name: /current/i })).toHaveCount(1);
+  await expect(page.getByRole('toolbar', { name: 'View options' }).getByRole('button', { name: /current/i })).toHaveCount(1);
 });
 
 test.describe('review fix: touch — quick drags orbit, press-and-hold starts a wire', () => {

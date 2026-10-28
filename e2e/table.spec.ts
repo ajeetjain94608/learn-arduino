@@ -38,7 +38,8 @@ test.describe('Building: the breadboard is a part like any other', () => {
     expect(await call(page, 'addWire', 'breadboard2.5a', 'uno.D13')).toBeTruthy();
   });
 
-  test('pressing a part and dragging it onto a breadboard puts its legs in the holes; dragging it off takes it out', async ({ page }) => {
+  test('pressing a part and dragging it onto a breadboard puts its legs in the holes; dragging it off takes it out', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop', 'the parts are too small to grab on a phone-sized 3D view without zooming');
     await openBuild(page);
     await call(page, 'addPart', 'breadboard');
     const led = (await call(page, 'addPart', 'led')) as string;
@@ -87,7 +88,8 @@ test.describe('Edit in Build', () => {
   }
 });
 
-test('dragging a wire in 3D from each power-header GND socket, and to a leg of a part on the table', async ({ page }) => {
+test('dragging a wire in 3D from each power-header GND socket, and to a leg of a part on the table', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the pins are too close together to hit on a phone-sized 3D view without zooming');
   await openBuild(page);
   await call(page, 'addPart', 'breadboard');
   await page.getByRole('button', { name: 'Add LED' }).click();
@@ -107,7 +109,8 @@ test('dragging a wire in 3D from each power-header GND socket, and to a leg of a
   expect((await store(page)).parts.find((p) => p.id === 'bb')!.at).toEqual(expect.objectContaining({ x: 50, z: 8 })); // pulling wires did not move the board
 });
 
-test('pulling a wire out of a breadboard hole (or a module pin) does not carry the board or the module', async ({ page }) => {
+test('pulling a wire out of a breadboard hole (or a module pin) does not carry the board or the module', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'the pins are too close together to hit on a phone-sized 3D view without zooming');
   await openBuild(page);
   await call(page, 'addPart', 'breadboard');
   await call(page, 'addPart', 'hcsr04');
@@ -126,4 +129,35 @@ test('pulling a wire out of a breadboard hole (or a module pin) does not carry t
   const s = await store(page);
   expect(s.wires.map((w) => [w.from, w.to].sort().join('>'))).toEqual(expect.arrayContaining(['bb.6c>uno.D8', 'hcsr041.TRIG>uno.D9']));
   expect(s.parts.map((p) => JSON.stringify(p.at))).toEqual(before);
+});
+
+test.describe('Wiring as a schematic', () => {
+  const pick = (page: Page, ref: string) => page.locator(`[data-ref="${ref}"]`).click({ force: true });
+  test('the wiring tab opens on a schematic; two pins picked in turn are joined with a jumper', async ({ page }) => {
+    await openBuild(page);
+    await call(page, 'addPart', 'breadboard');
+    const led = (await call(page, 'addPart', 'led')) as string;
+    await call(page, 'movePart', led, { col: 10, row: 'c' });
+    await call(page, 'select', null);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await expect(page.getByTestId('schematic')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'LED 1' })).toBeVisible();
+    await pick(page, 'uno.D13');
+    await expect(page.getByTestId('schematic')).toContainText('UNO D13 is picked');
+    await pick(page, 'led1.A');
+    const w = (await store(page)).wires;
+    expect(w).toHaveLength(1);
+    expect([w[0].from, w[0].to].sort()).toEqual(['bb.10a', 'uno.D13']);             // a jumper in a free hole of the LED's strip
+    // the pins now carry the same label
+    await expect(page.locator('[data-ref="led1.A"]').locator('xpath=..').locator('text')).toHaveText('D13');
+    await pick(page, 'led1.K');
+    await pick(page, 'uno.GND');
+    expect((await store(page)).wires).toHaveLength(2);
+  });
+  test('the List view still has the pickers', async ({ page }) => {
+    await openBuild(page);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await page.getByRole('radio', { name: 'List' }).click();
+    await expect(page.getByRole('combobox', { name: 'From' })).toBeVisible();
+  });
 });

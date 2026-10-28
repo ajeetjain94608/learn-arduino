@@ -4,6 +4,7 @@ import type { Diagnostic, Program } from '../build/compiler/types';
 import type { CircuitSnapshot } from '../sim/simEngine';
 import { BLINK } from '../content/sketches/blink';
 import type { View } from '../three/workbench/cameraViews';
+import { isTestMode } from '../three/shared/motion';
 
 type WorkbenchState = {
   view: View;
@@ -19,6 +20,8 @@ type WorkbenchState = {
   cameraCmd: { kind: 'rotate' | 'zoom' | 'focus' | 'fit'; amount: number; seq: number; target?: [number, number, number] } | null; // toolbar rotate/zoom buttons; focus: look at a point (amount = zoom); fit: everything in view
   focusCamera(target: [number, number, number], zoom: number): void;
   fitCamera(): void; // ease the camera so everything on the bench (props included) is in view
+  usb: boolean;              // the USB cable is plugged into the UNO (it powers the board); Run plugs it in
+  plugging: boolean;         // the cable is on its way in, the upload waits for it
   uploading: boolean;        // the sketch is being uploaded (Run pressed)
   uploadProgress: number;    // 0..1
   line: number | null;       // sketch line currently running, for highlighting
@@ -55,12 +58,16 @@ type WorkbenchState = {
   setAssembled(b: boolean): void;
   setBootLed(on: boolean): void;
   toggleLabels(): void;
-  toggleCurrent(): void;
+  toggleCurrent(): void;           // Home's shortcut: also starts the shipped program on the lesson circuit
+  setShowCurrent(on: boolean): void; // everywhere else: only show or hide the current on the wires
   setRunning(r: boolean): void;
   setPinHigh(h: boolean): void;
 };
 
 const MAX_LINE = 1024; // longest serial monitor line
+
+export const PLUG_MS = 1000; // how long the USB cable takes to go in before the upload starts
+let pendingUpload: ReturnType<typeof setTimeout> | null = null;
 
 // Start the upload animation; the simulated board runs `program` when it ends.
 function startUpload(set: (p: Partial<WorkbenchState>) => void) {
@@ -79,6 +86,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   bootLed: false,
   resetCount: 0,
   cameraCmd: null,
+  usb: isTestMode() && !new URLSearchParams(location.search).has('nousb'), // (tests start plugged in, unless they ask for the cable)
+  plugging: false,
   uploading: false,
   uploadProgress: 0,
   line: null,
@@ -101,6 +110,12 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   fitCamera: () => set({ cameraCmd: { kind: 'fit', amount: 0, seq: (get().cameraCmd?.seq ?? 0) + 1 } }),
   focusCamera: (target, zoom) => set({ cameraCmd: { kind: 'focus', amount: zoom, target, seq: (get().cameraCmd?.seq ?? 0) + 1 } }),
   upload: () => {
+    // pressing Run: the cable goes into the board first (if it is not in yet), then the sketch is compiled and uploaded
+    if (!get().usb) {
+      set({ usb: true, plugging: true });
+      pendingUpload = setTimeout(() => { pendingUpload = null; set({ plugging: false }); get().upload(); }, PLUG_MS);
+      return;
+    }
     const { code } = get();
     if (get().compiling) getCompiler().cancel?.(); // one compile at a time: a new Run replaces the old one
     // the project's own sketch is shipped precompiled: no compile needed
@@ -163,7 +178,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   toggleLabels: () => set({ labels: !get().labels }),
   // Showing current only makes sense on the wired circuit with the program running.
   toggleCurrent: () => (get().showCurrent ? set({ showCurrent: false }) : set({ showCurrent: true, view: 'circuit', running: true })),
+  setShowCurrent: (showCurrent) => set({ showCurrent }),
   setRunning: (running) => {
+    if (!running && pendingUpload) { clearTimeout(pendingUpload); pendingUpload = null; set({ plugging: false }); } // Stop while the cable is still going in
     if (!running && get().compiling) getCompiler().cancel?.();
     set(running ? { running } : { running, pinHigh: false, uploading: false, line: null, rxLed: false, txLed: false, compiling: false, compileSeq: get().compileSeq + 1 });
   },

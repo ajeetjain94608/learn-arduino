@@ -7,6 +7,7 @@ type OrbitControlsImpl = ComponentRef<typeof OrbitControls>;
 import { useWorkbenchStore } from '../../state/workbenchStore';
 import { LAYER_NO_OUTLINE } from '../shared/layers';
 import { isTestMode, useReducedMotion } from '../shared/motion';
+import { viewQuad } from './viewQuad';
 import { clampZoom, fitOrtho, fitView, MAX_ZOOM, MIN_ZOOM, orbitAround, VIEW_DIR, VIEWS } from './cameraViews';
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -125,7 +126,14 @@ export function CameraRig() {
     };
   }, [camera, scene, size.width, size.height]);
 
+  // where on the table the camera is looking (for the table map): the four corners of the view, on the table's plane
+  const corner = useRef({ ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit: new THREE.Vector3() });
   useFrame((_, dt) => {
+    const cq = corner.current;
+    viewQuad.pts = ([[-1, 1], [1, 1], [1, -1], [-1, -1]] as const).map(([nx, ny]) => {
+      cq.ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      return cq.ray.ray.intersectPlane(cq.plane, cq.hit) ? [cq.hit.x, cq.hit.z] as [number, number] : [0, 0] as [number, number];
+    });
     const tw = tween.current, c = controls.current;
     if (!tw || !c) return;
     tw.t = Math.min(1, tw.t + Math.min(dt, 0.1) / TWEEN_S);

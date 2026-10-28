@@ -1,3 +1,4 @@
+import { anyCurrent } from '../../circuit/evaluate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PROJECT_INFO } from '../../content/en/projects';
 import { projectById } from '../../content/projects';
@@ -144,7 +145,8 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
             <Inspectable onEmptyTap={clearAll}>
               {generic ? (
                 <ProjectCircuit key={generic.id} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} burns={burns}
-                  wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onInput={setInput} />
+                  wireVolts={labels && running ? circuitState?.wireVolts : undefined} flow={{ active: showCurrent && !!circuitState && anyCurrent(circuitState.parts), volts: circuitState?.wireVolts ?? {} }}
+                  pin13={pinHigh} rx={rxLed} tx={txLed} onInput={setInput} />
               ) : (
                 <BlinkCircuit pinHigh={pinHigh} bootLed={bootLed} rx={rxLed} tx={txLed} showCircuit={view === 'circuit'} showCurrent={showCurrent} />
               )}
@@ -159,7 +161,7 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
           <PartTooltip />
         </div>
         <StatusPill pin13={!generic} />
-        <ViewerToolbar showCurrentButton={!generic} soundButton={!!generic} />
+        <ViewerToolbar parts={generic ? parts : undefined} home={!generic} />
         {generic && <BuzzerSound />}
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>

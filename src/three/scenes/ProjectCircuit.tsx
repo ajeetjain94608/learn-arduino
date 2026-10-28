@@ -16,13 +16,14 @@ type Props = {
   burns: { id: string; supply?: string }[];
   wireVolts?: Record<string, number>;
   pin13: boolean; rx: boolean; tx: boolean;
+  flow?: { active: boolean; volts: Record<string, number> };
   onInput(partId: string, key: string, value: number): void;
 };
 
 // Any project's circuit on Home, built the way the Blink circuit is: the breadboard slides in, the parts drop into
 // place one after another, then each wire draws itself from the board (see assembly.ts). Every part can be hovered
 // for its name and tapped for its explanation. Reduced motion shows it built. Remount (key) to play it again.
-export function ProjectCircuit({ parts, wires, inputs, partStates, burns, wireVolts, pin13, rx, tx, onInput }: Props) {
+export function ProjectCircuit({ parts, wires, inputs, partStates, burns, wireVolts, pin13, rx, tx, flow, onInput }: Props) {
   const reduced = useReducedMotion();
   const count = parts.filter((p) => p.type !== 'breadboard').length; // (a breadboard has a step of its own in the plan)
   const plan = useMemo(() => assemblyPlan(count, wires.length), [count, wires.length]);
@@ -46,7 +47,7 @@ export function ProjectCircuit({ parts, wires, inputs, partStates, burns, wireVo
   return (
     <AssemblyContext.Provider value={clock}>
       <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={partStates} wireVolts={wireVolts}
-        pin13={pin13} rx={rx} tx={tx} onPick={() => {}} onInput={onInput} plan={plan} />
+        pin13={pin13} rx={rx} tx={tx} onPick={() => {}} onInput={onInput} plan={plan} flow={flow} />
     </AssemblyContext.Provider>
   );
 }

@@ -11,6 +11,7 @@ import { Jumper } from '../parts/Jumper';
 import { Arrive } from '../scenes/Arrive';
 import type { AssemblyPlan } from '../scenes/assembly';
 import { BurnEffect } from './BurnEffect';
+import { CurrentFlow } from '../current/CurrentFlow';
 import { BenchModel, BoardModel, LooseModel, PartModel } from './partModels';
 import { BB, colX, holeLocal } from '../breadboard/breadboardGeometry';
 import { BENCH, pinWorld } from './pinPoints';
@@ -30,6 +31,8 @@ type Props = {
   onPick(id: string): void;
   onMove?(id: string, at: Placement): boolean | void; // pressing a part and dragging carries it (the Build bench only; Home just looks)
   selected?: string | null;
+  // Current shown as dots along the wires (Home's projects and the Build bench): `volts` are the wires' voltages
+  flow?: { active: boolean; volts: Record<string, number> };
   onInput(partId: string, key: string, value: number): void;
   // Home's project view ("showcase"): the circuit builds itself with this plan, and every part and wire can be hovered
   // (the name card) and tapped, like the Blink circuit. Without it: the plain Build bench.
@@ -52,6 +55,21 @@ function ScreenProbe() {
     };
   }, [scene, camera, gl]);
   return null;
+}
+
+// A curve walked the other way round.
+class Reversed extends THREE.Curve<THREE.Vector3> {
+  constructor(private readonly c: THREE.Curve<THREE.Vector3>) { super(); }
+  getPoint(t: number, target = new THREE.Vector3()) { return this.c.getPoint(1 - t, target); }
+}
+// Which way current runs in a wire, as far as the UNO says: out of a supply pin or a HIGH pin, back into a GND socket. A wire
+// with no UNO end, or on a LOW pin, shows none. Returns true for "from → to" along the wire.
+export function flowForward(from: string, to: string, volts: number): boolean | null {
+  const uno = [from, to].find((r) => r.startsWith('uno.'));
+  if (!uno) return null;
+  const pin = uno.slice(4), out = /^(5V|3V3|VIN)$/.test(pin) || (/^[DA]d+$/.test(pin) && volts >= 1);
+  if (/^GND/.test(pin)) return uno === to;     // into the UNO
+  return out ? uno === from : null;             // away from the UNO
 }
 
 // One jumper, along the path the router gave it.
@@ -84,9 +102,13 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
   return [colX(p.at.col) + 1.27 + (board?.x ?? BENCH.breadboard[0]), 20, z + (board?.z ?? BENCH.breadboard[2])];
 }
 
-export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, onInput, plan }: Props) {
+export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, flow, onInput, plan }: Props) {
   // all wires laid out together so none passes through another or through a part
   const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
+  const flowWires = useMemo(() => (!flow?.active ? [] : wires.flatMap((w) => {
+    const fwd = flowForward(w.from, w.to, flow.volts[w.id] ?? 0), route = routes.get(w.id);
+    return fwd === null || !route ? [] : [{ path: [fwd ? route.curve : new Reversed(route.curve)] }];
+  })), [flow, wires, routes]);
   // the breadboards, and everything else: in a breadboard's holes, or standing on the bench
   const boards = parts.filter((p) => p.type === 'breadboard'), plain = parts.filter((p) => p.type !== 'breadboard');
   const onBoard = plain.filter((p) => !('x' in p.at)), onBench = plain.filter((p) => 'x' in p.at);
@@ -127,6 +149,7 @@ export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts,
       {onBench.map((p) => showcase(p, (
         <FreeModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />
       ), [(p.at as { x: number }).x, 0, (p.at as { z: number }).z]))}
+      <CurrentFlow wires={flowWires} active={!!flow?.active && flowWires.length > 0} />
       {wireVolts && <WireTags wires={wires} routes={routes} volts={wireVolts} />}
       {!solo && wires.map((w, j) => <WireModel key={w.id} wire={w} route={routes.get(w.id)!} parts={parts} onPick={onPick} slot={plan?.wires[j]} />)}
       {burns.map((b) => { const at = burnPosition(b.id, parts, b.supply); return at && <BurnEffect key={b.id} position={at} />; })}

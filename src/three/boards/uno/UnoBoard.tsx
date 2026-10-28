@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useQualityStore } from '../../../state/qualityStore';
+import { useWorkbenchStore } from '../../../state/workbenchStore';
+import { soloMode } from '../../shared/motion';
+import { UsbCable } from './UsbCable';
 import { makeCanvasTexture } from '../../shared/canvasTexture';
 import { noOutline } from '../../shared/layers';
 import { UNO } from './layout';
@@ -43,10 +46,13 @@ export function UnoBoard({ position = [-38, 0, 2], pin13 = false, rx = false, tx
   leds.L.set(pin13 ? 1 : 0);
   leds.RX.set(rx ? 1 : 0);
   leds.TX.set(tx ? 1 : 0);
+  const usb = useWorkbenchStore((s) => s.usb);
+  leds.ON.set(usb ? 1 : 0); // the power LED: on while the USB cable is in
 
   return (
     <group position={position}>
       <primitive object={group} />
+      {!soloMode() && <UsbCable />}
     </group>
   );
 }
