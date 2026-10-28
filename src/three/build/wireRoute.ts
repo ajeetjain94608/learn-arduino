@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { HOUSING_H } from '../parts/jumperCurves';
 
-export type WireEnds = { id: string; from: string; to: string; a: THREE.Vector3; b: THREE.Vector3 };
+// outA / outB: for an end on a part standing on the table (its legs are short and the body is right above them), the way the plug
+// lies: flat on the table, pointing away from the part, so the jumper never stands up through the part
+export type WireEnds = { id: string; from: string; to: string; a: THREE.Vector3; b: THREE.Vector3; outA?: THREE.Vector3 | null; outB?: THREE.Vector3 | null };
 export type Obstacle = { box: THREE.Box3 };
 // kind 'flat': a pre-cut jumper lying on the breadboard; 'arch': a Dupont jumper standing up out of its holes.
 // `curve` is the wire's centre line (for the tube); `points` the whole wire, housings included, every ~1.5 mm.
-export type Route = { kind: 'flat' | 'arch'; curve: THREE.Curve<THREE.Vector3>; points: THREE.Vector3[] };
+export type Route = { kind: 'flat' | 'arch'; curve: THREE.Curve<THREE.Vector3>; points: THREE.Vector3[]; outs?: [THREE.Vector3 | null, THREE.Vector3 | null] };
 
 const CLEAR = 2;          // mm between wires, and between a wire and a part
 // The camera looks along -VIEW_DIR. A wire point "hides" a part if the ray from it away from the camera reaches the
@@ -66,7 +68,7 @@ function flatRoute(a: THREE.Vector3, b: THREE.Vector3): Route {
 
 // An arch `lift` mm above the taller housing, bowed sideways by `bulge` mm (in plan view). A steep arch climbs
 // almost straight up out of its plugs before it travels, so it clears the neighbouring plugs and the wires leaving them.
-function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: number, steep = false): Route {
+function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: number, steep = false, outA: THREE.Vector3 | null = null, outB: THREE.Vector3 | null = null): Route {
   const top = Math.max(a.y, b.y) + HOUSING_H + lift;
   const dir = new THREE.Vector3(b.x - a.x, 0, b.z - a.z);
   if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
@@ -78,12 +80,19 @@ function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: numb
   const at = (t: number, y: number, bow: number) => a.clone().lerp(b, t).setY(y).addScaledVector(side, bow);
   const rise = (p: THREE.Vector3) => (steep ? Math.max(p.y + HOUSING_H + 4, top - 5) : p.y + HOUSING_H + 4);
   const span = Math.hypot(b.x - a.x, b.z - a.z), edge = steep ? Math.min(0.15, 5 / Math.max(span, 1)) : 0.15;
+  // an end's first stretch: straight up out of the plug, or — on a part standing on the table — along the table, away from the part, then up
+  const sideways = (p: THREE.Vector3, out: THREE.Vector3) => [p.clone().addScaledVector(out, HOUSING_H - 0.5), p.clone().addScaledVector(out, HOUSING_H + 3).setY(p.y + 7)];
+  const startA = outA ? sideways(a, outA) : [a.clone().setY(a.y + HOUSING_H - 0.5), a.clone().setY(rise(a))];
+  const startB = outB ? sideways(b, outB) : [b.clone().setY(rise(b)), b.clone().setY(b.y + HOUSING_H - 0.5)];
+  if (outB) startB.reverse();
   const curve = new THREE.CatmullRomCurve3([
-    a.clone().setY(a.y + HOUSING_H - 0.5), a.clone().setY(rise(a)),
+    ...startA,
     at(edge, top - (steep ? 1 : 3), 0.6), at(0.5, top, 1), at(1 - edge, top - (steep ? 1 : 3), 0.6),
-    b.clone().setY(rise(b)), b.clone().setY(b.y + HOUSING_H - 0.5),
+    ...startB,
   ], false, 'centripetal');
-  return { kind: 'arch', curve, points: [...vertical(a, HOUSING_H - 0.5).slice(1), ...spaced(curve), ...vertical(b, HOUSING_H - 0.5).slice(1)] };
+  const lie = (p: THREE.Vector3, out: THREE.Vector3) => Array.from({ length: 8 }, (_, i) => p.clone().addScaledVector(out, ((HOUSING_H - 0.5) * (i + 1)) / 8));
+  const endA = outA ? lie(a, outA) : vertical(a, HOUSING_H - 0.5).slice(1), endB = outB ? lie(b, outB) : vertical(b, HOUSING_H - 0.5).slice(1);
+  return { kind: 'arch', curve, points: [...endA, ...spaced(curve), ...endB], outs: [outA, outB] };
 }
 
 const isHole = (ref: string) => /^(bb|breadboard\d+)\./.test(ref);
@@ -163,7 +172,7 @@ function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[], 
     const base = Math.min(30, Math.max(6, 4 + span * 0.12));
     const lifts = [...Array.from({ length: 8 }, (_, i) => base + i * LIFT_STEP), ...(base > 11 ? [base - LIFT_STEP] : [])];
     for (const bulge of BULGES) for (const lift of lifts) for (const steep of [false, true]) {
-      candidates.push(() => archRoute(w.a, w.b, lift, bulge * Math.min(1, span / 30), steep));
+      candidates.push(() => archRoute(w.a, w.b, lift, bulge * Math.min(1, span / 30), steep, w.outA, w.outB));
     }
     let pick: Route | null = null, bestScore = Infinity, fallback: Route | null = null, lastSafe: Route | null = null;
     for (const make of candidates) {
@@ -179,7 +188,7 @@ function routePass(order: WireEnds[], wires: WireEnds[], obstacles: Obstacle[], 
     }
     if (!pick) crowded.push(w);
     // no clear path: the least-bad one that avoids parts; if even that was not found (time ran out), a plain arch
-    pick ??= fallback ?? lastSafe ?? archRoute(w.a, w.b, base, BULGES[1] * Math.min(1, span / 30));
+    pick ??= fallback ?? lastSafe ?? archRoute(w.a, w.b, base, BULGES[1] * Math.min(1, span / 30), false, w.outA, w.outB);
     for (const p of pick.points) put(p, me);
     out.set(w.id, pick);
   });

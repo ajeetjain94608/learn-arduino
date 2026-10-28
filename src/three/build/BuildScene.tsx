@@ -72,6 +72,19 @@ export function flowForward(from: string, to: string, volts: number): boolean | 
   return out ? uno === from : null;             // away from the UNO
 }
 
+// For a pin of a part standing on the table (not a module's header): which way its plug lies, flat on the table and away from the
+// part's other legs, so the jumper does not stand up through the part. Null for every other kind of point.
+function plugOut(ref: string, parts: PartInstance[]): THREE.Vector3 | null {
+  const id = ref.slice(0, ref.indexOf('.'));
+  const p = parts.find((x) => x.id === id);
+  if (!p || !('x' in p.at) || PART_DEFS[p.type].bench) return null;
+  const pins = PART_DEFS[p.type].pins.map((pin) => pinWorld(`${id}.${pin}`, parts));
+  const here = pinWorld(ref, parts), centre = pins.reduce((s, v) => s.add(v), new THREE.Vector3()).divideScalar(pins.length);
+  const out = here.clone().sub(centre).setY(0);
+  if (out.length() < 0.5) out.set(0, 0, -1); // a lone or central pin (a potentiometer's wiper): towards the back, so wires stay behind the part
+  return out.normalize();
+}
+
 // One jumper, along the path the router gave it.
 function WireModel({ wire, route, parts, onPick, slot }: { wire: Wire; route: Route; parts: PartInstance[]; onPick(id: string): void; slot?: Slot }) {
   const [a, b] = useMemo(() => [pinWorld(wire.from, parts), pinWorld(wire.to, parts)], [wire.from, wire.to, parts]);
@@ -104,7 +117,7 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
 
 export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, flow, onInput, plan }: Props) {
   // all wires laid out together so none passes through another or through a part
-  const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
+  const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts), outA: plugOut(w.from, parts), outB: plugOut(w.to, parts) })), partBodies(parts)), [wires, parts]);
   const flowWires = useMemo(() => (!flow?.active ? [] : wires.flatMap((w) => {
     const fwd = flowForward(w.from, w.to, flow.volts[w.id] ?? 0), route = routes.get(w.id);
     return fwd === null || !route ? [] : [{ path: [fwd ? route.curve : new Reversed(route.curve)] }];
