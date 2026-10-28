@@ -10,9 +10,9 @@ describe('a jumper on the leg of a part standing on the table', () => {
     const r = routeWires([{ id: 'w', from: 'uno.D13', to: 'led1.K', a, b, outB: out }], []).get('w')!;
     expect(r.outs?.[1]).toEqual(out);
     // the first stretch from the leg runs along the table (same height as the leg), away from the part
-    const near = r.points.filter((p) => p.distanceTo(b) < 11);
+    const near = r.points.filter((p) => p.distanceTo(b) < 4.5);
     expect(near.length).toBeGreaterThan(4);
-    for (const p of near) { expect(p.y).toBeLessThan(b.y + 8); expect(p.x).toBeGreaterThanOrEqual(b.x - 0.01); }
+    for (const p of near) { expect(p.y).toBeLessThan(b.y + 2); expect(p.x).toBeGreaterThanOrEqual(b.x - 0.01); }
   });
   it('an ordinary end still stands straight up', () => {
     const r = routeWires([{ id: 'w', from: 'uno.D13', to: 'led1.K', a, b }], []).get('w')!;
