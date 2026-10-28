@@ -75,3 +75,23 @@ test.describe('Edit in Build', () => {
     });
   }
 });
+
+test('dragging a wire in 3D from each power-header GND socket, and to a leg of a part on the table', async ({ page }) => {
+  await openBuild(page);
+  await page.getByRole('radio', { name: 'Table' }).first().click();
+  await page.getByRole('button', { name: 'Add LED' }).click();
+  await call(page, 'select', null);
+  await page.getByRole('button', { name: 'Fit everything in view' }).click();
+  await page.waitForTimeout(1500);
+  await page.getByTestId('viewer').scrollIntoViewIfNeeded();
+  const pin = (ref: string) => page.evaluate((r) => (window as unknown as { __rq: { debug: { buildPinScreen(r: string): { x: number; y: number } } } }).__rq.debug.buildPinScreen(r), ref);
+  for (const [from, to] of [['uno.GND_P1', 'bb.6c'], ['uno.GND_P2', 'bb.9c'], ['uno.D13', 'led1.A']]) {
+    const a = await pin(from), b = await pin(to);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 8 });
+    await page.mouse.up();
+  }
+  const wires = (await store(page)).wires.map((w) => [w.from, w.to].sort().join('>'));
+  expect(wires).toEqual(expect.arrayContaining(['bb.6c>uno.GND_P1', 'bb.9c>uno.GND_P2', 'led1.A>uno.D13']));
+});

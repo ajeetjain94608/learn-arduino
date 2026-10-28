@@ -251,10 +251,13 @@ export function loosePins(type: PartType, params: Record<string, string | number
   if (!sh) return {};
   return Object.fromEntries(Object.entries(sh.legs).map(([pin, [dc, dr]]) => [pin, [dc * 2.54, LOOSE_LEG_Y, ROW[STRIP_ROWS[i0 + dr]] - ROW[a.row]] as [number, number, number]]));
 }
+// how far a loose part's body reaches beyond its outermost legs (mm): the bigger bodies (the traffic-light board, the TIP120,
+// the desk lamp that comes with the light sensor, the force sensor's strip) need more room around them
+const LOOSE_PAD: Partial<Record<PartType, number>> = { pot: 9, buzzer: 10, ldr: 16, npn: 12, traffic: 18, fsr: 20, button: 7, rgb: 7, tmp36: 7 };
 // The room a part takes on the table, turned: a module's box, or the legs and body of a loose part.
 export function partRect(p: Pick<PartInstance, 'type' | 'params'>, at: { x: number; z: number }, rot = 0): Rect {
   if (PART_DEFS[p.type].bench) return benchRect(p.type, at, rot);
-  const pts = Object.values(loosePins(p.type, p.params)).map(([x, , z]) => rotatePoint(x, z, rot)), PAD = 6;
+  const pts = Object.values(loosePins(p.type, p.params)).map(([x, , z]) => rotatePoint(x, z, rot)), PAD = LOOSE_PAD[p.type] ?? 6;
   const x0 = Math.min(...pts.map((q) => q[0])) - PAD, x1 = Math.max(...pts.map((q) => q[0])) + PAD;
   const z0 = Math.min(...pts.map((q) => q[1])) - PAD, z1 = Math.max(...pts.map((q) => q[1])) + PAD;
   return { x: at.x + (x0 + x1) / 2, z: at.z + (z0 + z1) / 2, w: x1 - x0, d: z1 - z0 };
