@@ -51,7 +51,7 @@ step('a project opens on Home with its labels');
 
 await page.getByTestId('code-card').getByRole('button', { name: 'Run' }).click();
 const status = page.getByTestId('status');
-await page.waitForFunction(() => !/Compiling|Uploading/.test(document.querySelector('[data-testid=status]')?.textContent ?? ''), null, { timeout: 90_000 });
+await page.waitForFunction(() => !/Plugging|Compiling|Uploading/.test(document.querySelector('[data-testid=status]')?.textContent ?? ''), null, { timeout: 90_000 });
 const text = (await status.textContent()) ?? '';
 if (/error|stopped/i.test(text)) problems.push(`after Run the status says "${text}"`);
 await page.waitForTimeout(2500);
