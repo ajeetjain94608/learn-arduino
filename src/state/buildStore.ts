@@ -1,8 +1,11 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { Burn, InputValues } from '../circuit/evaluate';
 import { BB_HOLES, UNO_PINS } from '../circuit/board';
-import { BENCH_AREA, BENCH_SLOTS, canTurn, coversOf, footprintOf, inside, isFree, KEEP_OUT, FACING_SLOTS, LOOSE_SLOTS, overlaps, PART_DEFS, paramsOf, partPoints, partRect, START_TURN, usesBreadboard } from '../circuit/parts';
-import { onBench, type CircuitSpec, type PartInstance, type PartType, type PinRef, type Placement, type Row, type Wire } from '../circuit/types';
+import {
+  BENCH_AREA, BENCH_SLOTS, BOARD_AT, BOARD_SLOTS, boardOf, canTurn, coversOf, DEFAULT_BOARD, FACING_SLOTS, footprintOf, holeUnder, inside, isFree, KEEP_OUT, LOOSE_SLOTS, overlaps,
+  PART_DEFS, paramsOf, partPoints, partRect, START_TURN, usesBreadboard,
+} from '../circuit/parts';
+import { onBench, type CircuitSpec, type PartInstance, type PartType, type PinRef, type Placement, type Wire } from '../circuit/types';
 import { t } from '../i18n/en';
 
 export const FRESH_CODE = 'void setup() {\n\n}\n\nvoid loop() {\n\n}\n';
@@ -10,12 +13,11 @@ const KEY = 'rq-build-v1';
 // A ready-made build (a project): what a project's own copy starts from, and what "Reset project" brings back.
 export type BuildStart = { parts: PartInstance[]; wires: Wire[]; inputs?: InputValues; code: string };
 const WIRE_COLORS = ['#F28C16', '#2563EB', '#10B981', '#E2483D', '#8B5CF6', '#2B2F38'];
-const ROWS: Row[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 
 // counters: the highest number each part type has used, so an id is never given out twice (a new LED must never
 // inherit an old one's burn)
 // burns: what is burnt stays burnt (across screen switches and reloads) until the learner replaces it
-type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number>; burns?: Burn[]; breadboard?: boolean };
+type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number>; burns?: Burn[] };
 
 export type BuildState = {
   counters: Record<string, number>;
@@ -26,10 +28,7 @@ export type BuildState = {
   selected: string | null;   // a part id or wire id
   message: string | null;    // why the last action was refused (cleared by the next action that works)
   burns: Burn[];
-  breadboard: boolean;       // whether the breadboard is on the bench (it can go when nothing uses it)
-  addPart(type: PartType, where?: 'board' | 'table'): string | null; // a part goes in the breadboard, or stands on the table
-  placeOn(id: string, where: 'board' | 'table'): boolean;             // move a part between the breadboard and the table
-  setBreadboard(on: boolean): boolean;
+  addPart(type: PartType): string | null;  // a new part stands on the table (a breadboard is a part too); drag it into a breadboard's holes
   movePart(id: string, at: Placement): boolean;
   dragPart(id: string, at: Placement): boolean;   // like movePart, silently: a drag looks for a free spot as it goes
   rotatePart(id: string, rot: number): boolean;   // turn a part to this angle (degrees)
@@ -51,14 +50,22 @@ export type BuildState = {
 };
 export type BuildStore = UseBoundStore<StoreApi<BuildState>>;
 
-// every hole of the breadboard, first leg by first leg, in the order new parts look for room
-const boardSpots = (): Placement[] => ROWS.flatMap((row) => Array.from({ length: 30 }, (_, i) => ({ col: i + 1, row })));
-const coveredHoles = (p: PartInstance, at = p.at, rot = p.rot) => coversOf({ ...p, rot }, at).map((h) => `bb.${h}`);
+const coveredHoles = (p: PartInstance, at = p.at, rot = p.rot) => coversOf({ ...p, rot }, at).map((h) => `${boardOf({ at }) ?? DEFAULT_BOARD}.${h}`);
+// The first breadboard (`bb`) is there whenever a build puts parts in holes or wires to them (the projects, older saves).
+const FIRST_BOARD: PartInstance = { id: DEFAULT_BOARD, type: 'breadboard', params: {}, at: { ...BOARD_AT } };
+const withBoard = (parts: PartInstance[], wires: { from?: unknown; to?: unknown }[]): PartInstance[] =>
+  !parts.some((p) => p.type === 'breadboard') && usesBreadboard(parts, wires.filter((w): w is Wire => typeof w.from === 'string' && typeof w.to === 'string'))
+    ? [{ ...FIRST_BOARD, at: { ...BOARD_AT } }, ...parts] : parts;
+const HOLE = new Set(BB_HOLES);
 const defaultInputs = (type: PartType) => Object.fromEntries(PART_DEFS[type].inputs.map((i) => [i.key, i.default]));
 
-const POINTS = new Set([...UNO_PINS.map((p) => `uno.${p}`), ...BB_HOLES.map((h) => `bb.${h}`)]);
-// a connection point that exists in this build: a UNO pin, a breadboard hole, or a pin of a module on the bench
-const isPoint = (ref: string, parts: PartInstance[]) => POINTS.has(ref) || parts.some((p) => partPoints(p).includes(ref));
+const POINTS = new Set(UNO_PINS.map((p) => `uno.${p}`));
+// a connection point that exists in this build: a UNO pin, a hole of a breadboard that is on the bench, or a pin of a part standing on it
+const isPoint = (ref: string, parts: PartInstance[]) => {
+  if (POINTS.has(ref)) return true;
+  const dot = ref.indexOf('.');
+  return (dot > 0 && HOLE.has(ref.slice(dot + 1)) && parts.some((p) => p.type === 'breadboard' && p.id === ref.slice(0, dot))) || parts.some((p) => partPoints(p).includes(ref));
+};
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
 const validPart = (p: unknown): p is PartInstance => {
   if (isObject(p) && 'rot' in p && !(typeof p.rot === 'number' && Number.isFinite(p.rot))) delete p.rot; // a bad turn: the part stays, unturned
@@ -80,7 +87,8 @@ function load(storage: Storage | undefined, key: string): Saved | null {
     if (!raw) return null;
     const s = JSON.parse(raw) as Record<string, unknown>;
     if (!isObject(s) || s.v !== 1 || !Array.isArray(s.parts) || !Array.isArray(s.wires) || typeof s.code !== 'string') return null;
-    const parts = s.parts.filter(validPart);
+    const rawWires = s.wires.filter(isObject);
+    const parts = withBoard(s.parts.filter(validPart), rawWires);
     const ids = new Set(parts.map((p) => p.id));
     const inputs: InputValues = {};
     if (isObject(s.inputs)) for (const [id, v] of Object.entries(s.inputs)) {
@@ -88,14 +96,14 @@ function load(storage: Storage | undefined, key: string): Saved | null {
     }
     const counters = isObject(s.counters) ? Object.fromEntries(Object.entries(s.counters).filter(([, n]) => typeof n === 'number')) as Record<string, number> : {};
     const burns = Array.isArray(s.burns) ? s.burns.filter(validBurn).filter((b) => b.id.startsWith('uno') || ids.has(b.id)) : [];
-    return { v: 1, parts, wires: s.wires.filter(validWire(parts)), inputs, code: s.code, counters, burns, breadboard: typeof s.breadboard === 'boolean' ? s.breadboard : undefined };
+    return { v: 1, parts, wires: s.wires.filter(validWire(parts)), inputs, code: s.code, counters, burns };
   } catch { return null; }
 }
 
 // The learner's build: parts on the breadboard, wires, input values and code. Saved on the device (under `key`) as it
 // changes. `start`: what a new build begins with (a project's ready-made build) when nothing is saved yet.
 export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStart): BuildStore {
-  const saved = load(storage, key) ?? (start ? { v: 1 as const, parts: start.parts, wires: start.wires, inputs: startInputs(start), code: start.code, counters: {}, burns: [] } : null);
+  const saved = load(storage, key) ?? (start ? { v: 1 as const, parts: withBoard(start.parts, start.wires), wires: start.wires, inputs: startInputs(start), code: start.code, counters: {}, burns: [] } : null);
   const store = create<BuildState>((set, get) => {
     // holes taken by part bodies and legs (except `ignore`'s), and holes and module pins taken by wire ends
     const taken = (ignore?: string) => {
@@ -105,16 +113,29 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       return used;
     };
     const fits = (p: PartInstance, at: Placement, ignore?: string, rot = p.rot ?? 0) => {
-      if (PART_DEFS[p.type].bench || onBench(at)) { // on the bench (a module, or a part standing on the table): clear of the UNO, the breadboard (when it is there) and everything else on the bench
-        if (!onBench(at)) return false;
-        const r = partRect(p, at, rot), board = get().breadboard;
-        return inside(r, BENCH_AREA) && !KEEP_OUT.some((k, i) => (i === 0 || board) && overlaps(r, k))
+      if (onBench(at)) { // on the bench (a module, a breadboard, or a part standing on the table): clear of the UNO and everything else on the bench
+        const r = partRect(p, at, rot);
+        return inside(r, BENCH_AREA) && !overlaps(r, KEEP_OUT[0])
           && !get().parts.some((o) => o.id !== ignore && o.id !== p.id && isFree(o) && overlaps(r, partRect(o, o.at as { x: number; z: number }, o.rot ?? 0)));
       }
-      if (onBench(at) || !footprintOf({ ...p, rot }, at)) return false;
+      // in a breadboard's holes: the board must be on the bench and every hole the part covers free
+      if (PART_DEFS[p.type].bench || !get().parts.some((o) => o.type === 'breadboard' && o.id === (at.board ?? DEFAULT_BOARD)) || !footprintOf({ ...p, rot }, at)) return false;
       const used = taken(ignore);
       return coveredHoles(p, at, rot).every((h) => !used.has(h));
     };
+    // Where a part goes when asked to go to `target`: a point on the bench that is over a breadboard goes into its holes (turned to
+    // the nearest quarter turn); anywhere else it stands on the table. Null when there is no room there.
+    const resolve = (p: PartInstance, target: Placement): { at: Placement; rot: number } | null => {
+      const quarter = ((Math.round((p.rot ?? 0) / 90) * 90) % 360 + 360) % 360;
+      if (onBench(target) && !PART_DEFS[p.type].bench) {
+        const h = holeUnder(get().parts, target.x, target.z);
+        if (h) { const at = { col: h.col, row: h.row, board: h.board }; return fits(p, at, p.id, quarter) ? { at, rot: quarter } : null; }
+      }
+      const rot = onBench(target) ? p.rot ?? 0 : quarter;
+      return fits(p, target, p.id, rot) ? { at: target, rot } : null;
+    };
+    const put = (id: string, to: { at: Placement; rot: number }) =>
+      set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at: to.at, rot: to.rot || undefined } : x)), message: null });
     const refuse = (key: Parameters<typeof t>[0]) => { set({ message: t(key) }); return null; };
     let nextWire = 0;
 
@@ -127,56 +148,37 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       selected: null,
       message: null,
       burns: saved?.burns ?? [],
-      breadboard: saved?.breadboard ?? (start ? usesBreadboard(saved?.parts ?? [], saved?.wires ?? []) : true),
 
-      addPart(type, where = 'board') {
+      addPart(type) {
         const n = 1 + Math.max(get().counters[type] ?? 0, ...get().parts.filter((p) => p.type === type).map((p) => Number(p.id.slice(type.length)) || 0));
-        const part: PartInstance = { id: `${type}${n}`, type, params: paramsOf(type, {}), at: { col: 1, row: 'a' }, ...(START_TURN[type] ? { rot: START_TURN[type] } : {}) };
-        const onTable = !!PART_DEFS[type].bench || where === 'table' || !get().breadboard; // (with no breadboard there are no holes)
-        const spots: Placement[] = PART_DEFS[type].bench ? [...(START_TURN[type] ? FACING_SLOTS : []), ...BENCH_SLOTS] : onTable ? LOOSE_SLOTS : boardSpots();
+        // the first breadboard is `bb` (as in the projects), the next `breadboard2`, `breadboard3`…
+        const boardNo = type === 'breadboard' ? 1 + Math.max(0, ...get().parts.filter((p) => p.type === 'breadboard').map((p) => Number(p.id.slice(10)) || 1)) : 0;
+        const id = type !== 'breadboard' ? `${type}${n}` : get().parts.some((p) => p.id === DEFAULT_BOARD) ? `breadboard${boardNo}` : DEFAULT_BOARD;
+        const part: PartInstance = { id, type, params: paramsOf(type, {}), at: { col: 1, row: 'a' }, ...(START_TURN[type] ? { rot: START_TURN[type] } : {}) };
+        const spots: Placement[] = type === 'breadboard' ? BOARD_SLOTS : PART_DEFS[type].bench ? [...(START_TURN[type] ? FACING_SLOTS : []), ...BENCH_SLOTS] : LOOSE_SLOTS;
         for (const at of spots) {
           if (!fits(part, at)) continue;
           part.at = at;
           set({ parts: [...get().parts, part], inputs: { ...get().inputs, [part.id]: defaultInputs(type) }, counters: { ...get().counters, [type]: n }, message: null });
           return part.id;
         }
-        return refuse(onTable ? 'build.msg.tableFull' : 'build.msg.full');
-      },
-      placeOn(id, where) {
-        const p = get().parts.find((x) => x.id === id);
-        if (!p || PART_DEFS[p.type].bench) return false;
-        if ((where === 'table') === onBench(p.at)) return true;
-        if (where === 'board' && !get().breadboard) { set({ message: t('build.msg.noBoard') }); return false; }
-        const turned = { ...p, rot: 0 }; // a part keeps no turn across: the board turns in quarter turns, the table in any angle
-        const at = (where === 'table' ? LOOSE_SLOTS : boardSpots()).find((a) => fits(turned, a, id, 0));
-        if (!at) { set({ message: t(where === 'table' ? 'build.msg.tableFull' : 'build.msg.full') }); return false; }
-        const gone = new Set(onBench(p.at) ? partPoints(p) : []); // the wires on its free legs would dangle: they go
-        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at, rot: undefined } : x)), wires: get().wires.filter((w) => !gone.has(w.from) && !gone.has(w.to)), message: null });
-        return true;
-      },
-      setBreadboard(on) {
-        if (on === get().breadboard) return true;
-        if (!on && usesBreadboard(get().parts, get().wires)) { set({ message: t('build.msg.boardInUse') }); return false; }
-        if (on && get().parts.some((o) => isFree(o) && overlaps(partRect(o, o.at as { x: number; z: number }, o.rot ?? 0), KEEP_OUT[1]))) { set({ message: t('build.msg.boardBlocked') }); return false; }
-        set({ breadboard: on, message: null });
-        return true;
+        return refuse(type === 'breadboard' || PART_DEFS[type].bench ? 'build.msg.benchFull' : 'build.msg.tableFull');
       },
       movePart(id, at) {
-        const p = get().parts.find((x) => x.id === id);
-        if (!p) return false;
-        if (!fits(p, at, id)) { set({ message: t('build.msg.cantMove') }); return false; }
-        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)), message: null });
+        const p = get().parts.find((x) => x.id === id), to = p && resolve(p, at);
+        if (!to) { if (p) set({ message: t('build.msg.cantMove') }); return false; }
+        put(id, to);
         return true;
       },
       dragPart(id, at) {
-        const p = get().parts.find((x) => x.id === id);
-        if (!p || !fits(p, at, id)) return false;
-        set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at } : x)), message: null });
+        const p = get().parts.find((x) => x.id === id), to = p && resolve(p, at);
+        if (!to) return false;
+        put(id, to);
         return true;
       },
       rotatePart(id, rot) {
         const p = get().parts.find((x) => x.id === id);
-        if (!p || !Number.isFinite(rot)) return false;
+        if (!p || !Number.isFinite(rot) || p.type === 'breadboard') return false; // a breadboard stays square to the table
         if (!isFree(p) && !canTurn(p.type)) { set({ message: t('build.msg.cantTurn') }); return false; } // the push button does not turn in the holes
         // a module turns to any angle (to a tenth of a degree); a part in the breadboard in quarter turns, to the nearest
         const snapped = isFree(p) ? Math.round(rot * 10) / 10 : Math.round(rot / 90) * 90;
@@ -185,11 +187,24 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         set({ parts: get().parts.map((x) => (x.id === id ? { ...x, rot: turned } : x)), message: null });
         return true;
       },
-      canMove(id, at) { const p = get().parts.find((x) => x.id === id); return !!p && fits(p, at, id); },
+      canMove(id, at) { const p = get().parts.find((x) => x.id === id); return !!p && resolve(p, at) !== null; },
       removePart(id) {
         const { [id]: _gone, ...inputs } = get().inputs;
-        const pins = new Set(get().parts.filter((p) => p.id === id).flatMap(partPoints)); // a module's wires go with it
-        set({ parts: get().parts.filter((p) => p.id !== id), inputs, wires: get().wires.filter((w) => !pins.has(w.from) && !pins.has(w.to)), selected: get().selected === id ? null : get().selected, burns: get().burns.filter((b) => b.id !== id), message: null });
+        const gone = get().parts.find((p) => p.id === id);
+        const pins = new Set(gone ? partPoints(gone) : []); // a module's wires go with it
+        const isBoard = gone?.type === 'breadboard';
+        set({
+          parts: get().parts.filter((p) => p.id !== id), inputs,
+          wires: get().wires.filter((w) => !pins.has(w.from) && !pins.has(w.to) && !(isBoard && (w.from.startsWith(`${id}.`) || w.to.startsWith(`${id}.`)))),
+          selected: get().selected === id ? null : get().selected, burns: get().burns.filter((b) => b.id !== id), message: null,
+        });
+        if (!isBoard) return;
+        // what sat in the breadboard's holes lies down on the table (or goes, when the table is full)
+        for (const k of get().parts.filter((p) => !onBench(p.at) && boardOf(p) === id)) {
+          const at = LOOSE_SLOTS.find((s) => fits(k, s, k.id, 0));
+          if (at) put(k.id, { at, rot: 0 });
+          else set({ parts: get().parts.filter((p) => p.id !== k.id) });
+        }
       },
       setParam(id, key, value) { set({ parts: get().parts.map((p) => (p.id === id ? { ...p, params: { ...p.params, [key]: value } } : p)), message: null }); },
       setInput(id, key, value) {
@@ -205,7 +220,6 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         if (from === to) return refuse('build.msg.self');
         if (get().wires.some((w) => (w.from === from && w.to === to) || (w.from === to && w.to === from))) return refuse('build.msg.duplicate');
         if (![from, to].every((end) => isPoint(end, get().parts))) return refuse('build.msg.noPoint');
-        if (!get().breadboard && [from, to].some((end) => end.startsWith('bb.'))) return refuse('build.msg.noBoard');
         const used = taken();
         if ([from, to].some((end) => !end.startsWith('uno.') && used.has(end))) return refuse('build.msg.holeTaken');
         const id = `w${Date.now().toString(36)}${nextWire++}`;
@@ -225,13 +239,13 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       },
       setBurns(burns) { set({ burns }); },
       restart(begin) {
-        set({ parts: begin.parts, wires: begin.wires, inputs: startInputs(begin), code: begin.code, selected: null, message: null, burns: [], breadboard: usesBreadboard(begin.parts, begin.wires) });
+        set({ parts: withBoard(begin.parts, begin.wires), wires: begin.wires, inputs: startInputs(begin), code: begin.code, selected: null, message: null, burns: [] });
       },
       replaceBurn(id) { set({ burns: get().burns.filter((b) => (id === 'uno' ? !b.id.startsWith('uno') : b.id !== id)) }); },
     };
   });
   store.subscribe((s) => {
-    try { storage?.setItem(key, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns, breadboard: s.breadboard } satisfies Saved)); } catch { /* storage full or blocked */ }
+    try { storage?.setItem(key, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns } satisfies Saved)); } catch { /* storage full or blocked */ }
   });
   return store;
 }

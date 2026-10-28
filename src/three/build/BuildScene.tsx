@@ -2,17 +2,16 @@ import { useEffect, useMemo, type ComponentProps } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { InputValues, PartState } from '../../circuit/evaluate';
-import { PART_DEFS } from '../../circuit/parts';
+import { boardOf, DEFAULT_BOARD, PART_DEFS } from '../../circuit/parts';
 import type { BoardPlacement, PartInstance, Placement, Wire } from '../../circuit/types';
 import { UnoBoard } from '../boards/uno/UnoBoard';
 import { isTestMode, soloMode } from '../shared/motion';
-import { Breadboard } from '../breadboard/Breadboard';
 import { PartGroup } from '../inspect/Inspectable';
 import { Jumper } from '../parts/Jumper';
 import { Arrive } from '../scenes/Arrive';
 import type { AssemblyPlan } from '../scenes/assembly';
 import { BurnEffect } from './BurnEffect';
-import { BenchModel, LooseModel, PartModel } from './partModels';
+import { BenchModel, BoardModel, LooseModel, PartModel } from './partModels';
 import { BB, colX, holeLocal } from '../breadboard/breadboardGeometry';
 import { BENCH, pinWorld } from './pinPoints';
 import { partBodies } from './partBodies';
@@ -31,7 +30,6 @@ type Props = {
   onPick(id: string): void;
   onMove?(id: string, at: Placement): boolean | void; // pressing a part and dragging carries it (the Build bench only; Home just looks)
   selected?: string | null;
-  breadboard?: boolean; // whether the breadboard is on the bench (default: yes)
   onInput(partId: string, key: string, value: number): void;
   // Home's project view ("showcase"): the circuit builds itself with this plan, and every part and wire can be hovered
   // (the name card) and tapped, like the Blink circuit. Without it: the plain Build bench.
@@ -82,37 +80,50 @@ function burnPosition(id: string, parts: PartInstance[], supply = '5V'): [number
   if (!p) return null;
   if ('x' in p.at) return [p.at.x, 20, p.at.z];
   const [, , z] = holeLocal(p.at.col, p.at.row);
-  return [colX(p.at.col) + 1.27 + BENCH.breadboard[0], 20, z + BENCH.breadboard[2]];
+  const board = parts.find((x) => x.id === boardOf(p))?.at as { x: number; z: number } | undefined;
+  return [colX(p.at.col) + 1.27 + (board?.x ?? BENCH.breadboard[0]), 20, z + (board?.z ?? BENCH.breadboard[2])];
 }
 
-export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, breadboard = true, onInput, plan }: Props) {
+export function BuildScene({ burns, parts, wires, inputs, partStates, wireVolts, pin13, rx, tx, onPick, onMove, selected, onInput, plan }: Props) {
   // all wires laid out together so none passes through another or through a part
   const routes = useMemo(() => routeWires(wires.map((w) => ({ id: w.id, from: w.from, to: w.to, a: pinWorld(w.from, parts), b: pinWorld(w.to, parts) })), partBodies(parts)), [wires, parts]);
-  const onBoard = parts.filter((p) => !('x' in p.at)), onBench = parts.filter((p) => 'x' in p.at);
+  // the breadboards, and everything else: in a breadboard's holes, or standing on the bench
+  const boards = parts.filter((p) => p.type === 'breadboard'), plain = parts.filter((p) => p.type !== 'breadboard');
+  const onBoard = plain.filter((p) => !('x' in p.at)), onBench = plain.filter((p) => 'x' in p.at);
+  const boardAt = (id: string) => (boards.find((b) => b.id === id)?.at ?? { x: BENCH.breadboard[0], z: BENCH.breadboard[2] }) as { x: number; z: number };
   // (picture baking: with ?solo only the one thing asked for is drawn — see soloMode)
   const solo = soloMode();
   // a press on a part: in the build-up it also reaches the hover/tap handling of Home's scene (so it is not stopped here)
   const pick = (id: string) => (e: { stopPropagation(): void }) => { if (!plan) e.stopPropagation(); onPick(id); };
-  const slotOfPart = (p: PartInstance) => plan?.parts[parts.indexOf(p)];
+  const slotOfPart = (p: PartInstance) => plan?.parts[plain.indexOf(p)];
   // one part, wrapped for the build-up (it drops in from above, and can be hovered) when there is a plan
   const showcase = (p: PartInstance, node: React.ReactNode, center: [number, number, number]) => {
     const slot = slotOfPart(p);
     return slot ? <PartGroup key={p.id} id={p.id} kind={p.type} center={center}><Arrive step={slot} from="above">{node}</Arrive></PartGroup> : node;
   };
-  const boardParts = onBoard.map((p) => {
+  const partsIn = (board: string) => onBoard.filter((p) => (boardOf(p) ?? DEFAULT_BOARD) === board).map((p) => {
     const at = p.at as BoardPlacement;
     const [x, , z] = holeLocal(at.col, at.row);
-    return showcase(p, <PartModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />, [x, BB.H, z]);
+    return showcase(p, <PartModel key={p.id} boardAt={boardAt(board)} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />, [x, BB.H, z]);
   });
   return (
     <>
       <ScreenProbe />
       {(!solo || solo === 'uno') && <UnoBoard position={BENCH.board} pin13={pin13} rx={rx} tx={tx} />}
-      {!breadboard ? null : plan ? (
-        <PartGroup id="breadboard" kind="breadboard" center={BENCH.breadboard}>
-          <Arrive step={plan.breadboard} from="right"><Breadboard position={BENCH.breadboard}>{boardParts}</Breadboard></Arrive>
-        </PartGroup>
-      ) : !solo || solo === 'breadboard' ? <Breadboard position={BENCH.breadboard}>{boardParts}</Breadboard> : <group position={BENCH.breadboard}>{boardParts}</group>}
+      {boards.map((b, i) => {
+        const at = b.at as { x: number; z: number };
+        if (solo && solo !== 'breadboard') return <group key={b.id} position={[at.x, 0, at.z]}>{partsIn(b.id)}</group>; // (picture baking: just the parts)
+        const node = (
+          <BoardModel key={b.id} part={b} onPick={pick(b.id)} onMove={onMove && ((to) => onMove(b.id, to as Placement))} selected={selected === b.id} onInput={() => {}}>
+            {partsIn(b.id)}
+          </BoardModel>
+        );
+        return plan && i === 0 ? ( // Home's build-up: the first breadboard slides in
+          <PartGroup key={b.id} id="breadboard" kind="breadboard" center={[at.x, 0, at.z]}>
+            <Arrive step={plan.breadboard} from="right">{node}</Arrive>
+          </PartGroup>
+        ) : node;
+      })}
       {onBench.map((p) => showcase(p, (
         <FreeModel key={p.id} part={p} state={partStates[p.id]} inputs={inputs[p.id]} onPick={pick(p.id)} onMove={onMove && ((to) => onMove(p.id, to as Placement))} selected={selected === p.id} onInput={(key, value) => onInput(p.id, key, value)} />
       ), [(p.at as { x: number }).x, 0, (p.at as { z: number }).z]))}

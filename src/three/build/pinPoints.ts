@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { BB, colX, RAIL_Z, type Row } from '../breadboard/breadboardGeometry';
-import { BLINK, headerTopWorld, holeWorld } from '../scenes/blinkLayout';
+import { BB, colX, holeLocal, RAIL_Z, type Row } from '../breadboard/breadboardGeometry';
+import { BLINK, headerTopWorld } from '../scenes/blinkLayout';
 import { loosePins, PART_DEFS, rotatePoint } from '../../circuit/parts';
 import type { PartInstance } from '../../circuit/types';
 
@@ -16,7 +16,7 @@ export function pinWorld(ref: string, parts: readonly PartInstance[] = []): THRE
   const [part, pin] = [ref.slice(0, ref.indexOf('.')), ref.slice(ref.indexOf('.') + 1)];
   const module = parts.find((p) => p.id === part);
   const bench = module && PART_DEFS[module.type].bench;
-  if (module && 'x' in module.at) { // a module's header pin, or a leg of a part standing on the table
+  if (module && module.type !== 'breadboard' && 'x' in module.at) { // a module's header pin, or a leg of a part standing on the table
     const [dx, y, dz] = (bench ? bench.pins : loosePins(module.type, module.params))[pin] ?? [0, 0, 0];
     const [rx, rz] = rotatePoint(dx, dz, module.rot ?? 0);
     return new THREE.Vector3(module.at.x + rx, y, module.at.z + rz);
@@ -25,12 +25,12 @@ export function pinWorld(ref: string, parts: readonly PartInstance[] = []): THRE
     const label = UNO_LABEL[pin] ?? (pin.startsWith('D') ? pin.slice(1) : pin);
     return headerTopWorld(label);
   }
+  // a hole of a breadboard: where that board stands (the first one, when it is not among `parts`, is where Blink has it)
+  const at = module?.type === 'breadboard' && 'x' in module.at ? module.at : { x: BENCH.breadboard[0], z: BENCH.breadboard[2] };
   const rail = pin.match(/^([TB][+-])(\d+)$/);
-  if (rail) {
-    const b = BENCH.breadboard;
-    return new THREE.Vector3(colX(Number(rail[2])) + b[0], BB.H + b[1], RAIL_Z[RAIL_INDEX[rail[1]]] + b[2]);
-  }
+  if (rail) return new THREE.Vector3(colX(Number(rail[2])) + at.x, BB.H + BENCH.breadboard[1], RAIL_Z[RAIL_INDEX[rail[1]]] + at.z);
   const hole = pin.match(/^(\d+)([a-j])$/);
   if (!hole) throw new Error(`Unknown connection point: ${ref}`);
-  return holeWorld([Number(hole[1]), hole[2] as Row]);
+  const [lx, ly, lz] = holeLocal(Number(hole[1]), hole[2] as Row);
+  return new THREE.Vector3(lx + at.x, ly + BENCH.breadboard[1], lz + at.z);
 }

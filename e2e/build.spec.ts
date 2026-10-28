@@ -3,6 +3,15 @@ import { expect, test, type Page } from '@playwright/test';
 type BuildDebug = { build(): { parts: { id: string; type: string; at: { col: number; row: string } }[]; wires: unknown[] } };
 const build = (page: Page) => page.evaluate(() => (window as unknown as { __rq: { debug: BuildDebug } }).__rq.debug.build());
 
+
+// A new part lands on the table; most specs here are about parts in a breadboard's holes, so: put a part into the first free holes.
+const inHoles = (page: Page, type: string) => page.evaluate((t) => {
+  const g = () => (window as unknown as { __rq: { debug: { build(): Record<string, (...a: unknown[]) => unknown> } } }).__rq.debug.build();
+  const id = g().addPart(t) as string;
+  for (const row of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) for (let col = 1; col <= 30; col++) if (g().canMove(id, { col, row })) { g().movePart(id, { col, row }); return id; }
+  return id;
+}, type);
+
 async function openBuild(page: Page) {
   await page.goto('/?test');
   await page.evaluate(() => localStorage.removeItem('rq-build-v1'));
@@ -10,6 +19,7 @@ async function openBuild(page: Page) {
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Build' }).click();
   await expect(page.getByTestId('build-screen')).toBeVisible();
   await expect(page.getByTestId('viewer').locator('canvas[data-engine]')).toBeVisible();
+  await page.evaluate(() => (window as unknown as { __rq: { debug: { build(): { addPart(t: string): string } } } }).__rq.debug.build().addPart('breadboard')); // (a new build has none: the specs below use one)
 }
 
 test.describe('Build', () => {
@@ -22,11 +32,12 @@ test.describe('Build', () => {
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Build' })).toHaveAttribute('aria-current', 'page');
   });
 
-  test('adding an LED puts it on the breadboard and lists it', async ({ page }) => {
+  test('adding an LED puts it on the table and lists it', async ({ page }) => {
     await openBuild(page);
     await page.getByRole('button', { name: 'Add LED' }).click();
     await expect(page.getByRole('list', { name: 'On the bench' })).toContainText('LED 1');
-    expect((await build(page)).parts).toEqual([expect.objectContaining({ id: 'led1', type: 'led', at: { col: 1, row: 'a' } })]);
+    expect((await build(page)).parts.map((p) => p.id)).toEqual(['bb', 'led1']);
+    expect((await build(page)).parts[1].at).toEqual({ x: expect.any(Number), z: expect.any(Number) });
   });
 });
 
@@ -47,7 +58,7 @@ test.describe('Build: inputs three ways', () => {
 
   test('the pot can be set three ways and the sketch reads it', async ({ page }) => {
     await openBuild(page);
-    await dbg(page, 'addPart', 'pot'); // pot1 at 1a: legs 1a, 3a, 5a
+    await inHoles(page, 'pot'); // pot1 at 1a: legs 1a, 3a, 5a
     await dbg(page, 'addWire', 'uno.5V', 'bb.1e');
     await dbg(page, 'addWire', 'bb.3e', 'uno.A0');
     await dbg(page, 'addWire', 'bb.5e', 'uno.GND');
@@ -78,8 +89,8 @@ test.describe('Build: inputs three ways', () => {
 
   test('holding the 3D button lights the LED (pull-down circuit)', async ({ page }) => {
     await openBuild(page);
-    await dbg(page, 'addPart', 'button'); // button1 at 1e: columns 1 and 3
-    const r = (await dbg(page, 'addPart', 'resistor')) as string;
+    await inHoles(page, 'button'); // button1 at 1e: columns 1 and 3
+    const r = await inHoles(page, 'resistor');
     await dbg(page, 'setParam', r, 'ohms', 10000);
     await dbg(page, 'movePart', r, { col: 3, row: 'b' }); // 3b–7b
     await dbg(page, 'addWire', 'uno.5V', 'bb.1a');
@@ -104,8 +115,9 @@ const pin13 = (page: Page) => page.evaluate(() => (window as unknown as { __rq: 
 const store = (page: Page) => page.evaluate(() => (window as unknown as { __rq: { debug: { store(): Snap } } }).__rq.debug.store());
 
 async function ledAndResistor(page: Page) {
-  await page.getByRole('button', { name: 'Add LED' }).click();       // LED 1: anode 1a, cathode 2a
-  await page.getByRole('button', { name: 'Add Resistor' }).click();  // Resistor 1 at 3a
+  await inHoles(page, 'led');                                          // LED 1: anode 1a, cathode 2a
+  const r = await inHoles(page, 'resistor');                           // Resistor 1 at 3a
+  await dbg(page, 'select', r);
   // move the resistor so one leg is in the LED's cathode column: 3a → 3b → 2b (legs 2b, 6b); left first would hit the LED
   await page.getByRole('button', { name: 'Move down' }).click();
   await page.getByRole('button', { name: 'Move left' }).click();
@@ -167,7 +179,7 @@ test.describe('Build: burns and warnings', () => {
 
   test('an LED without a resistor burns, and Replace part brings it back', async ({ page }) => {
     await openBuild(page);
-    await page.getByRole('button', { name: 'Add LED' }).click(); // anode 1a, cathode 2a
+    await inHoles(page, 'led'); // anode 1a, cathode 2a
     await page.getByRole('tab', { name: 'Wiring' }).click();
     await connect(page, 'uno.D13', 'bb.1c');
     await connect(page, 'bb.2c', 'uno.GND');
@@ -239,7 +251,7 @@ test.describe('B3: the build as it really is', () => {
 
   test('the build is still there after closing and reopening the page', async ({ page }) => {
     await openBuild(page);
-    await page.getByRole('button', { name: 'Add LED' }).click();
+    await inHoles(page, 'led');
     await page.getByRole('tab', { name: 'Wiring' }).click();
     await connect(page, 'uno.D13', 'bb.1c');
     await page.reload();
@@ -256,7 +268,7 @@ test.describe('B3: the build as it really is', () => {
     await page.reload();
     await nav(page, 'Build');
     await expect(page.getByRole('list', { name: 'On the bench' })).toContainText('LED 1');
-    expect((await build(page)).parts).toHaveLength(1);
+    expect((await build(page)).parts).toHaveLength(2); // the LED and its breadboard
     expect((await build(page)).wires).toHaveLength(1);
   });
 
@@ -272,7 +284,7 @@ test.describe('B3: the build as it really is', () => {
 
   test('a burnt LED is still burnt after visiting Home and coming back', async ({ page }) => {
     await openBuild(page);
-    await page.getByRole('button', { name: 'Add LED' }).click();
+    await inHoles(page, 'led');
     await page.getByRole('tab', { name: 'Wiring' }).click();
     await connect(page, 'uno.D13', 'bb.1c');
     await connect(page, 'bb.2c', 'uno.GND');

@@ -5,12 +5,22 @@ const dbg = (page: Page, fn: string, ...args: unknown[]) => page.evaluate(([f, a
 const part = (page: Page, id: string) => page.evaluate((i) => (window as unknown as { __rq: { debug: Dbg } }).__rq.debug.build().parts.find((p) => p.id === i)!, id);
 const screenOf = (page: Page, id: string) => page.evaluate((i) => (window as unknown as { __rq: { debug: Dbg } }).__rq.debug.buildPartScreen!(i), id);
 
+
+// A new part lands on the table; most specs here are about parts in a breadboard's holes, so: put a part into the first free holes.
+const inHoles = (page: Page, type: string) => page.evaluate((t) => {
+  const g = () => (window as unknown as { __rq: { debug: { build(): Record<string, (...a: unknown[]) => unknown> } } }).__rq.debug.build();
+  const id = g().addPart(t) as string;
+  for (const row of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) for (let col = 1; col <= 30; col++) if (g().canMove(id, { col, row })) { g().movePart(id, { col, row }); return id; }
+  return id;
+}, type);
+
 async function openBuild(page: Page) {
   await page.goto('/?test');
   await page.evaluate(() => localStorage.removeItem('rq-build-v1'));
   await page.reload();
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: 'Build' }).click();
   await expect(page.getByTestId('viewer').locator('canvas[data-engine]')).toBeVisible();
+  await page.evaluate(() => (window as unknown as { __rq: { debug: { build(): { addPart(t: string): string } } } }).__rq.debug.build().addPart('breadboard'));
 }
 
 test.describe('Press and drag a part, and turn it', () => {
@@ -32,7 +42,7 @@ test.describe('Press and drag a part, and turn it', () => {
 
   test('a part in the breadboard moves hole by hole when dragged', async ({ page }) => {
     await openBuild(page);
-    const id = (await dbg(page, 'addPart', 'led')) as string;
+    const id = await inHoles(page, 'led');
     await dbg(page, 'select', id);
     await page.getByTestId('viewer').scrollIntoViewIfNeeded();
     const before = await part(page, id), c = (await screenOf(page, id))!;
@@ -52,7 +62,7 @@ test.describe('Press and drag a part, and turn it', () => {
     const slider = page.getByRole('slider', { name: 'Angle in degrees' });
     await slider.fill('90');
     expect((await part(page, m)).rot).toBe(90);
-    const led = (await dbg(page, 'addPart', 'led')) as string;
+    const led = await inHoles(page, 'led');
     await dbg(page, 'movePart', led, { col: 8, row: 'c' });
     await dbg(page, 'select', led);
     await expect(page.getByRole('slider', { name: 'Angle in degrees' })).toHaveCount(0);
@@ -62,7 +72,7 @@ test.describe('Press and drag a part, and turn it', () => {
 
   test('the push button has no Turn control', async ({ page }) => {
     await openBuild(page);
-    await dbg(page, 'select', (await dbg(page, 'addPart', 'button')) as string);
+    await dbg(page, 'select', await inHoles(page, 'button'));
     await expect(page.getByRole('button', { name: 'Turn right' })).toHaveCount(0);
   });
 

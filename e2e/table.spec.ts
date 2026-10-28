@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type Dbg = { build(): Record<string, (...a: unknown[]) => unknown> & { parts: { id: string; at: Record<string, number | string> }[]; wires: { from: string; to: string }[]; breadboard: boolean } };
-const store = (page: Page) => page.evaluate(() => { const b = (window as unknown as { __rq: { debug: Dbg } }).__rq.debug.build(); return { parts: b.parts, wires: b.wires, breadboard: b.breadboard }; });
+type Dbg = { build(): Record<string, (...a: unknown[]) => unknown> & { parts: { id: string; type: string; at: Record<string, number | string> }[]; wires: { from: string; to: string }[] } };
+const store = (page: Page) => page.evaluate(() => { const b = (window as unknown as { __rq: { debug: Dbg } }).__rq.debug.build(); return { parts: b.parts, wires: b.wires }; });
 const call = (page: Page, fn: string, ...args: unknown[]) => page.evaluate(([f, a]) => (window as unknown as { __rq: { debug: Dbg } }).__rq.debug.build()[f as string](...(a as unknown[])), [fn, args] as const);
+const screenOf = (page: Page, ref: string) => page.evaluate((r) => (window as unknown as { __rq: { debug: { buildPinScreen(r: string): { x: number; y: number } } } }).__rq.debug.buildPinScreen(r), ref);
 
 async function openBuild(page: Page) {
   await page.goto('/?test');
@@ -12,12 +13,12 @@ async function openBuild(page: Page) {
   await expect(page.getByTestId('viewer').locator('canvas[data-engine]')).toBeVisible();
 }
 
-test.describe('Building without a breadboard', () => {
-  test('parts stand on the table and wires go straight to their legs', async ({ page }) => {
+test.describe('Building: the breadboard is a part like any other', () => {
+  test('a new build has no breadboard, and new parts stand on the table with wires straight to their legs', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await openBuild(page);
-    await page.getByRole('radio', { name: 'Table' }).first().click();
+    expect((await store(page)).parts).toEqual([]);
     await page.getByRole('button', { name: 'Add Resistor' }).click();
     await page.getByRole('button', { name: 'Add LED' }).click();
     const { parts } = await store(page);
@@ -29,33 +30,43 @@ test.describe('Building without a breadboard', () => {
     expect(errors).toEqual([]);
   });
 
-  test('a part moves between the table and the breadboard, and the breadboard can be switched off', async ({ page }) => {
+  test('add as many breadboards as you like, each its own part', async ({ page }) => {
     await openBuild(page);
-    const id = (await call(page, 'addPart', 'led')) as string;
-    await call(page, 'select', id);
-    await page.getByTestId('part-window').getByRole('radio', { name: 'Table' }).click();
-    expect('x' in (await store(page)).parts[0].at).toBe(true);
-    const sw = page.getByRole('switch', { name: 'Breadboard' });
-    await page.getByRole('tab', { name: 'Parts' }).click();
-    await sw.uncheck();
-    expect((await store(page)).breadboard).toBe(false);
-    await sw.check();
-    expect((await store(page)).breadboard).toBe(true);
+    await page.getByRole('button', { name: 'Add Breadboard' }).click();
+    await page.getByRole('button', { name: 'Add Breadboard' }).click();
+    expect((await store(page)).parts.map((p) => p.id)).toEqual(['bb', 'breadboard2']);
+    expect(await call(page, 'addWire', 'breadboard2.5a', 'uno.D13')).toBeTruthy();
   });
 
-  test('the breadboard stays while a part or a wire uses its holes', async ({ page }) => {
+  test('pressing a part and dragging it onto a breadboard puts its legs in the holes; dragging it off takes it out', async ({ page }) => {
     await openBuild(page);
-    await call(page, 'addPart', 'led');
-    await page.getByRole('tab', { name: 'Parts' }).click();
-    await page.getByRole('switch', { name: 'Breadboard' }).click();
-    expect((await store(page)).breadboard).toBe(true);
-    await expect(page.getByRole('status')).toContainText('breadboard');
+    await call(page, 'addPart', 'breadboard');
+    const led = (await call(page, 'addPart', 'led')) as string;
+    await call(page, 'select', led);
+    await page.getByRole('button', { name: 'Fit everything in view' }).click();
+    await page.waitForTimeout(1500);
+    await page.getByTestId('viewer').scrollIntoViewIfNeeded();
+    const from = await page.evaluate((i) => (window as unknown as { __rq: { debug: { buildPartScreen(i: string): { x: number; y: number } } } }).__rq.debug.buildPartScreen(i), led);
+    const hole = await screenOf(page, 'bb.12c');
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(hole.x, hole.y, { steps: 12 });
+    await page.mouse.up();
+    const at = (await store(page)).parts.find((p) => p.id === led)!.at;
+    expect(at.board).toBe('bb');
+    expect(typeof at.col).toBe('number');
   });
-});
 
-test('the board has three GND sockets and every one of them is a wire point', async ({ page }) => {
-  await openBuild(page);
-  for (const pin of ['GND', 'GND_P1', 'GND_P2']) expect(await call(page, 'addWire', `uno.${pin}`, `bb.${pin === 'GND' ? 1 : pin === 'GND_P1' ? 2 : 3}a`)).toBeTruthy();
+  test('a breadboard that has parts in it can be taken away: they lie down on the table', async ({ page }) => {
+    await openBuild(page);
+    await call(page, 'addPart', 'breadboard');
+    const led = (await call(page, 'addPart', 'led')) as string;
+    await call(page, 'movePart', led, { col: 8, row: 'c' });
+    await call(page, 'removePart', 'bb');
+    const { parts } = await store(page);
+    expect(parts.map((p) => p.id)).toEqual([led]);
+    expect('x' in parts[0].at).toBe(true);
+  });
 });
 
 test.describe('Edit in Build', () => {
@@ -78,15 +89,14 @@ test.describe('Edit in Build', () => {
 
 test('dragging a wire in 3D from each power-header GND socket, and to a leg of a part on the table', async ({ page }) => {
   await openBuild(page);
-  await page.getByRole('radio', { name: 'Table' }).first().click();
+  await call(page, 'addPart', 'breadboard');
   await page.getByRole('button', { name: 'Add LED' }).click();
   await call(page, 'select', null);
   await page.getByRole('button', { name: 'Fit everything in view' }).click();
   await page.waitForTimeout(1500);
   await page.getByTestId('viewer').scrollIntoViewIfNeeded();
-  const pin = (ref: string) => page.evaluate((r) => (window as unknown as { __rq: { debug: { buildPinScreen(r: string): { x: number; y: number } } } }).__rq.debug.buildPinScreen(r), ref);
   for (const [from, to] of [['uno.GND_P1', 'bb.6c'], ['uno.GND_P2', 'bb.9c'], ['uno.D13', 'led1.A']]) {
-    const a = await pin(from), b = await pin(to);
+    const a = await screenOf(page, from), b = await screenOf(page, to);
     await page.mouse.move(a.x, a.y);
     await page.mouse.down();
     await page.mouse.move(b.x, b.y, { steps: 8 });
@@ -94,4 +104,26 @@ test('dragging a wire in 3D from each power-header GND socket, and to a leg of a
   }
   const wires = (await store(page)).wires.map((w) => [w.from, w.to].sort().join('>'));
   expect(wires).toEqual(expect.arrayContaining(['bb.6c>uno.GND_P1', 'bb.9c>uno.GND_P2', 'led1.A>uno.D13']));
+  expect((await store(page)).parts.find((p) => p.id === 'bb')!.at).toEqual(expect.objectContaining({ x: 50, z: 8 })); // pulling wires did not move the board
+});
+
+test('pulling a wire out of a breadboard hole (or a module pin) does not carry the board or the module', async ({ page }) => {
+  await openBuild(page);
+  await call(page, 'addPart', 'breadboard');
+  await call(page, 'addPart', 'hcsr04');
+  await call(page, 'select', null);
+  await page.getByRole('button', { name: 'Fit everything in view' }).click();
+  await page.waitForTimeout(1500);
+  await page.getByTestId('viewer').scrollIntoViewIfNeeded();
+  const before = (await store(page)).parts.map((p) => JSON.stringify(p.at));
+  for (const [from, to] of [['bb.6c', 'uno.D8'], ['hcsr041.TRIG', 'uno.D9']]) {
+    const a = await screenOf(page, from), b = await screenOf(page, to);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 8 });
+    await page.mouse.up();
+  }
+  const s = await store(page);
+  expect(s.wires.map((w) => [w.from, w.to].sort().join('>'))).toEqual(expect.arrayContaining(['bb.6c>uno.D8', 'hcsr041.TRIG>uno.D9']));
+  expect(s.parts.map((p) => JSON.stringify(p.at))).toEqual(before);
 });

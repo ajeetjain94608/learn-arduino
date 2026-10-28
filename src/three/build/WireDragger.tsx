@@ -5,10 +5,12 @@ import type { PartInstance, PinRef } from '../../circuit/types';
 import { disposeOwned } from '../shared/geometry';
 import { noOutline } from '../shared/layers';
 import { isTestMode } from '../shared/motion';
+import { BOARD_REF } from '../../circuit/parts';
 import { pinWorld } from './pinPoints';
 import { TouchHold } from './touchHold';
 
 const SNAP_PX = 22; // a press or release this close (on screen) to a pin or hole counts as on it
+const PART_SNAP_PX = 9; // …but on a part's body only this close: a press on a small part is mostly meant to carry it, not to start a wire
 const DRAG_PLANE_Y = 14; // the loose end of a wire being dragged floats at this height (mm)
 
 // Drag a wire in 3D: press near a UNO pin or a free breadboard hole, drag, release near another one. With a finger,
@@ -43,9 +45,10 @@ export function WireDragger({ targets, parts, color, onWire }: { targets: PinRef
       const p = v.clone().project(camera), r = el.getBoundingClientRect();
       return { x: r.left + (p.x * 0.5 + 0.5) * r.width, y: r.top + (-p.y * 0.5 + 0.5) * r.height };
     };
-    const nearest = (x: number, y: number) => {
-      let best: { ref: PinRef; world: THREE.Vector3 } | null = null, bestD = SNAP_PX * SNAP_PX;
+    const nearest = (x: number, y: number, radius = SNAP_PX, holes = true) => {
+      let best: { ref: PinRef; world: THREE.Vector3 } | null = null, bestD = radius * radius;
       for (const p of latest.current.points) {
+        if (!holes && BOARD_REF.test(p.ref)) continue;
         const s = screen(p.world), d = (s.x - x) ** 2 + (s.y - y) ** 2;
         if (d <= bestD) { bestD = d; best = p; }
       }
@@ -66,10 +69,10 @@ export function WireDragger({ targets, parts, color, onWire }: { targets: PinRef
     const onPart = (x: number, y: number) => {
       const r = el.getBoundingClientRect();
       ray.setFromCamera(new THREE.Vector2(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1), camera);
-      const tagOf = (o: THREE.Object3D | null) => { for (; o; o = o.parent) { if (o.userData?.buildPart) return 'part'; if (o.userData?.buildWire) return 'wire'; } return null; };
+      const tagOf = (o: THREE.Object3D | null) => { for (; o; o = o.parent) { if (o.userData?.buildBoard) return 'board'; if (o.userData?.buildPart) return 'part'; if (o.userData?.buildWire) return 'wire'; } return null; };
       // the first thing under the pointer, looking through wires (a wire arching in front of a knob doesn't take the knob's press)
       const first = ray.intersectObjects(scene.children, true).find((h) => h.object.visible && h.object.type !== 'Line' && tagOf(h.object) !== 'wire');
-      return tagOf(first?.object ?? null) === 'part'; // the learner's parts only (the UNO's pieces are tagged partId for Home's inspect)
+      return tagOf(first?.object ?? null); // the learner's parts only (the UNO's pieces are tagged partId for Home's inspect); a breadboard is 'board'
     };
     // The wire follows one pointer only (its pointerId); another finger landing ends it, so pinch still works.
     const drag = (start: { ref: PinRef; world: THREE.Vector3 }, pointerId: number, afterwards: () => void) => {
@@ -103,8 +106,11 @@ export function WireDragger({ targets, parts, color, onWire }: { targets: PinRef
     const controls = () => (useThreeControls.current as { enabled: boolean } | null);
 
     const down = (ev: PointerEvent) => {
-      if (ev.button !== 0 || onPart(ev.clientX, ev.clientY)) return;
-      const start = nearest(ev.clientX, ev.clientY);
+      if (ev.button !== 0) return;
+      // A hole or pin of anything wins over carrying it: pressing a breadboard hole (or a module's pin) pulls a wire. On a part's
+      // body only a press right on a pin does; elsewhere the part is carried.
+      const onBody = onPart(ev.clientX, ev.clientY) === 'part'; // (a hole beside a part never takes the press: a knob turns, a button presses)
+      const start = nearest(ev.clientX, ev.clientY, onBody ? PART_SNAP_PX : SNAP_PX, !onBody);
       if (!start) return; // not near a point: let the camera orbit
       if (ev.pointerType !== 'touch') { // mouse and pen: a press on a point starts the wire at once
         ev.stopImmediatePropagation();

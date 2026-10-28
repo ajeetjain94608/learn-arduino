@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { benchRect, coversOf, loosePins, PART_DEFS, rotatePoint } from '../../circuit/parts';
+import { benchRect, boardOf, coversOf, DEFAULT_BOARD, loosePins, PART_DEFS, rotatePoint } from '../../circuit/parts';
 import type { PartInstance } from '../../circuit/types';
 import type { Obstacle } from './wireRoute';
 import { pinWorld } from './pinPoints';
@@ -10,6 +10,7 @@ export const HEIGHT: Record<string, number> = { led: 12, resistor: 4, button: 5,
 // The space each part's body fills: the holes it covers, up to its height.
 export function partBodies(parts: PartInstance[]): Obstacle[] {
   return parts.flatMap((p) => {
+    if (p.type === 'breadboard') return []; // wires lie on a breadboard: it is no obstacle
     const bench = PART_DEFS[p.type].bench;
     if (bench && 'x' in p.at) { // a module: its box on the bench (its header pins stick out of it: the router allows the wire's own end)
       const r = benchRect(p.type, p.at, p.rot ?? 0);
@@ -25,7 +26,7 @@ export function partBodies(parts: PartInstance[]): Obstacle[] {
     const holes = coversOf(p);
     if (!holes.length) return [];
     const box = new THREE.Box3();
-    for (const h of holes) box.expandByPoint(pinWorld(`bb.${h}`));
+    for (const h of holes) box.expandByPoint(pinWorld(`${boardOf(p) ?? DEFAULT_BOARD}.${h}`, parts));
     box.max.y += HEIGHT[p.type] ?? 10;
     return [{ box: box.expandByVector(new THREE.Vector3(1, 0, 1)) }];
   });

@@ -15,8 +15,13 @@ export function buildNets(spec: CircuitSpec, legs: (p: PartInstance) => Record<s
   const join = (a: PinRef, b: PinRef) => { const ra = find(id(a)), rb = find(id(b)); if (ra !== rb) parent[ra] = rb; };
 
   for (const p of UNO_PINS) id(`uno.${p}`);
-  for (const h of BB_HOLES) id(`bb.${h}`);
-  for (const group of bbInternalNets()) for (let k = 1; k < group.length; k++) join(`bb.${group[0]}`, `bb.${group[k]}`);
+  // every breadboard (the first, `bb`, always: old circuits name its holes without having it as a part)
+  const boards = new Set(['bb', ...spec.parts.filter((p) => p.type === 'breadboard').map((p) => p.id)]);
+  const internal = bbInternalNets();
+  for (const b of boards) {
+    for (const h of BB_HOLES) id(`${b}.${h}`);
+    for (const group of internal) for (let k = 1; k < group.length; k++) join(`${b}.${group[0]}`, `${b}.${group[k]}`);
+  }
   for (const g of GND_SOCKETS) join('uno.GND', `uno.${g}`);
   for (const w of spec.wires) join(w.from, w.to);
   for (const p of spec.parts) for (const [pin, hole] of Object.entries(legs(p))) join(`${p.id}.${pin}`, hole);

@@ -50,3 +50,19 @@ describe('nets', () => {
     expect(bbInternalNets().filter((n) => n.length === 24)).toHaveLength(4);
   });
 });
+
+describe('more than one breadboard', () => {
+  const boards = (...ids: string[]): CircuitSpec => ({ parts: ids.map((id, i) => ({ id, type: 'breadboard' as const, params: {}, at: { x: i * 100, z: 0 } })), wires: [] });
+  it('each board has its own strips and rails, and no hole of one is joined to a hole of another', () => {
+    const n = buildNets(boards('bb', 'breadboard2'), noLegs);
+    expect(n.netOf('breadboard2.5a')).toBe(n.netOf('breadboard2.5e'));
+    expect(n.netOf('breadboard2.T+3')).toBe(n.netOf('breadboard2.T+27'));
+    expect(n.netOf('breadboard2.5a')).not.toBe(n.netOf('bb.5a'));
+    expect(n.netOf('breadboard2.T+3')).not.toBe(n.netOf('bb.T+3'));
+  });
+  it('a wire joins a hole of one board to a hole of the other', () => {
+    const spec = { ...boards('bb', 'breadboard2'), wires: [{ id: 'w', from: 'bb.5a', to: 'breadboard2.9f', color: '#000' }] };
+    const n = buildNets(spec, noLegs);
+    expect(n.netOf('bb.5c')).toBe(n.netOf('breadboard2.9h'));
+  });
+});

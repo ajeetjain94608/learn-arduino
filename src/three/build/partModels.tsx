@@ -12,7 +12,8 @@ import { MATERIALS, std } from '../shared/materials';
 import { BoardParts } from '../parts/board';
 import { BenchParts } from '../parts/bench';
 import { useHold, useTurn, type OnInput } from './controls3d';
-import { useBoardDrag, useMoveDrag } from './moveDrag';
+import { Breadboard } from '../breadboard/Breadboard';
+import { useMoveDrag } from './moveDrag';
 import type { PartView } from '../parts/partView';
 
 export { pointerAngle, turnKnob } from './controls3d';
@@ -70,6 +71,8 @@ function Potentiometer({ id, col, row, position, onInput }: { id: string; col: n
 type Props = {
   part: PartInstance; state?: PartState; inputs?: Record<string, number>; onPick(e: ThreeEvent<MouseEvent>): void; onInput: OnInput;
   onMove?(at: never): boolean | void; selected?: boolean;
+  boardAt?: { x: number; z: number }; // a part in a breadboard: where that breadboard stands (world mm)
+  children?: React.ReactNode;         // a breadboard: the parts in its holes
 };
 const view = ({ part, state, inputs, onInput }: Props): PartView => ({ id: part.id, at: part.at, rot: part.rot ?? 0, params: paramsOf(part.type, part.params), state, inputs: inputs ?? {}, onInput });
 const RAD = Math.PI / 180;
@@ -109,7 +112,8 @@ export function PartModel(props: Props) {
   // turned: the whole drawing turns around the first leg's hole (the legs stay in their holes, one quarter turn at a time)
   const rot = part.rot ?? 0, ax = colX(col);
   const turned = rot ? <group position={[ax, 0, z]} rotation={[0, -rot * RAD, 0]}><group position={[-ax, 0, -z]}>{model}</group></group> : model;
-  const carry = useBoardDrag(() => part.at as BoardPlacement, (to) => props.onMove?.(to as never), !!props.selected);
+  // carried by its first leg: the world place of that hole, so the drag can take it out of the board or into another
+  const carry = useMoveDrag(() => ({ x: (props.boardAt?.x ?? 0) + ax, z: (props.boardAt?.z ?? 0) + z }), (to) => props.onMove?.(to as never), !!props.selected);
   return <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick} onPointerDown={props.onMove ? carry : undefined}>{turned}</group>;
 }
 
@@ -124,6 +128,19 @@ export function LooseModel(props: Props) {
     <group name={part.id} userData={{ buildPart: part.id }} onClick={onPick} position={[at.x, 0, at.z]} rotation={[0, -(part.rot ?? 0) * RAD, 0]}
       onPointerDown={props.onMove ? carry : undefined}>
       <group position={[-ax, LOOSE_LEG_Y - BB.H, -az]}>{modelOf({ ...props, part: { ...part, at: anchor, rot: 0 } })}</group>
+    </group>
+  );
+}
+
+// A breadboard standing on the bench, with the parts in its holes as children. Pressing the board and dragging carries it (and
+// everything in it, wires included: they are fixed to its holes).
+export function BoardModel(props: Props) {
+  const { part, onPick } = props;
+  const at = part.at as { x: number; z: number };
+  const carry = useMoveDrag(() => part.at as { x: number; z: number }, (to) => props.onMove?.(to as never), !!props.selected);
+  return (
+    <group name={part.id} userData={{ buildPart: part.id, buildBoard: true }} onClick={onPick} onPointerDown={props.onMove ? carry : undefined}>
+      <Breadboard position={[at.x, 0, at.z]}>{props.children}</Breadboard>
     </group>
   );
 }

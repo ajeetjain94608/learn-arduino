@@ -86,7 +86,7 @@ function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: numb
   return { kind: 'arch', curve, points: [...vertical(a, HOUSING_H - 0.5).slice(1), ...spaced(curve), ...vertical(b, HOUSING_H - 0.5).slice(1)] };
 }
 
-const isHole = (ref: string) => ref.startsWith('bb.');
+const isHole = (ref: string) => /^(bb|breadboard\d+)\./.test(ref);
 const straight = (a: THREE.Vector3, b: THREE.Vector3) => Math.abs(a.x - b.x) < 0.1 || Math.abs(a.z - b.z) < 0.1;
 
 // Lays out every wire so none touches another or passes through a part: shortest wires first, each taking the

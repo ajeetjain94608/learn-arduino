@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createBuildStore, FRESH_CODE } from './buildStore';
+import { PART_DEFS } from '../circuit/parts';
+import { createBuildStore, FRESH_CODE, type BuildState } from './buildStore';
 
 class MemoryStorage {
   data = new Map<string, string>();
@@ -7,7 +8,23 @@ class MemoryStorage {
   setItem(k: string, v: string) { this.data.set(k, v); }
   removeItem(k: string) { this.data.delete(k); }
 }
-const fresh = () => createBuildStore(new MemoryStorage() as unknown as Storage).getState;
+// A breadboard is a part, and a new part lands on the table. Most of these tests are about parts in a breadboard's holes, so this
+// puts a breadboard on the bench and lets a new part go into the first free holes (the way "add" once did).
+function holes(get: () => BuildState): () => BuildState {
+  if (!get().parts.some((p) => p.type === 'breadboard')) get().addPart('breadboard');
+  return () => ({
+    ...get(),
+    addPart(type) {
+      const id = get().addPart(type);
+      if (!id || PART_DEFS[type].bench) return id;
+      for (const row of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'] as const) for (let col = 1; col <= 30; col++) {
+        if (get().canMove(id, { col, row })) { get().movePart(id, { col, row }); return id; }
+      }
+      return id;
+    },
+  });
+}
+const fresh = () => holes(createBuildStore(new MemoryStorage() as unknown as Storage).getState);
 
 describe('the build store', () => {
   it('adding parts fills free spots', () => {
@@ -50,14 +67,13 @@ describe('the build store', () => {
     expect(s().addWire('uno.D13', 'bb.1c')).not.toBeNull();
   });
 
-  it("the UNO and breadboard can't be removed", () => {
+  it("the UNO can't be removed; a removed part leaves its wires on the breadboard", () => {
     const s = fresh();
     s().removePart('uno');
-    s().removePart('bb');
     const id = s().addPart('led')!;
     s().addWire('uno.D13', 'bb.1c');
     s().removePart(id);
-    expect(s().parts).toEqual([]);
+    expect(s().parts.map((p) => p.type)).toEqual(['breadboard']);
     expect(s().wires).toHaveLength(1); // the wire stays on the breadboard, like real life
   });
 
@@ -74,12 +90,12 @@ describe('the build store', () => {
 
   it('saved builds survive reload; junk falls back to a fresh build', () => {
     const storage = new MemoryStorage() as unknown as Storage;
-    const a = createBuildStore(storage).getState;
+    const a = holes(createBuildStore(storage).getState);
     const id = a().addPart('led')!;
     a().setParam(id, 'color', 'blue');
     a().addWire('uno.D13', 'bb.1c');
     a().setCode('void setup() {}\nvoid loop() {}\n');
-    const b = createBuildStore(storage).getState;
+    const b = holes(createBuildStore(storage).getState);
     expect(b().parts).toEqual(a().parts);
     expect(b().wires).toEqual(a().wires);
     expect(b().code).toBe('void setup() {}\nvoid loop() {}\n');
@@ -92,12 +108,12 @@ describe('the build store', () => {
 describe('review fixes: the build store', () => {
   it('a removed part\'s id is never used again (a new LED never inherits an old one\'s burn)', () => {
     const storage = new MemoryStorage() as unknown as Storage;
-    const s = createBuildStore(storage).getState;
+    const s = holes(createBuildStore(storage).getState);
     const a = s().addPart('led')!;
     s().removePart(a);
     const b = s().addPart('led')!;
     expect(b).not.toBe(a);
-    expect(createBuildStore(storage).getState().addPart('led')).not.toBe(b); // also after a reload
+    expect(holes(createBuildStore(storage).getState)().addPart('led')).not.toBe(b); // also after a reload
   });
 
   it('a partly damaged save keeps what is valid and drops the rest', () => {
@@ -111,7 +127,7 @@ describe('review fixes: the build store', () => {
       code: 'void setup() {}\nvoid loop() {}\n',
     }));
     const s = createBuildStore(storage).getState();
-    expect(s.parts.map((p) => p.id)).toEqual(['led2']);
+    expect(s.parts.map((p) => p.id)).toEqual(['bb', 'led2']); // (the first breadboard comes with a save that uses holes)
     expect(s.wires.map((w) => w.id)).toEqual(['w2']);
     expect(s.inputs).toEqual({});
     expect(s.code).toBe('void setup() {}\nvoid loop() {}\n');
@@ -143,10 +159,10 @@ describe('B3: the build store', () => {
 
   it('burns are kept with the build (screen switch, reload) until replaced', () => {
     const storage = new MemoryStorage() as unknown as Storage;
-    const s = createBuildStore(storage).getState;
+    const s = holes(createBuildStore(storage).getState);
     const id = s().addPart('led')!;
     s().setBurns([{ id, reason: 'led-overcurrent' }, { id: 'uno.D13', reason: 'pin-overcurrent' }]);
-    expect(createBuildStore(storage).getState().burns).toHaveLength(2);
+    expect(holes(createBuildStore(storage).getState)().burns).toHaveLength(2);
     s().replaceBurn(id);
     expect(s().burns).toEqual([{ id: 'uno.D13', reason: 'pin-overcurrent' }]);
     s().replaceBurn('uno'); // a new board: every damaged pin and the short go
@@ -189,10 +205,10 @@ describe('B3: modules on the bench', () => {
 
   it('a saved build keeps its modules and their wires', () => {
     const storage = new MemoryStorage() as unknown as Storage;
-    const a = createBuildStore(storage).getState;
+    const a = holes(createBuildStore(storage).getState);
     const id = a().addPart('hcsr04')!;
     a().addWire('uno.D9', `${id}.TRIG`);
-    const b = createBuildStore(storage).getState();
+    const b = holes(createBuildStore(storage).getState)();
     expect(b.parts).toEqual(a().parts);
     expect(b.wires).toEqual(a().wires);
   });
@@ -206,14 +222,15 @@ describe('B3: a project has its own copy of its build', () => {
   };
   it('starts from the ready-made build, keeps changes under its own key, and Reset brings the original back', () => {
     const storage = new MemoryStorage() as unknown as Storage;
-    const free = createBuildStore(storage).getState;
+    const free = holes(createBuildStore(storage).getState);
     const p = createBuildStore(storage, 'rq-project-blink-v1', start).getState;
-    expect(p().parts).toEqual(start.parts);
+    expect(p().parts.filter((x) => x.type !== 'breadboard')).toEqual(start.parts);
+    expect(p().parts.map((x) => x.id)).toEqual(['bb', ...start.parts.map((x) => x.id)]);   // the project uses holes: its breadboard is on the bench
     expect(p().wires).toEqual(start.wires);
     expect(p().inputs).toEqual({ led1: {} });
     p().removeWire('w1');
     expect(createBuildStore(storage, 'rq-project-blink-v1', start).getState().wires).toEqual([]); // the change is saved
-    expect(free().parts).toEqual([]);                                                              // the free build is untouched
+    expect(free().parts.map((x) => x.type)).toEqual(['breadboard']);                               // the free build is untouched
     p().restart(start);
     expect(p().wires).toEqual(start.wires);
     expect(p().burns).toEqual([]);
@@ -249,10 +266,10 @@ describe('B3: dragging and turning modules', () => {
   });
   it('the turn is saved with the build', () => {
     const storage = new MemoryStorage() as unknown as Storage;
-    const a = createBuildStore(storage).getState;
+    const a = holes(createBuildStore(storage).getState);
     const id = a().addPart('servo')!;
     a().rotatePart(id, 135);
-    expect(createBuildStore(storage).getState().parts[0].rot).toBe(135);
+    expect(createBuildStore(storage).getState().parts.find((p) => p.id === id)!.rot).toBe(135);
   });
   it('a save with a bad turn keeps the part and drops the turn', () => {
     const storage = new MemoryStorage() as unknown as Storage;
@@ -310,61 +327,108 @@ describe('B4: turning a part that sits in the breadboard', () => {
   });
 });
 
-describe('parts on the table, no breadboard', () => {
-  it('a part can stand on the table: its legs are free pins a wire goes straight to', () => {
-    const s = fresh();
-    const id = s().addPart('led', 'table')!;
-    const led = s().parts.find((p) => p.id === id)!;
-    expect('x' in led.at).toBe(true);
-    expect(s().addWire('uno.D13', `${id}.A`)).not.toBeNull();
-    expect(s().addWire('uno.GND_P1', `${id}.K`)).not.toBeNull();
-    expect(s().addWire('uno.D12', `${id}.A`)).toBeNull();      // a leg takes one wire, like a module's pin
+describe('a breadboard is a part: parts land on the table, and are dragged into holes', () => {
+  const raw = () => createBuildStore(new MemoryStorage() as unknown as Storage).getState;
+  const at = (s: () => BuildState, id: string) => s().parts.find((p) => p.id === id)!.at;
+  it('a new build is empty: no breadboard until one is added', () => {
+    const s = raw();
+    expect(s().parts).toEqual([]);
+    expect(s().addPart('led')).not.toBeNull();
+    expect('x' in at(s, 'led1')).toBe(true);                      // a new part stands on the table
+    expect(s().addWire('uno.D13', 'bb.5a')).toBeNull();           // there are no holes yet
   });
-  it('every part type can stand on the table', () => {
-    const s = fresh();
-    for (const type of ['led', 'resistor', 'button', 'pot', 'rgb', 'buzzer', 'ldr', 'tmp36', 'fsr', 'diode', 'npn', 'traffic'] as const) {
-      expect(s().addPart(type, 'table'), type).not.toBeNull();
-    }
+  it('breadboards are added one by one: bb, then breadboard2, breadboard3…, each its own board of holes', () => {
+    const s = raw();
+    expect(s().addPart('breadboard')).toBe('bb');
+    expect(s().addPart('breadboard')).toBe('breadboard2');
+    expect(s().addPart('breadboard')).toBe('breadboard3');
+    const xs = s().parts.map((p) => JSON.stringify(p.at));
+    expect(new Set(xs).size).toBe(3);                             // none on top of another
+    expect(s().addWire('uno.D13', 'bb.5a')).not.toBeNull();
+    expect(s().addWire('uno.D12', 'breadboard2.5a')).not.toBeNull();
+    expect(s().addWire('uno.D11', 'breadboard9.5a')).toBeNull();  // no such board
+  });
+  it('every part type stands on the table, and its legs are wire points', () => {
+    const s = raw();
+    for (const type of ['led', 'resistor', 'button', 'pot', 'rgb', 'buzzer', 'ldr', 'tmp36', 'fsr', 'diode', 'npn', 'traffic'] as const) expect(s().addPart(type), type).not.toBeNull();
     expect(s().parts.every((p) => 'x' in p.at)).toBe(true);
+    expect(s().addWire('uno.D13', 'led1.A')).not.toBeNull();
+    expect(s().addWire('uno.D12', 'led1.A')).toBeNull();          // a leg takes one wire
   });
-  it('loose parts do not overlap each other and turn to any angle', () => {
-    const s = fresh();
-    const a = s().addPart('resistor', 'table')!, b = s().addPart('resistor', 'table')!;
-    expect(s().parts.find((p) => p.id === a)!.at).not.toEqual(s().parts.find((p) => p.id === b)!.at);
-    expect(s().rotatePart(a, 37.5)).toBe(true);
-    expect(s().parts.find((p) => p.id === a)!.rot).toBe(37.5);
-    const btn = s().addPart('button', 'table')!;
-    expect(s().rotatePart(btn, 45)).toBe(true);                // the button turns on the table (not in the holes)
-  });
-  it('moving a part between the breadboard and the table', () => {
-    const s = fresh();
-    const id = s().addPart('led')!;
-    expect(s().placeOn(id, 'table')).toBe(true);
-    expect('x' in s().parts.find((p) => p.id === id)!.at).toBe(true);
-    s().addWire('uno.D13', `${id}.A`);
-    expect(s().placeOn(id, 'board')).toBe(true);
-    expect(s().wires).toHaveLength(0);                          // the wire on its free leg went with it
-    expect('col' in s().parts.find((p) => p.id === id)!.at).toBe(true);
-  });
-  it('the breadboard can be switched off only when nothing uses it, and stays off for new parts', () => {
-    const s = fresh();
+  it('dragging a part over a breadboard puts its legs in the holes, and dragging it off takes it out', () => {
+    const s = raw();
+    s().addPart('breadboard');
     const led = s().addPart('led')!;
-    expect(s().setBreadboard(false)).toBe(false);               // an LED is in its holes
-    s().placeOn(led, 'table');
-    expect(s().setBreadboard(false)).toBe(true);
-    const r = s().addPart('resistor')!;                         // no holes: it goes on the table
-    expect('x' in s().parts.find((p) => p.id === r)!.at).toBe(true);
-    expect(s().addWire('uno.D13', 'bb.5a')).toBeNull();
-    expect(s().setBreadboard(true)).toBe(true);
+    const board = s().parts[0].at as { x: number; z: number };
+    // the point of hole 10c: x = board.x + (10 − 15.5)·2.54, z = board.z + ROW.c (−8.92)
+    expect(s().dragPart(led, { x: board.x + (10 - 15.5) * 2.54, z: board.z - 8.92 })).toBe(true);
+    expect(at(s, led)).toEqual({ col: 10, row: 'c', board: 'bb' });
+    expect(s().usedPins().has('bb.10c')).toBe(true);
+    expect(s().dragPart(led, { x: 200, z: 130 })).toBe(true);     // away from every board
+    expect('x' in at(s, led)).toBe(true);
+    expect(s().usedPins().has('bb.10c')).toBe(false);
   });
-  it('a part on the table is saved and comes back', () => {
+  it('a part dragged onto holes that are taken stays where it last fitted', () => {
+    const s = raw();
+    s().addPart('breadboard');
+    const a = s().addPart('led')!, b = s().addPart('led')!;
+    const board = s().parts[0].at as { x: number; z: number };
+    const spot = { x: board.x + (10 - 15.5) * 2.54, z: board.z - 8.92 };
+    expect(s().dragPart(a, spot)).toBe(true);
+    expect(s().dragPart(b, spot)).toBe(false);
+    expect('x' in at(s, b)).toBe(true);
+  });
+  it('a part can go from one breadboard to another', () => {
+    const s = raw();
+    s().addPart('breadboard'); s().addPart('breadboard');
+    const led = s().addPart('led')!;
+    const [b1, b2] = [s().parts[0].at, s().parts[1].at] as { x: number; z: number }[];
+    s().dragPart(led, { x: b1.x, z: b1.z });
+    expect((at(s, led) as { board: string }).board).toBe('bb');
+    s().dragPart(led, { x: b2.x, z: b2.z });
+    expect((at(s, led) as { board: string }).board).toBe('breadboard2');
+  });
+  it('a breadboard carries its parts and wires when it moves', () => {
+    const s = raw();
+    s().addPart('breadboard');
+    const led = s().addPart('led')!;
+    const b = s().parts[0].at as { x: number; z: number };
+    s().dragPart(led, { x: b.x, z: b.z });
+    s().addWire('uno.D13', 'bb.12a');
+    expect(s().dragPart('bb', { x: b.x, z: b.z + 90 })).toBe(true);
+    expect('col' in at(s, led)).toBe(true);                       // still in its holes
+    expect(s().wires).toHaveLength(1);
+  });
+  it('a breadboard cannot be dropped on another part or turned', () => {
+    const s = raw();
+    s().addPart('breadboard'); s().addPart('breadboard');
+    const [b1] = [s().parts[0].at] as { x: number; z: number }[];
+    expect(s().dragPart('breadboard2', { x: b1.x + 20, z: b1.z })).toBe(false);
+    expect(s().rotatePart('bb', 90)).toBe(false);
+  });
+  it('removing a breadboard lays its parts on the table and drops the wires to its holes', () => {
+    const s = raw();
+    s().addPart('breadboard');
+    const led = s().addPart('led')!;
+    const b = s().parts[0].at as { x: number; z: number };
+    s().dragPart(led, { x: b.x, z: b.z });
+    s().addWire('uno.D13', 'bb.12a');
+    s().removePart('bb');
+    expect(s().parts.map((p) => p.id)).toEqual([led]);
+    expect('x' in at(s, led)).toBe(true);
+    expect(s().wires).toEqual([]);
+  });
+  it('boards and table parts are saved, and an older save that used holes gets its first breadboard', () => {
     const storage = new MemoryStorage() as unknown as Storage;
     const a = createBuildStore(storage).getState;
-    const id = a().addPart('pot', 'table')!;
-    a().setBreadboard(false);
+    a().addPart('breadboard'); a().addPart('breadboard'); a().addPart('pot');
     const b = createBuildStore(storage).getState;
-    expect(b().parts.find((p) => p.id === id)?.at).toEqual(a().parts.find((p) => p.id === id)!.at);
-    expect(b().breadboard).toBe(false);
+    expect(b().parts).toEqual(a().parts);
+    const old = new MemoryStorage();
+    old.setItem('rq-build-v1', JSON.stringify({ v: 1, parts: [{ id: 'led1', type: 'led', params: { color: 'red' }, at: { col: 3, row: 'a' } }], wires: [{ id: 'w1', from: 'uno.D13', to: 'bb.3a', color: '#000' }], inputs: {}, code: 'x' }));
+    const c = createBuildStore(old as unknown as Storage).getState;
+    expect(c().parts.map((p) => p.id)).toEqual(['bb', 'led1']);
+    expect(c().wires).toHaveLength(1);
   });
 });
 

@@ -27,8 +27,13 @@ function PointSelect({ label, value, onChange, used, parts }: { label: string; v
       {parts.filter((p) => partPoints(p).length).map((p) => (
         <optgroup key={p.id} label={t('build.wiring.module').replace('{name}', pinLabel(`${p.id}.x`).split(' › ')[0])}>{partPoints(p).map(opt)}</optgroup>
       ))}
-      {HOLE_COLS.map((c) => <optgroup key={c} label={t('build.wiring.col').replace('{n}', String(c))}>{strip(c).map((h) => opt(`bb.${h}`))}</optgroup>)}
-      <optgroup label={t('build.wiring.rails')}>{rails.map((h) => opt(`bb.${h}`))}</optgroup>
+      {parts.filter((p) => p.type === 'breadboard').flatMap((b) => {
+        const name = b.id === 'bb' ? '' : `Board ${b.id.slice(10)} · `;
+        return [
+          ...HOLE_COLS.map((c) => <optgroup key={`${b.id}${c}`} label={name + t('build.wiring.col').replace('{n}', String(c))}>{strip(c).map((h) => opt(`${b.id}.${h}`))}</optgroup>),
+          <optgroup key={`${b.id}r`} label={name + t('build.wiring.rails')}>{rails.map((h) => opt(`${b.id}.${h}`))}</optgroup>,
+        ];
+      })}
     </select>
   );
 }

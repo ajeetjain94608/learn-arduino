@@ -1,13 +1,13 @@
 import { UNO_PINS, unoPinNumber } from './board';
 import { buildNets } from './nets';
-import { footprintOf } from './parts';
+import { boardOf, DEFAULT_BOARD, footprintOf } from './parts';
 import type { CircuitSpec, PartInstance } from './types';
 
 export type Supply = '5V' | '3V3' | 'VIN';
 export type Warning = { kind: 'short'; supply: Supply } | { kind: 'clash'; a: Supply; b: Supply } | { kind: 'pin'; pin: string; to: Supply | 'GND' };
 
 const legs = (p: PartInstance) =>
-  Object.fromEntries(Object.entries(footprintOf(p) ?? {}).map(([pin, hole]) => [pin, `bb.${hole}`]));
+  Object.fromEntries(Object.entries(footprintOf(p) ?? {}).map(([pin, hole]) => [pin, `${boardOf(p) ?? DEFAULT_BOARD}.${hole}`]));
 
 // Dangerous wiring that can be seen before running (spec §5.4): a supply wired straight to GND, or an I/O pin wired
 // straight to a supply or GND with no part in between (it burns as soon as the code drives it the other way).

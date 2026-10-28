@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BENCH_STEP, canTurn, footprintOf, isFree, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
+import { BENCH_STEP, boardOf, canTurn, DEFAULT_BOARD, footprintOf, isFree, PART_DEFS, paramsOf, type InputDef } from '../../circuit/parts';
 import type { PartInstance, Placement, Row } from '../../circuit/types';
 import { t, type StringKey } from '../../i18n/en';
 import { useBuild } from '../../state/buildContext';
@@ -21,9 +21,9 @@ const MOVES = [['left', -1, 0], ['right', 1, 0], ['up', 0, -1], ['down', 0, 1]] 
 function moved(at: Placement, dc: number, dr: number): Placement | null {
   if ('x' in at) return { x: at.x + dc * BENCH_STEP, z: at.z + dr * BENCH_STEP };
   const r = ROWS.indexOf(at.row) + dr;
-  return r >= 0 && r < ROWS.length ? { col: at.col + dc, row: ROWS[r] } : null;
+  return r >= 0 && r < ROWS.length ? { col: at.col + dc, row: ROWS[r], board: at.board } : null;
 }
-const legsText = (part: PartInstance) => ('x' in part.at ? '' : Object.values(footprintOf(part) ?? {}).join(' · '));
+const legsText = (part: PartInstance) => ('x' in part.at ? '' : Object.values(footprintOf(part) ?? {}).join(' · ') + (boardOf(part) === DEFAULT_BOARD ? '' : ` (board ${boardOf(part)!.slice(10)})`));
 
 // A slider and a number box for one input, always showing the same value as the 3D part.
 function SliderInput({ partId, def }: { partId: string; def: InputDef }) {
@@ -79,8 +79,6 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
   const movePart = useBuild((s) => s.movePart);
   const canMove = useBuild((s) => s.canMove);
   const rotatePart = useBuild((s) => s.rotatePart);
-  const placeOn = useBuild((s) => s.placeOn);
-  const breadboard = useBuild((s) => s.breadboard);
   useBuild((s) => s.parts); // the arrows' state follows every part (another part may free or take a spot)
   const ref = useRef<HTMLElement>(null);
   // opening the window moves focus into it (keyboard and screen readers follow); Escape closes it
@@ -113,14 +111,7 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
           })}
         </div>
       </div>}
-      {!fixed && !def.bench && (
-        <div className="part-window__param" role="radiogroup" aria-label={t('build.placeOn')}>
-          <span className="part-window__label">{t('build.placeOn')}</span>
-          <button type="button" role="radio" aria-checked={!free} className={!free ? 'is-on' : ''} disabled={!breadboard && free} onClick={() => placeOn(part.id, 'board')}>{t('build.on.board')}</button>
-          <button type="button" role="radio" aria-checked={free} className={free ? 'is-on' : ''} onClick={() => placeOn(part.id, 'table')}>{t('build.on.table')}</button>
-        </div>
-      )}
-      {!fixed && (free || canTurn(part.type)) && (
+      {!fixed && part.type !== 'breadboard' && (free || canTurn(part.type)) && (
         <div className="part-window__place">
           <span>{t('build.turn')} <b>{Math.round((part.rot ?? 0) * 10) / 10}°</b></span>
           <div className="part-window__moves">
@@ -129,7 +120,7 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
           </div>
         </div>
       )}
-      {!fixed && free && (
+      {!fixed && free && part.type !== 'breadboard' && (
         <div className="part-window__input">
           <label className="part-window__label">{t('build.turn.angle')}</label>
           <input type="range" min={0} max={359} step={1} value={Math.round(part.rot ?? 0)} aria-label={t('build.turn.angle')}

@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { compileSketch } from '../../src/build/compiler/pipeline';
 import { checkWiring } from '../../src/circuit/check';
+import { usesBreadboard } from '../../src/circuit/parts';
 import { PROJECTS } from '../../src/content/projects';
 import type { Project } from '../../src/content/projects/types';
 import { parseIntelHex } from '../../src/sim/avr/hex';
@@ -17,6 +18,7 @@ class MemoryStorage { data = new Map<string, string>(); getItem(k: string) { ret
 // Build the project the way a learner would: add each part, move it into place, set it up, then wire it.
 function replay(p: Project) {
   const s = createBuildStore(new MemoryStorage() as unknown as Storage).getState;
+  if (usesBreadboard(p.build.parts, p.build.wires)) expect(s().addPart('breadboard'), `${p.id}: add the breadboard`).toBe('bb');
   for (const part of p.build.parts) {
     const id = s().addPart(part.type);
     expect(id, `${p.id}: add ${part.id}`).toBe(part.id);
@@ -30,7 +32,7 @@ function replay(p: Project) {
 describe('every project can be built by hand', () => {
   for (const p of PROJECTS) it(p.id, () => {
     const s = replay(p);
-    expect(s.parts.length).toBe(p.build.parts.length);
+    expect(s.parts.length).toBe(p.build.parts.length + (usesBreadboard(p.build.parts, p.build.wires) ? 1 : 0)); // (+ the breadboard)
     expect(checkWiring({ parts: s.parts, wires: s.wires }), `${p.id}: no dangerous wiring`).toEqual([]);
   });
   it('there are 16, with unique ids', () => {

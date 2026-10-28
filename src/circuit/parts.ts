@@ -122,10 +122,33 @@ export const PART_DEFS: Record<PartType, PartDef> = {
   stepper: { ...module({ w: 76, d: 40, h: 22, pins: { ...header(['IN1', 'IN2', 'IN3', 'IN4'], 14, 6, 16), '+': [26, 6, 10], '-': [26, 6, 7.46] } }), params: [{ key: 'load', options: ['wheel', 'none'], default: 'wheel' }], inputs: [] },
   // 0.96" SSD1306 OLED, 128 × 64, I²C: GND, VCC, SCL, SDA
   oled: { ...module({ w: 28, d: 28, h: 12, pins: header(['GND', 'VCC', 'SCL', 'SDA'], 0, 6, -11) }), params: [], inputs: [] },
+  // a breadboard: stands on the bench; its holes are wire points of their own ("<id>.12a"), parts push their legs into them
+  breadboard: { ...module({ w: 82, d: 55, h: 8.5, pins: {} }), params: [], inputs: [] },
   // capacitive soil-moisture sensor standing in a plant pot: GND, VCC, AOUT
   soil: { ...module({ w: 60, d: 60, h: 60, pins: header(['GND', 'VCC', 'AOUT'], 0, 58, 14) }), params: [], inputs: [{ key: 'moisture', min: 0, max: 100, step: 1, unit: '%', default: 50 }] },
 };
 
+// Breadboards: the first is `bb`, then `breadboard2`, `breadboard3`… A hole is "<board id>.<hole>".
+export const DEFAULT_BOARD = 'bb';
+export const BOARD_ID = /^(bb|breadboard\d+)$/;
+export const BOARD_REF = /^(bb|breadboard\d+)\./;
+export const boardOf = (p: { at: Placement }): string | null => (onBench(p.at) ? null : p.at.board ?? DEFAULT_BOARD);
+export const isBoard = (p: { type: PartType }) => p.type === 'breadboard';
+export const BOARD_AT = { x: 50, z: 8 }; // where the first breadboard goes (as in the Blink project)
+export const BOARD_SLOTS = [BOARD_AT, { x: 50, z: 80 }, { x: 50, z: -62 }, { x: 140, z: 8 }, { x: 140, z: 80 }, { x: 140, z: -62 }, { x: -60, z: 100 }, { x: -60, z: -100 }];
+// the board that a hole near (x, z) belongs to, and that hole: the nearest of the ten strip rows and thirty columns
+export function holeUnder(boards: readonly PartInstance[], x: number, z: number): { board: string; col: number; row: Row } | null {
+  for (const b of boards) {
+    if (b.type !== 'breadboard' || !onBench(b.at)) continue;
+    const lx = x - b.at.x, lz = z - b.at.z;
+    if (Math.abs(lx) > 41 || Math.abs(lz) > 27.5) continue;
+    const col = Math.min(COLUMNS, Math.max(1, Math.round(lx / 2.54 + 15.5)));
+    let row: Row = 'a', best = Infinity;
+    for (const r of STRIP_ROWS) { const d = Math.abs(ROW[r] - lz); if (d < best) { best = d; row = r; } }
+    return { board: b.id, col, row };
+  }
+  return null;
+}
 export const BENCH_TYPES = (Object.keys(PART_DEFS) as PartType[]).filter((t) => PART_DEFS[t].bench);
 
 // The part's parameters with defaults filled in.
@@ -240,7 +263,7 @@ export const isFree = (p: Pick<PartInstance, 'type' | 'at'>) => !!PART_DEFS[p.ty
 export const isLoose = (p: Pick<PartInstance, 'type' | 'at'>) => !PART_DEFS[p.type].bench && onBench(p.at);
 // Whether a build needs the breadboard at all: a part in its holes, or a wire to one of them.
 export const usesBreadboard = (parts: readonly PartInstance[], wires: readonly Wire[]) =>
-  parts.some((p) => !onBench(p.at)) || wires.some((w) => w.from.startsWith('bb.') || w.to.startsWith('bb.'));
+  parts.some((p) => !onBench(p.at)) || wires.some((w) => BOARD_REF.test(w.from) || BOARD_REF.test(w.to));
 export const LOOSE_LEG_Y = 2.4; // how high a leg's lower end is above the table: where a wire plugs in
 // the breadboard hole a loose part's drawing is built around (the models are made for holes and moved onto the table)
 export const looseAnchor = (type: PartType): BoardPlacement => ({ col: 15, row: type === 'button' ? 'e' : 'c' });

@@ -32,12 +32,12 @@ import './build.css';
 type Tab = 'about' | 'parts' | 'wiring' | 'code';
 // the parts library, in the order a beginner meets them
 const CATEGORIES: { key: string; types: PartType[] }[] = [
-  { key: 'basic', types: ['led', 'resistor', 'button', 'pot', 'diode', 'npn'] },
+  { key: 'basic', types: ['breadboard', 'led', 'resistor', 'button', 'pot', 'diode', 'npn'] },
   { key: 'output', types: ['rgb', 'buzzer', 'traffic', 'motor', 'servo', 'stepper', 'oled'] },
   { key: 'sensor', types: ['ldr', 'tmp36', 'fsr', 'hcsr04', 'soil'] },
 ];
 // where a part is, in words: its first leg's hole, or "On the bench"
-const placeLabel = (p: PartInstance) => ('x' in p.at ? t('build.onBench') : `${p.at.col}${p.at.row}`);
+const placeLabel = (p: PartInstance) => ('x' in p.at ? t('build.onBench') : `${p.at.col}${p.at.row}${p.at.board && p.at.board !== 'bb' ? ` · board ${p.at.board.slice(10)}` : ''}`);
 const partName = (type: PartType) => t(`build.part.${type}` as StringKey);
 const fill = (s: string, name: string) => s.replace('{name}', name);
 const label = (id: string, type: PartType) => `${partName(type)} ${id.slice(type.length)}`;
@@ -61,7 +61,6 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
   const addWire = useBuild((s) => s.addWire);
   const burns = useBuild((s) => s.burns);
   const setBurns = useBuild((s) => s.setBurns);
-  const breadboard = useBuild((s) => s.breadboard);
   const message = useBuild((s) => s.message);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
@@ -80,8 +79,9 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
   // points a wire can be dragged from/to: every UNO pin, and the holes nothing sits in yet
   const targets = useMemo(() => {
     const used = api.getState().usedPins();
-    return [...UNO_PINS.map((p) => `uno.${p}`), ...[...(breadboard ? BB_HOLES.map((h) => `bb.${h}`) : []), ...parts.flatMap(partPoints)].filter((h) => !used.has(h))];
-  }, [api, parts, wires, breadboard]);
+    const holes = parts.filter((p) => p.type === 'breadboard').flatMap((b) => BB_HOLES.map((h) => `${b.id}.${h}`));
+    return [...UNO_PINS.map((p) => `uno.${p}`), ...[...holes, ...parts.flatMap(partPoints)].filter((h) => !used.has(h))];
+  }, [api, parts, wires]);
 
   // While Build is open the board runs the build's program: code, compiled program and compiler messages are
   // swapped in, and Home gets its own back afterwards.
@@ -111,7 +111,7 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
           <Workbench key={guard.canvasKey} onCanvas={guard.onCanvas} onBackgroundTap={() => select(null)}>
             <SimClock circuit={circuit} inputs={inputs} burns={burns} onBurns={setBurns} />
             <WireDragger targets={targets} parts={parts} color="#F28C16" onWire={(a, b) => { if (addWire(a, b)) setTab('wiring'); }} />
-            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onMove={dragPart} selected={selected} breadboard={breadboard} onInput={setInput} />
+            <BuildScene burns={burns} parts={parts} wires={wires} inputs={inputs} partStates={circuitState?.parts ?? {}} wireVolts={labels && running ? circuitState?.wireVolts : undefined} pin13={pinHigh} rx={rxLed} tx={txLed} onPick={select} onMove={dragPart} selected={selected} onInput={setInput} />
           </Workbench>
         </GlErrorBoundary>
         <StatusPill pin13={false} />
@@ -144,20 +144,12 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
 function PartsPanel() {
   const parts = useBuild((s) => s.parts);
   const addPart = useBuild((s) => s.addPart);
-  const breadboard = useBuild((s) => s.breadboard);
-  const setBreadboard = useBuild((s) => s.setBreadboard);
-  const [where, setWhere] = useState<'board' | 'table'>('board'); // where a new part goes (modules always stand on the table)
-  const target = breadboard ? where : 'table';
   const removePart = useBuild((s) => s.removePart);
   const select = useBuild((s) => s.select);
   return (
     <div className="parts-panel">
       <h3>{t('build.library')}</h3>
-      <div className="part-window__param" role="radiogroup" aria-label={t('build.newOn')}>
-        <span className="part-window__label">{t('build.newOn')}</span>
-        <button type="button" role="radio" aria-checked={target === 'board'} className={target === 'board' ? 'is-on' : ''} disabled={!breadboard} onClick={() => setWhere('board')}>{t('build.on.board')}</button>
-        <button type="button" role="radio" aria-checked={target === 'table'} className={target === 'table' ? 'is-on' : ''} onClick={() => setWhere('table')}>{t('build.on.table')}</button>
-      </div>
+      <p className="build-note">{t('build.dragHint')}</p>
       {CATEGORIES.map((c) => (
         <section key={c.key} className="part-library__group" aria-label={t(`build.cat.${c.key}` as StringKey)}>
           <h4>{t(`build.cat.${c.key}` as StringKey)}</h4>
@@ -165,7 +157,7 @@ function PartsPanel() {
             {c.types.map((type) => (
               <li key={type} className="part-card">
                 <span><b>{partName(type)}</b><small>{t(`build.part.${type}.text` as StringKey)}</small></span>
-                <button type="button" className="part-card__add" aria-label={fill(t('build.add'), partName(type))} onClick={() => { const id = addPart(type, target); if (id) select(id); }}>+</button>
+                <button type="button" className="part-card__add" aria-label={fill(t('build.add'), partName(type))} onClick={() => { const id = addPart(type); if (id) select(id); }}>+</button>
               </li>
             ))}
           </ul>
@@ -174,12 +166,6 @@ function PartsPanel() {
       <h3>{t('build.bench')}</h3>
       <ul className="bench-list" aria-label={t('build.bench')}>
         <li>{t('build.uno')}</li>
-        <li>
-          <label className="bench-list__switch">
-            <input type="checkbox" role="switch" checked={breadboard} onChange={(e) => setBreadboard(e.target.checked)} />
-            {t('build.breadboard')}
-          </label>
-        </li>
         {parts.map((p) => (
           <li key={p.id}>
             <button type="button" className="bench-list__name" onClick={() => select(p.id)}>{label(p.id, p.type)} <small>{placeLabel(p)}</small></button>
