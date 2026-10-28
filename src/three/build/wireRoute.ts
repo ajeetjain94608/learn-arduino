@@ -15,6 +15,7 @@ const CLEAR = 2;          // mm between wires, and between a wire and a part
 const AWAY = new THREE.Vector3(-85, -200, -190).normalize();
 const HIDE_REACH = 60;
 const FLAT_LIFT = 1.4;    // a flat jumper's centre above the board
+const LEG_RUN = 4;        // a bare jumper end on a part's leg runs this far along the table before it rises
 const FLAT_MAX = 26;      // longest flat jumper (10 holes)
 const SHARED = HOUSING_H + 8; // near an end two wires share (one UNO socket), they may touch
 
@@ -81,7 +82,7 @@ function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: numb
   const rise = (p: THREE.Vector3) => (steep ? Math.max(p.y + HOUSING_H + 4, top - 5) : p.y + HOUSING_H + 4);
   const span = Math.hypot(b.x - a.x, b.z - a.z), edge = steep ? Math.min(0.15, 5 / Math.max(span, 1)) : 0.15;
   // an end's first stretch: straight up out of the plug, or — on a part standing on the table — along the table, away from the part, then up
-  const sideways = (p: THREE.Vector3, out: THREE.Vector3) => [p.clone().addScaledVector(out, HOUSING_H - 0.5), p.clone().addScaledVector(out, HOUSING_H + 3).setY(p.y + 7)];
+  const sideways = (p: THREE.Vector3, out: THREE.Vector3) => [p.clone().addScaledVector(out, LEG_RUN), p.clone().addScaledVector(out, LEG_RUN + 3).setY(p.y + 5)];
   const startA = outA ? sideways(a, outA) : [a.clone().setY(a.y + HOUSING_H - 0.5), a.clone().setY(rise(a))];
   const startB = outB ? sideways(b, outB) : [b.clone().setY(rise(b)), b.clone().setY(b.y + HOUSING_H - 0.5)];
   if (outB) startB.reverse();
@@ -90,7 +91,7 @@ function archRoute(a: THREE.Vector3, b: THREE.Vector3, lift: number, bulge: numb
     at(edge, top - (steep ? 1 : 3), 0.6), at(0.5, top, 1), at(1 - edge, top - (steep ? 1 : 3), 0.6),
     ...startB,
   ], false, 'centripetal');
-  const lie = (p: THREE.Vector3, out: THREE.Vector3) => Array.from({ length: 8 }, (_, i) => p.clone().addScaledVector(out, ((HOUSING_H - 0.5) * (i + 1)) / 8));
+  const lie = (p: THREE.Vector3, out: THREE.Vector3) => Array.from({ length: 4 }, (_, i) => p.clone().addScaledVector(out, (LEG_RUN * (i + 1)) / 4));
   const endA = outA ? lie(a, outA) : vertical(a, HOUSING_H - 0.5).slice(1), endB = outB ? lie(b, outB) : vertical(b, HOUSING_H - 0.5).slice(1);
   return { kind: 'arch', curve, points: [...endA, ...spaced(curve), ...endB], outs: [outA, outB] };
 }

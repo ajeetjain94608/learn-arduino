@@ -31,10 +31,9 @@ export function Jumper({ a, b, color, lift = 22, step, fromB = false, route }: {
     g.add(tube);
     const ends = [a, b].map((end, i) => {
       const out = route?.outs?.[i];
-      if (out) { // a plug lying on the table pointing away from a part, its pin going into the part's leg
-        const housing = new THREE.Mesh(housingGeo, MATERIALS.black); housing.position.y = 0.2;
-        const pin = new THREE.Mesh(new THREE.BoxGeometry(0.64, 3.0, 0.64), MATERIALS.metal); pin.position.y = -1.2;
-        const plug = new THREE.Group(); plug.add(housing, pin);
+      if (out) { // a part standing on the table: just the bare end of the wire touching the leg, no plug (it would look like a short)
+        const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 4.6, 10), MATERIALS.metal); tip.position.y = 2.3;
+        const plug = new THREE.Group(); plug.add(tip);
         plug.position.copy(end); plug.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), out);
         g.add(plug);
         return plug;
