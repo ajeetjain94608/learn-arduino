@@ -1,6 +1,7 @@
 // Builds the tutorials (learnarduino.tech/learn/…) as plain, fast HTML pages from content/learn/*.md, into dist/learn — after
-// `vite build` (npm run build runs it). No ads, no trackers, no scripts from other sites: each page is HTML, one stylesheet and a
-// few lines of script for the share buttons.
+// `vite build` (npm run build runs it). Each page is HTML, one stylesheet and a few lines of our own script. The tutorials are
+// where Learn Arduino earns: they carry Google AdSense (non-personalized ads: many readers are school students). Nothing else from
+// other sites, and the 3D lab itself never shows ads.
 //   node tools/learn/build.mjs [outDir=dist]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { escapeHtml, frontMatter, inline, readingMinutes, render } from './markdown.mjs';
 
 export const SITE = 'https://learnarduino.tech';
+export const ADSENSE = 'ca-pub-8562469101558842'; // the AdSense account (public/ads.txt names it too)
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CONTENT = path.join(ROOT, 'content/learn');
 const KINDS = { project: 'Projects', component: 'Components', guide: 'Guides' };
@@ -185,6 +187,9 @@ ${ogImage ? `<meta property="og:image" content="${ogImage}" />\n<meta property="
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="preload" href="/learn/fonts/nunito.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="/learn/learn.css" />
+<meta name="google-adsense-account" content="${ADSENSE}" />
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE}" crossorigin="anonymous"></script>
+<script>(window.adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 1;</script>
 <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
 </head>
 <body>
@@ -198,6 +203,7 @@ ${ogImage ? `<meta property="og:image" content="${ogImage}" />\n<meta property="
 ${body}
 <footer class="foot">
   <p><b>Learn Arduino</b> — learn electronics by building in 3D, free. Made by Ajeet Jain.</p>
+  <p class="foot__small">Ads on the tutorials keep Learn Arduino free. The 3D lab never shows ads.</p>
   <p class="foot__small">Not affiliated with or endorsed by Arduino. “Arduino” is a trademark of Arduino SA. Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0).</p>
   <p class="foot__small"><a href="/learn/">All tutorials</a> · <a href="/">3D lab</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></p>
 </footer>

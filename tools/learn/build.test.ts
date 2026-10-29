@@ -40,7 +40,9 @@ describe('the tutorials', () => {
     expect(html).toContain('<meta property="og:image" content="https://learnarduino.tech/learn/img/blink-og.jpg" />');
     expect(html).toContain('"@type":"TechArticle"');
     expect(html).toContain('data-src="/?embed#/projects/blink"');           // the project, live in 3D
-    expect(html).not.toMatch(/<script[^>]+src=/);                             // no scripts from anywhere
+    // the only script from elsewhere is AdSense's (non-personalized), on tutorial pages only
+    expect([...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1])).toEqual(['https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8562469101558842']);
+    expect(html).toContain('requestNonPersonalizedAds = 1');
     expect(fs.readFileSync(path.join(out, 'sitemap.xml'), 'utf8')).toContain('https://learnarduino.tech/learn/what-is-a-breadboard/');
     expect(fs.readFileSync(path.join(out, 'robots.txt'), 'utf8')).toContain('Sitemap: https://learnarduino.tech/sitemap.xml');
     fs.rmSync(out, { recursive: true, force: true });
