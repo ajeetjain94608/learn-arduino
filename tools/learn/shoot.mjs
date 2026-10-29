@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
-import { loadArticles } from './build.mjs';
+import { loadArticles, thumbOf } from './build.mjs';
 
 const BASE = process.env.LAB_URL ?? 'http://localhost:5180';
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -22,7 +22,8 @@ const MAIN = { board: 'uno', blink: 'led', button: 'button', knob: 'pot', rgb: '
 const COMPONENTS = ['uno', 'led', 'resistor', 'button', 'pot', 'rgb', 'buzzer', 'ldr', 'tmp36', 'fsr', 'diode', 'npn', 'traffic', 'motor', 'servo', 'hcsr04', 'stepper', 'oled', 'soil'];
 const ROW = { a: -14, b: -11.46, c: -8.92, d: -6.38, e: -3.84, f: 3.84, g: 6.38, h: 8.92, i: 11.46, j: 14 };
 const HIDE = '.viewer-toolbar, .viewer-corner, .status, .embed-bar, .gl-guard, .part-window { visibility: hidden !important; }';
-const want = (file) => !only || file.startsWith(only);
+const cardsOnly = only === '--cards'; // --cards: only the share cards
+const want = (file) => !cardsOnly && (!only || file.startsWith(only));
 
 async function open3d(page, hash, labels = true) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -45,17 +46,19 @@ async function mainPart(page, project) {
   return [bb.x + (p.at.col + 1 - 15.5) * 2.54, bb.z + ROW[p.at.row], 4];
 }
 
-async function card(page, file, title, sub, image) {
-  const img = image && fs.existsSync(path.join(OUT, image)) ? fs.readFileSync(path.join(OUT, image)).toString('base64') : null;
+// the share card: the title on the left, the article's one component (its clean 3D render) glowing on the right
+async function card(page, file, title, sub, part) {
+  const src = path.join(ROOT, 'src/assets/components', `${part}.png`);
+  const img = fs.existsSync(src) ? fs.readFileSync(src).toString('base64') : null;
   const font = fs.readFileSync(path.join(ROOT, 'node_modules/@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2')).toString('base64');
   await page.setViewportSize({ width: 1200, height: 630 });
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   await page.setContent(`<!doctype html><html><head><style>
     @font-face { font-family: N; src: url(data:font/woff2;base64,${font}) format('woff2'); font-weight: 200 1000; }
-    body { margin: 0; width: 1200px; height: 630px; overflow: hidden; font-family: N, sans-serif; background: radial-gradient(circle at 80% 30%, #145560, #0E2A33 60%); color: #fff; position: relative; }
-    .pic { position: absolute; inset: 0 0 0 420px; ${img ? `background: url(data:image/jpeg;base64,${img}) center / cover;` : ''} }
-    .fade { position: absolute; inset: 0; background: linear-gradient(90deg, #0E2A33 36%, rgba(14,42,51,.85) 46%, rgba(14,42,51,0) 70%); }
-    .txt { position: absolute; left: 64px; top: 0; bottom: 0; width: ${img ? 560 : 1000}px; display: flex; flex-direction: column; justify-content: center; }
+    body { margin: 0; width: 1200px; height: 630px; overflow: hidden; font-family: N, sans-serif; background: radial-gradient(circle at 78% 46%, #1D6B76, #0E2A33 58%); color: #fff; position: relative; }
+    .pic { position: absolute; left: 640px; top: 70px; width: 480px; height: 420px; ${img ? `background: url(data:image/png;base64,${img}) center / contain no-repeat;` : ''} filter: drop-shadow(0 24px 30px rgba(0,0,0,.45)); }
+    .fade { display: none; }
+    .txt { position: absolute; left: 64px; top: 0; bottom: 0; width: 560px; display: flex; flex-direction: column; justify-content: center; }
     .k { color: #5BD6DE; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; font-size: 22px; }
     h1 { font-size: ${title.length > 34 ? 52 : 64}px; line-height: 1.05; margin: 14px 0 18px; font-weight: 900; }
     p { font-size: 26px; line-height: 1.35; margin: 0; color: #CFE6EA; }
@@ -105,9 +108,9 @@ for (const type of COMPONENTS) {
 }
 // share cards: every article's own
 for (const a of loadArticles()) {
-  if (!a.og || !want(a.og)) continue;
+  if (!a.og || (only && !cardsOnly && !a.og.startsWith(only))) continue;
   const title = a.title.split(' — ')[0].split(': ')[0].replace(/ \(.*\)$/, '');
   const sub = a.kind === 'project' ? 'Wiring, code line by line — and the project live in 3D' : a.kind === 'component' ? 'How it works, the pins, and how to use it with Arduino' : 'Explained simply, with pictures — try it live in 3D';
-  await card(page, a.og, title, sub, a.image);
+  await card(page, a.og, title, sub, thumbOf(a));
 }
 await browser.close();

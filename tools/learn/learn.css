@@ -204,3 +204,11 @@ th { background: var(--accent-soft); font-weight: 800; }
 .card__done { position: absolute; top: 10px; right: 10px; display: none; padding: 4px 10px; border-radius: 999px; background: #16A34A; color: #fff; font-weight: 800; font-size: 13px; }
 .card.is-done .card__done { display: block; }
 .card[hidden], [data-group][hidden] { display: none; }
+/* card pictures: the component on its own, on a soft backdrop (never the whole bench) */
+.card__art { display: grid; place-items: center; aspect-ratio: 16 / 10; background: radial-gradient(circle at 50% 45%, var(--card), var(--accent-soft) 85%); overflow: hidden; }
+.card__art img { width: 72%; height: 88%; object-fit: contain; aspect-ratio: auto; background: none; filter: drop-shadow(0 10px 14px rgba(20, 32, 46, .18)); transition: transform .25s ease; }
+.card:hover .card__art img { transform: scale(1.06) rotate(-2deg); }
+@media (prefers-reduced-motion: reduce) { .card:hover .card__art img { transform: none; } }
+/* a component article's top picture: the part on its own */
+.hero__part { display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: var(--radius); background: radial-gradient(circle at 50% 45%, var(--card), var(--accent-soft) 80%); box-shadow: var(--shadow); }
+.hero__part img { width: 56% !important; height: 86%; object-fit: contain; box-shadow: none !important; border-radius: 0 !important; filter: drop-shadow(0 16px 22px rgba(20, 32, 46, .22)); }

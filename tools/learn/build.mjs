@@ -12,6 +12,17 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CONTENT = path.join(ROOT, 'content/learn');
 const KINDS = { project: 'Projects', component: 'Components', guide: 'Guides' };
 
+// Every card and share card shows ONE component on its own (its clean 3D render from src/assets/components), never the whole
+// bench: a project shows its main part, a component itself, a guide the part it is about.
+export const MAIN = { board: 'uno', blink: 'led', button: 'button', knob: 'pot', rgb: 'rgb', 'night-light': 'ldr', distance: 'hcsr04', tune: 'buzzer', piano: 'button', motor: 'motor', thermostat: 'tmp36', servo: 'servo', wheel: 'stepper', plant: 'soil', strength: 'fsr', parking: 'traffic' };
+const GUIDE_PART = {
+  'what-is-arduino': 'uno', 'what-is-a-breadboard': 'breadboard', 'arduino-code-basics-setup-loop': 'uno', 'voltage-current-resistance-ohms-law': 'resistor',
+  'digital-vs-analog-arduino': 'pot', 'pwm-explained-analogwrite': 'led', 'arduino-serial-monitor-explained': 'uno', 'pull-up-pull-down-resistors': 'button',
+  'resistor-color-code': 'resistor', 'how-to-read-a-schematic': 'diode', 'short-circuits-how-not-to-burn-your-arduino': 'led',
+};
+// the component an article's card shows (a file in src/assets/components, copied to /learn/parts/)
+export const thumbOf = (a) => (a.kind === 'project' ? MAIN[a.project] : a.kind === 'component' ? a.image?.replace(/-3d\.jpg$/, '') : GUIDE_PART[a.slug] ?? 'uno');
+
 // What a project needs (the "What you need" box). Pictures are the components' own 3D renders. Buy links come from
 // content/learn/affiliate.json (part id → URL) when there are any: they are marked as sponsored, with a note saying so.
 export const PARTS = {
@@ -130,8 +141,8 @@ function partsBox(a, affiliate) {
 
 // data-slug: the page marks the tutorials you have finished (kept on your device only); data-find: what the search box looks in
 function card(a) {
-  const pic = a.image ?? (a.kind === 'component' ? undefined : undefined);
-  return `<a class="card" href="${url(a.slug)}" data-slug="${a.slug}" data-level="${escapeHtml(a.level ?? 'Beginner')}" data-find="${escapeHtml(`${a.title} ${a.description} ${(a.parts ?? []).join(' ')}`.toLowerCase())}">${pic ? `<img src="${imgUrl(pic)}" alt=""${sizeAttrs(pic)} loading="lazy" decoding="async" />` : '<span class="card__art" aria-hidden="true"></span>'}<span class="card__done" aria-hidden="true">✓ Done</span><span class="card__body"><small>${a.kind === 'project' && a.number ? `Project ${a.number} · ` : `${KINDS[a.kind].replace(/s$/, '')} · `}${escapeHtml(a.level ?? 'Beginner')} · ${a.minutes} min read</small><b>${escapeHtml(a.title)}</b><span>${escapeHtml(a.description)}</span></span></a>`;
+  const part = thumbOf(a);
+  return `<a class="card" href="${url(a.slug)}" data-slug="${a.slug}" data-level="${escapeHtml(a.level ?? 'Beginner')}" data-find="${escapeHtml(`${a.title} ${a.description} ${(a.parts ?? []).join(' ')}`.toLowerCase())}"><span class="card__art"><img src="/learn/parts/${part}.png" alt="" loading="lazy" decoding="async" /></span><span class="card__done" aria-hidden="true">✓ Done</span><span class="card__body"><small>${a.kind === 'project' && a.number ? `Project ${a.number} · ` : `${KINDS[a.kind].replace(/s$/, '')} · `}${escapeHtml(a.level ?? 'Beginner')} · ${a.minutes} min read</small><b>${escapeHtml(a.title)}</b><span>${escapeHtml(a.description)}</span></span></a>`;
 }
 
 // "Questions people ask": each ### question and the paragraph after it, for Google's FAQ results
@@ -270,7 +281,7 @@ function articlePage(a, all, affiliate) {
     <p class="kicker">${a.kind === 'project' && a.number ? `Project ${a.number} · ` : ''}${escapeHtml(a.level ?? 'Beginner')} · ${a.minutes} min read${a.build ? ` · ${escapeHtml(String(a.build))} to build` : ''}</p>
     <h1>${escapeHtml(a.title)}</h1>
     <p class="lead">${inline(a.lead ?? a.description)}</p>
-    ${a.project ? `<div class="hero__img">${lab(a.project, '', a.image, a.imageAlt ?? a.title)}</div>` : a.image ? `<figure class="hero__img"><img src="${imgUrl(a.image)}" alt="${escapeHtml(a.imageAlt ?? a.title)}"${sizeAttrs(a.image)} fetchpriority="high" decoding="async" /></figure>` : ''}
+    ${a.project ? `<div class="hero__img">${lab(a.project, '', a.image, a.imageAlt ?? a.title)}</div>` : a.kind === 'component' ? `<figure class="hero__img hero__part"><img src="/learn/parts/${thumbOf(a)}.png" alt="${escapeHtml(a.imageAlt ?? a.title)}" fetchpriority="high" decoding="async" /></figure>` : a.image ? `<figure class="hero__img"><img src="${imgUrl(a.image)}" alt="${escapeHtml(a.imageAlt ?? a.title)}"${sizeAttrs(a.image)} fetchpriority="high" decoding="async" /></figure>` : ''}
     ${tryBox(a)}
     ${shareBar(a)}
   </header>
@@ -341,7 +352,7 @@ export function build(out = path.join(ROOT, 'dist')) {
   fs.copyFileSync(path.join(ROOT, 'tools/learn/learn.css'), path.join(dir, 'learn.css'));
   fs.cpSync(path.join(CONTENT, 'img'), path.join(dir, 'img'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'parts'), { recursive: true });
-  for (const p of new Set(Object.values(PARTS).map((x) => x.img).filter(Boolean))) fs.copyFileSync(path.join(ROOT, 'src/assets/components', `${p}.png`), path.join(dir, 'parts', `${p}.png`));
+  for (const p of new Set([...Object.values(PARTS).map((x) => x.img), ...all.map(thumbOf)].filter(Boolean))) fs.copyFileSync(path.join(ROOT, 'src/assets/components', `${p}.png`), path.join(dir, 'parts', `${p}.png`));
   fs.mkdirSync(path.join(dir, 'fonts'), { recursive: true });
   fs.copyFileSync(path.join(ROOT, 'node_modules/@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2'), path.join(dir, 'fonts/nunito.woff2'));
   // search engines: every page, and where the list is
