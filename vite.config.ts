@@ -15,7 +15,8 @@ const TYPES: Record<string, string> = {
 function learnPages(): Plugin {
   const out = path.resolve('node_modules/.learn-dev');
   const rebuild = async () => {
-    const { build } = await import('./tools/learn/build.mjs');
+    const builder = './tools/learn/build.mjs'; // (plain JavaScript, loaded as it is)
+    const { build } = (await import(/* @vite-ignore */ builder)) as { build(dir: string): unknown };
     build(out);
   };
   return {

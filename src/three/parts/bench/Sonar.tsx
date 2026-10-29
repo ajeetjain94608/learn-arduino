@@ -17,11 +17,12 @@ import { castSolid, decal, legZ, noRay, pinMesh, silkHole, silkText, soic, solde
 
 const BOARD = { w: 45, h: 20, t: 1.6, y0: 1.5, z: -4.8 };      // the PCB: bottom edge at y0, centre plane at z
 const FRONT = BOARD.z + BOARD.t / 2;                           // the PCB's front face
+const BACK = BOARD.z - BOARD.t / 2;                            // …and its back, where the pins are (as on the real board)
 const CAN = { x: 13, y: BOARD.y0 + BOARD.h / 2, r: 8, depth: 12 };
 export const SONAR_FACE_Z = FRONT + CAN.depth;                 // the transducers' mesh fronts (8 mm)
 const PINS_X = [-3.81, -1.27, 1.27, 3.81];                     // VCC, TRIG, ECHO, GND (tips: PART_DEFS.hcsr04.bench.pins)
-const PIN_TIP = { y: 12, z: 9 };
-const LEG_Y = 4.4;                                             // the right-angle header's legs through the PCB
+const PIN_TIP = { y: 12, z: -18.6 };                           // behind the board: wires come from behind, the eyes stay clear
+const LEG_Y = 5.4;                                             // the right-angle header's legs through the PCB
 
 // The obstacle's distance: the gap between the sensor face and the car's bumper is 8 mm + 0.6 mm per cm.
 export const gapOf = (cm: number) => 8 + Math.min(400, Math.max(2, cm)) * 0.6;
@@ -96,13 +97,14 @@ function buildSensor() {
   const xtal = crystal(); xtal.position.set(0, 18.4, FRONT + 0.2); g.add(xtal);
   // a little stand the board is pushed into
   const stand = rbox(40, 3.4, 9, 0.9, std('#3B4049', 0.75)); stand.position.set(0, 1.7, BOARD.z); g.add(stand);
-  // a right-angle pin adapter: legs through the board into a long plastic body, the pins standing up at its front
-  const body = rbox(4 * 2.54, 2.6, PIN_TIP.z + 1.4 - FRONT, 0.3, MATERIALS.header);
-  body.position.set(0, LEG_Y, (FRONT + PIN_TIP.z + 1.4) / 2); g.add(body);
+  // a right-angle pin adapter on the back: legs through the board (soldered on the front) into a long plastic body behind it,
+  // the pins standing up at its far end
+  const body = rbox(4 * 2.54, 2.6, BACK - (PIN_TIP.z - 1.4), 0.3, MATERIALS.header);
+  body.position.set(0, LEG_Y, (BACK + PIN_TIP.z - 1.4) / 2); g.add(body);
   for (const x of PINS_X) {
-    g.add(legZ(x, LEG_Y, BOARD.z - BOARD.t / 2 - 0.5, FRONT + 0.5));
+    g.add(legZ(x, LEG_Y, FRONT + 0.5, BACK - 0.5));
     g.add(pinMesh(x, PIN_TIP.z, LEG_Y, PIN_TIP.y));
-    const j = solderJoint(); j.rotation.x = -Math.PI / 2; j.position.set(x, LEG_Y, BOARD.z - BOARD.t / 2 - 0.35); g.add(j);
+    const j = solderJoint(); j.rotation.x = Math.PI / 2; j.position.set(x, LEG_Y, FRONT + 0.35); g.add(j);
   }
   return castSolid(g);
 }

@@ -116,8 +116,8 @@ export const PART_DEFS: Record<PartType, PartDef> = {
   motor: { ...module({ w: 30, d: 30, h: 28, pins: { '+': [-3, 10, 12], '-': [3, 10, 12] } }), params: [{ key: 'load', options: ['fan', 'none'], default: 'fan' }], inputs: [] },
   // SG90 micro servo: its lead ends in a 3-pin plug — brown GND, red V+, orange signal
   servo: { ...module({ w: 34, d: 20, h: 30, pins: header(['GND', 'V+', 'SIG'], 0, 6, 16) }), params: [], inputs: [] },
-  // HC-SR04 ultrasonic distance sensor, eyes facing away from the UNO; `cm` is how far the obstacle is
-  hcsr04: { ...module({ w: 46, d: 22, h: 16, pins: header(['VCC', 'TRIG', 'ECHO', 'GND'], 0, 12, 9) }), params: [], inputs: [{ key: 'cm', min: 2, max: 400, step: 1, unit: 'cm', default: 30 }] },
+  // HC-SR04 ultrasonic distance sensor, eyes facing away from the UNO and its pin header on the back; `cm` is how far the obstacle is
+  hcsr04: { ...module({ w: 46, d: 22, h: 16, pins: header(['VCC', 'TRIG', 'ECHO', 'GND'], 0, 12, -18.6) }), params: [], inputs: [{ key: 'cm', min: 2, max: 400, step: 1, unit: 'cm', default: 30 }] },
   // 28BYJ-48 stepper on its ULN2003 driver board: IN1–IN4, + and −
   stepper: { ...module({ w: 76, d: 40, h: 22, pins: { ...header(['IN1', 'IN2', 'IN3', 'IN4'], 14, 6, 16), '+': [26, 6, 10], '-': [26, 6, 7.46] } }), params: [{ key: 'load', options: ['wheel', 'none'], default: 'wheel' }], inputs: [] },
   // 0.96" SSD1306 OLED, 128 × 64, I²C: GND, VCC, SCL, SDA
