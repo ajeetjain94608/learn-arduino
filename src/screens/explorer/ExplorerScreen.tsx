@@ -1,3 +1,4 @@
+import { tutorialUrl } from '../../content/tutorials';
 import { anyCurrent } from '../../circuit/evaluate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PROJECT_INFO } from '../../content/en/projects';
@@ -27,6 +28,8 @@ import { BurnCard } from '../build/BurnCard';
 import { CodeCard } from './CodeCard';
 import type { Panel } from './ExpandButton';
 import { StatusPill, ViewerToolbar } from './Dock';
+import { EmbedBar } from './EmbedBar';
+import { isEmbed } from '../../app/embed';
 import { AboutSheet, InfoCard } from './InfoSheet';
 import { NavBar, type Screen } from './NavBar';
 import { ProjectsRow } from './ProjectsRow';
@@ -110,6 +113,9 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
     if (generic && isTestMode()) (window.__rq ??= { debug: {} }).debug.build = () => store.getState();
   }, [generic?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // the project's written tutorial, where there is one (a plain link: it is its own page)
+  const tutorialHref = project ? tutorialUrl(project.id) : null;
+  const tutorial = tutorialHref ? <a className="info-card__link" href={tutorialHref}>{t('project.tutorial')}</a> : null;
   const hotspots = useMemo(() => (generic ? projectHotspots(generic, projectView) : HOTSPOTS), [generic, projectView]);
   const info = useMemo(() => (generic ? buildProjectInfo(generic) : PROJECT_INFO[view === 'board' ? 'board' : 'circuit']), [generic, view]);
 
@@ -162,15 +168,17 @@ export function ExplorerScreen({ onNavigate, projectId, onOpenProject, onAllProj
         </div>
         <StatusPill pin13={!generic} />
         <ViewerToolbar parts={generic ? parts : undefined} home={!generic} />
+        {isEmbed() && <EmbedBar projectId={projectId} />}
         {generic && <BuzzerSound />}
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
       <div className="side" data-expand={panel ?? undefined}>
         {generic && <BuildStoreContext.Provider value={store}><BurnCard /></BuildStoreContext.Provider>}
         <InfoCard info={info} infoKey={generic?.id ?? view} focus={focus} expanded={panel === 'info'} onExpand={() => setPanel(panel === 'info' ? null : 'info')}
-          footer={!generic ? (project && onEditProject ? <button type="button" onClick={() => onEditProject(project.id)}>{t('project.edit')}</button> : undefined) : (
+          footer={!generic ? (project && onEditProject ? <><button type="button" onClick={() => onEditProject(project.id)}>{t('project.edit')}</button>{tutorial}</> : undefined) : (
             <>
               <button type="button" onClick={() => onEditProject?.(generic.id)}>{t('project.edit')}</button>
+              {tutorial}
               {confirmReset
                 ? <><button type="button" onClick={resetProject}>{t('project.resetYes')}</button><button type="button" onClick={() => setConfirmReset(false)}>{t('project.resetNo')}</button></>
                 : <button type="button" onClick={() => setConfirmReset(true)}>{t('project.reset')}</button>}

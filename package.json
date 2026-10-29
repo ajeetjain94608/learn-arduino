@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node tools/learn/build.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,7 +21,9 @@
     "avr:diagnostics": "node --experimental-strip-types tools/avr/build-fixtures.mjs --diagnostics",
     "avr:sysroot": "node --experimental-strip-types tools/avr-wasm/package-sysroot.mjs",
     "deploy:site": "npm run build && npx wrangler deploy",
-    "check:live": "node tools/prod-check.mjs"
+    "check:live": "node tools/prod-check.mjs",
+    "learn:build": "node tools/learn/build.mjs",
+    "learn:shots": "node tools/learn/shoot.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
