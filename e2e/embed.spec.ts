@@ -20,3 +20,12 @@ test('every project links to its written tutorial from Home', async ({ page }) =
   await page.goto('/?test#/projects/tune');
   await expect(page.getByRole('link', { name: 'Read the full tutorial' })).toHaveAttribute('href', '/learn/play-a-tune-buzzer-arduino/');
 });
+
+test('the 3D lab links to the written tutorials from its main navigation', async ({ page }) => {
+  await page.goto('/?test');
+  const link = page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Tutorials' });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', '/learn/');
+  const box = (await link.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(48);
+});
