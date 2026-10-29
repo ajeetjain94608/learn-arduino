@@ -50,3 +50,19 @@ describe('the tutorials', () => {
     expect(imageSize(fs.readFileSync('src/assets/components/led.png'))?.w).toBeGreaterThan(0);
   });
 });
+
+describe('search features', () => {
+  it('the FAQ for Google comes from "Questions people ask"', async () => {
+    const { faqOf, shortTitle } = await import('./build.mjs');
+    const faq = faqOf('## Intro\n\ntext\n\n## Questions people ask\n\n### Can I use pin 12?\nYes — any pin from **2** to 13.\n\n### Why 220 Ω?\nIt limits the [current](/x/).\n\n## What\'s next\n\nmore\n');
+    expect(faq).toEqual([{ q: 'Can I use pin 12?', a: 'Yes — any pin from 2 to 13.' }, { q: 'Why 220 Ω?', a: 'It limits the current.' }]);
+    expect(shortTitle("What is Arduino? A beginner's guide")).toBe('What is Arduino?');
+    expect(shortTitle('Blink an LED with Arduino — your first circuit')).toBe('Blink an LED with Arduino');
+  });
+  it('every article has a quiz and questions people ask', () => {
+    for (const a of loadArticles()) {
+      expect(a.body, a.slug).toContain('::: quiz');
+      expect(a.body, a.slug).toContain('## Questions people ask');
+    }
+  });
+});

@@ -106,6 +106,26 @@ void loop() {
 2. Show the distance in **inches** too (divide the echo time by 148).
 3. Add an LED that lights when something is closer than 20 cm — that's a parking sensor. Then compare with the **Parking sensor** project in the 3D lab.
 
+## Check yourself
+
+::: quiz
+? What does the Arduino measure to know the distance?
+- How long the ECHO pin stays HIGH *
+- How loud the echo is
+- The voltage on the TRIG pin
+= The longer the sound takes to come back, the longer ECHO stays HIGH — and the farther the object is.
+? Why do we divide the echo time by 58 to get centimetres?
+- Sound takes about 58 µs to go 1 cm and come back *
+- The sensor counts in 58ths of a second
+- 58 is the speed of sound in cm/s
+= 343 m/s is 0.0343 cm/µs; there and back is 2 cm per centimetre of distance: 2 ÷ 0.0343 ≈ 58 µs.
+? How long is the trigger pulse the Arduino sends?
+- 10 microseconds *
+- 10 milliseconds
+- 1 second
+= digitalWrite HIGH, delayMicroseconds(10), digitalWrite LOW: a 10 µs pulse starts each measurement.
+:::
+
 ## Questions people ask
 
 ### How far can the HC-SR04 measure?

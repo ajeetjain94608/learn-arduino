@@ -87,6 +87,19 @@ export function render(md, { figure = defaultFigure, lab = defaultLab } = {}) {
       else { const id = idFor(h[2]); toc.push({ level, id, text: h[2].replace(/[*`]/g, '') }); html.push(`<h${level} id="${id}"><a class="anchor" href="#${id}" aria-hidden="true">#</a>${text}</h${level}>`); }
       i++; continue;
     }
+    if (/^:::\s*quiz\s*$/.test(line)) { // a quiz: "? question", "- answer" (" *" marks the right one), "= why"
+      flush();
+      const qs = [];
+      for (i++; i < lines.length && !/^:::\s*$/.test(lines[i]); i++) {
+        const l = lines[i].trim();
+        if (l.startsWith('?')) qs.push({ q: l.slice(1).trim(), a: [], why: '' });
+        else if (l.startsWith('-') && qs.length) { const ok = /\s\*$/.test(l); qs.at(-1).a.push({ text: l.slice(1).replace(/\s\*$/, '').trim(), ok }); }
+        else if (l.startsWith('=') && qs.length) qs.at(-1).why = l.slice(1).trim();
+      }
+      i++;
+      html.push(`<div class="quiz" data-quiz><ol>${qs.map((q) => `<li class="quiz__q"><p class="quiz__ask">${inline(q.q)}</p><div class="quiz__answers" role="group" aria-label="${escapeHtml(q.q)}">${q.a.map((a) => `<button type="button" class="quiz__a"${a.ok ? ' data-ok' : ''}>${inline(a.text)}</button>`).join('')}</div>${q.why ? `<p class="quiz__why" hidden>${inline(q.why)}</p>` : ''}</li>`).join('')}</ol><p class="quiz__score" aria-live="polite"></p></div>`);
+      continue;
+    }
     const live = line.match(/^:::\s*3d\s+(\S+)(?:\s+"([^"]*)")?\s*$/);
     if (live) { flush(); html.push(lab(live[1], live[2] ?? '')); i++; continue; }
     const img = line.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)\s*$/);

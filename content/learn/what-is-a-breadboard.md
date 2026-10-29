@@ -5,7 +5,7 @@ lead: A breadboard lets you build circuits without solder — just push the legs
 kind: guide
 level: Beginner
 order: 1
-image: breadboard-hero.jpg
+image: knob-hero.jpg
 imageAlt: A breadboard with a push button, a resistor and a green LED pushed into its holes
 og: breadboard-og.jpg
 date: 2026-10-29
@@ -69,6 +69,26 @@ Look at a knob (potentiometer) project: the knob's three legs each sit in their 
 ## Do I even need a breadboard?
 
 No! For modules with header pins (like the HC-SR04 distance sensor, a servo or an OLED screen) you can plug jumper wires straight onto the pins. In our 3D lab every part can also stand on the table with wires going straight to its legs — the breadboard is just a convenient way to join many legs at once.
+
+## Check yourself
+
+::: quiz
+? Which holes are connected inside a breadboard?
+- Each line of five holes (like 12a to 12e) *
+- Every hole in the same row letter (all the a holes)
+- None — you need wires for everything
+= Each column of five holes on one side of the gap is one metal strip.
+? Are 12c and 12h connected?
+- No — the middle gap separates them *
+- Yes, they are in the same column
+- Only when a part is pushed in
+= The gap splits every column in two: a–e is one strip, f–j another.
+? Why does an LED with both legs in the same strip never light?
+- The strip connects its two legs, so it is short-circuited *
+- The strip is not connected to anything
+- LEDs only work in the rails
+= Both legs are joined by the metal strip, so current goes around the LED instead of through it.
+:::
 
 ## Questions people ask
 

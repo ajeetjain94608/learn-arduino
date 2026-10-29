@@ -56,6 +56,7 @@ export const en = {
   'build.wiring.view': 'Wiring view', 'build.wiring.view.schematic': 'Schematic', 'build.wiring.view.list': 'List',
   'build.schem.first': 'Pick a pin, then another pin, to join them with a wire. Pins with the same label are connected.',
   'build.schem.second': '{pin} is picked. Now pick the pin to join it to (pick it again to cancel).',
+  'build.schem.title': 'Schematic of the circuit', 'build.schem.morePins': 'Other UNO pins:',
   'build.schem.empty': 'No parts yet. Add some in the Parts tab.',
   'build.msg.noRoom': "There is no free hole on that leg's strip for a jumper.",
   'build.wiring.onBoard': 'On the breadboard', 'build.wiring.holes': '— what is in its holes', 'build.wiring.boardEmpty': 'Nothing in its holes yet. Drag a part onto it.',

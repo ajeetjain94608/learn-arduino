@@ -21,6 +21,7 @@ export const PARTS = {
   jumpers: { name: 'Jumper wires (male–male)' },
   led: { name: '5 mm LED', img: 'led' },
   'resistor-220': { name: '220 Ω resistor', img: 'resistor' },
+  'resistor-1k': { name: '1 kΩ resistor', img: 'resistor' },
   'resistor-10k': { name: '10 kΩ resistor', img: 'resistor' },
   button: { name: 'Push button (6 mm)', img: 'button' },
   pot: { name: '10 kΩ potentiometer', img: 'pot' },
@@ -57,7 +58,7 @@ export function imageSize(buf) {
 
 // --- articles ----------------------------------------------------------------------------------------------------------
 export function loadArticles(dir = CONTENT) {
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.md') && !/^[A-Z]/.test(f)).map((f) => { // (STYLE.md and other notes are not articles)
     const src = fs.readFileSync(path.join(dir, f), 'utf8');
     const { data, body } = frontMatter(src);
     const slug = data.slug ?? f.replace(/\.md$/, '');
@@ -127,8 +128,30 @@ function partsBox(a, affiliate) {
 </section>`;
 }
 
+// data-slug: the page marks the tutorials you have finished (kept on your device only); data-find: what the search box looks in
 function card(a) {
-  return `<a class="card" href="${url(a.slug)}">${a.image ? `<img src="${imgUrl(a.image)}" alt=""${sizeAttrs(a.image)} loading="lazy" decoding="async" />` : ''}<span class="card__body"><small>${KINDS[a.kind].replace(/s$/, '')}${a.level ? ` · ${a.level}` : ''} · ${a.minutes} min read</small><b>${escapeHtml(a.title)}</b><span>${escapeHtml(a.description)}</span></span></a>`;
+  const pic = a.image ?? (a.kind === 'component' ? undefined : undefined);
+  return `<a class="card" href="${url(a.slug)}" data-slug="${a.slug}" data-level="${escapeHtml(a.level ?? 'Beginner')}" data-find="${escapeHtml(`${a.title} ${a.description} ${(a.parts ?? []).join(' ')}`.toLowerCase())}">${pic ? `<img src="${imgUrl(pic)}" alt=""${sizeAttrs(pic)} loading="lazy" decoding="async" />` : '<span class="card__art" aria-hidden="true"></span>'}<span class="card__done" aria-hidden="true">✓ Done</span><span class="card__body"><small>${a.kind === 'project' && a.number ? `Project ${a.number} · ` : `${KINDS[a.kind].replace(/s$/, '')} · `}${escapeHtml(a.level ?? 'Beginner')} · ${a.minutes} min read</small><b>${escapeHtml(a.title)}</b><span>${escapeHtml(a.description)}</span></span></a>`;
+}
+
+// "Questions people ask": each ### question and the paragraph after it, for Google's FAQ results
+export function faqOf(md) {
+  const at = md.indexOf('## Questions people ask');
+  if (at < 0) return [];
+  const part = md.slice(at).split(/\n## /)[0];
+  const plain = (s) => s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[*`]/g, '').replace(/\s+/g, ' ').trim();
+  return [...part.matchAll(/\n###\s+(.+)\n+([\s\S]*?)(?=\n###\s|$)/g)].map((m) => ({ q: plain(m[1]), a: plain(m[2]) })).filter((x) => x.q && x.a);
+}
+
+// Teachers and bloggers can put the live project on their own page (it links back here).
+function embedBox(a) {
+  if (!a.project) return '';
+  const code = `<iframe src="${SITE}/?embed#/projects/${a.project}" title="${escapeHtml(a.title)} — live in 3D" width="100%" height="480" style="border:0;border-radius:12px" allow="fullscreen" loading="lazy"></iframe>`;
+  return `<section class="embed" aria-labelledby="embed-title"><h2 id="embed-title">Teach with this project</h2><p>Put the live 3D project on your own class page or blog — free. Copy this code:</p><pre class="embed__code"><code>${escapeHtml(code)}</code></pre><button type="button" class="share__btn" data-copy="${escapeHtml(code)}">${ICON.link}<span>Copy embed code</span></button></section>`;
+}
+
+function doneBox(a, next) {
+  return `<section class="done" data-done-box="${a.slug}"><button type="button" class="done__btn" data-mark="${a.slug}"><span class="done__tick" aria-hidden="true">✓</span><span data-label>Mark this tutorial as done</span></button>${next ? `<a class="done__next" href="${url(next.slug)}">Next: ${escapeHtml(next.title)} →</a>` : '<a class="done__next" href="/learn/">See all tutorials →</a>'}<p class="done__note">Your progress stays on this device — no account, nothing sent anywhere.</p></section>`;
 }
 
 function page({ title, description, canonical, ogImage, body, jsonLd, type = 'article' }) {
@@ -155,6 +178,7 @@ ${ogImage ? `<meta property="og:image" content="${ogImage}" />\n<meta property="
 </head>
 <body>
 <a class="skip" href="#main">Skip to the tutorial</a>
+<div class="readbar" aria-hidden="true"><span data-readbar></span></div>
 <header class="top">
   <a class="brand" href="/learn/"><img src="/favicon.svg" alt="" width="28" height="28" /><span>Learn Arduino <small>Tutorials</small></span></a>
   <nav aria-label="Tutorials">${Object.entries(KINDS).map(([k, v]) => `<a href="/learn/#${k}">${v}</a>`).join('')}</nav>
@@ -173,6 +197,44 @@ document.querySelectorAll('.lab3d__frame').forEach(function (f) { f.addEventList
   var i = document.createElement('iframe'); i.src = f.dataset.src; i.title = f.dataset.title || 'The project in 3D'; i.allow = 'fullscreen';
   f.classList.add('is-live'); f.textContent = ''; f.appendChild(i); i.focus();
 }); });
+document.querySelectorAll('[data-quiz]').forEach(function (z) {
+  var score = z.querySelector('.quiz__score'), total = z.querySelectorAll('.quiz__q').length, done = 0, right = 0;
+  z.querySelectorAll('.quiz__answers').forEach(function (g) { g.addEventListener('click', function (e) {
+    var b = e.target.closest('.quiz__a'); if (!b || g.dataset.done) return;
+    g.dataset.done = '1'; done++; if (b.hasAttribute('data-ok')) right++;
+    g.querySelectorAll('.quiz__a').forEach(function (x) { x.disabled = true; if (x.hasAttribute('data-ok')) x.classList.add('is-right'); });
+    if (!b.hasAttribute('data-ok')) b.classList.add('is-wrong');
+    var why = g.parentNode.querySelector('.quiz__why'); if (why) why.hidden = false;
+    if (done === total) score.textContent = right === total ? 'All ' + total + ' right — brilliant! 🎉' : right + ' of ' + total + ' right. Read the parts you missed and try the project in 3D.';
+  }); });
+});
+// how far through the article you are
+var bar = document.querySelector('[data-readbar]'), prose = document.querySelector('.prose');
+if (bar && prose) addEventListener('scroll', function () { var r = prose.getBoundingClientRect(); bar.style.width = Math.max(0, Math.min(100, (innerHeight - r.top) / r.height * 100)) + '%'; }, { passive: true });
+// a Copy button on every code block
+document.querySelectorAll('pre.code').forEach(function (p) { var b = document.createElement('button'); b.type = 'button'; b.className = 'code__copy'; b.textContent = 'Copy code';
+  b.addEventListener('click', function () { navigator.clipboard && navigator.clipboard.writeText(p.querySelector('code').innerText).then(function () { b.textContent = 'Copied!'; setTimeout(function () { b.textContent = 'Copy code'; }, 1600); }); }); p.appendChild(b); });
+// finished tutorials, kept on this device only
+var KEY = 'la-done', done = {}; try { done = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} }
+function paint() {
+  document.querySelectorAll('[data-slug]').forEach(function (c) { c.classList.toggle('is-done', !!done[c.dataset.slug]); });
+  document.querySelectorAll('[data-mark]').forEach(function (b) { var on = !!done[b.dataset.mark]; b.classList.toggle('is-on', on); b.querySelector('[data-label]').textContent = on ? 'Done — nice work!' : 'Mark this tutorial as done'; });
+  document.querySelectorAll('[data-progress]').forEach(function (p) { var n = Object.keys(done).length; p.textContent = n ? 'You have finished ' + n + ' of ' + p.dataset.total + ' tutorials. Keep going!' : ''; });
+}
+document.querySelectorAll('[data-mark]').forEach(function (b) { b.addEventListener('click', function () { if (done[b.dataset.mark]) delete done[b.dataset.mark]; else done[b.dataset.mark] = 1; save(); paint(); }); });
+paint();
+// the hub's search box and level chips
+var input = document.querySelector('[data-find-input]'), level = 'All';
+function filter() {
+  var q = input ? input.value.trim().toLowerCase() : '', shown = 0;
+  document.querySelectorAll('[data-group]').forEach(function (g) { var any = 0;
+    g.querySelectorAll('.card').forEach(function (c) { var ok = (!q || c.dataset.find.indexOf(q) >= 0) && (level === 'All' || c.dataset.level === level); c.hidden = !ok; if (ok) any++; });
+    g.hidden = !any; shown += any; });
+  var none = document.querySelector('[data-none]'); if (none) none.hidden = shown > 0;
+}
+if (input) input.addEventListener('input', filter);
+document.querySelectorAll('[data-level-chip]').forEach(function (c) { c.addEventListener('click', function () { level = c.dataset.levelChip; document.querySelectorAll('[data-level-chip]').forEach(function (x) { x.classList.toggle('is-on', x === c); }); filter(); }); });
 if (navigator.share) document.querySelectorAll('[data-share]').forEach(function (b) { b.hidden = false; b.addEventListener('click', function () { navigator.share({ title: document.title, url: location.href }).catch(function () {}); }); });
 </script>
 </body>
@@ -200,6 +262,8 @@ function articlePage(a, all, affiliate) {
       { '@type': 'ListItem', position: 3, name: a.title, item: canonical },
     ] },
   ];
+  const faq = faqOf(a.body);
+  if (faq.length) jsonLd.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) });
   const body = `<main id="main" class="article">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/learn/">Tutorials</a> › <a href="/learn/#${a.kind}">${KINDS[a.kind]}</a> › <span>${escapeHtml(a.title)}</span></nav>
   <header class="hero">
@@ -216,6 +280,8 @@ function articlePage(a, all, affiliate) {
       ${partsBox(a, affiliate)}
       ${html}
       ${tryBox(a)}
+      ${doneBox(a, next)}
+      ${embedBox(a)}
       <p class="updated">Last updated ${escapeHtml(a.updated ?? a.date ?? '')}</p>
     </article>
   </div>
@@ -226,6 +292,11 @@ function articlePage(a, all, affiliate) {
   return page({ title: `${a.title} — Arduino tutorial | Learn Arduino`, description: a.description, canonical, ogImage, body, jsonLd });
 }
 
+// a title without its hook: "What is Arduino? A beginner's guide…" → "What is Arduino?"
+export const shortTitle = (t) => (t.match(/^[^—:?(]+\??/)?.[0] ?? t).trim();
+// the first steps for a beginner, in order
+const START = ['what-is-arduino', 'what-is-a-breadboard', 'blink-an-led', 'push-button-arduino', 'potentiometer-arduino', 'arduino-code-basics-setup-loop'];
+
 function indexPage(all) {
   const description = 'Free Arduino tutorials for beginners: blink an LED, read sensors, drive motors — every project explained step by step, and you can build each one in 3D in your browser.';
   const body = `<main id="main" class="hub">
@@ -235,9 +306,20 @@ function indexPage(all) {
     <p class="lead">Every project explained step by step — how it works, the wiring, the code line by line — and every one of them runs in our free 3D lab, so you can try it before you buy a single part.</p>
     <a class="top__lab big" href="/">Open the 3D lab →</a>
   </header>
+  <div class="hub__live">${lab('blink', 'Try one now: press Play, then Run the code — this is the real Blink project, running in your browser')}</div>
+  <section class="start" aria-labelledby="start-title">
+    <h2 id="start-title">New to Arduino? Start here</h2>
+    <ol class="start__path">${START.map((s, n) => { const a = all.find((x) => x.slug === s); return a ? `<li><a href="${url(a.slug)}" data-slug="${a.slug}"><span class="start__n">${n + 1}</span><span><b>${escapeHtml(shortTitle(a.title))}</b><small>${a.minutes} min</small></span></a></li>` : ''; }).join('')}</ol>
+    <p class="start__progress" data-progress data-total="${all.length}"></p>
+  </section>
+  <div class="finder">
+    <label class="finder__search"><span class="visually-hidden">Search the tutorials</span><input type="search" placeholder="Search: LED, servo, sensor, PWM…" data-find-input /></label>
+    <div class="finder__chips" role="group" aria-label="Level">${['All', 'Beginner', 'Intermediate'].map((l, n) => `<button type="button" class="chip${n ? '' : ' is-on'}" data-level-chip="${l}">${l}</button>`).join('')}</div>
+  </div>
+  <p class="finder__none" data-none hidden>No tutorial matches that yet — try another word.</p>
   ${Object.entries(KINDS).map(([k, v]) => {
     const list = all.filter((a) => a.kind === k);
-    return list.length ? `<section class="more" id="${k}"><h2>${v}</h2><div class="cards">${list.map(card).join('')}</div></section>` : '';
+    return list.length ? `<section class="more" id="${k}" data-group><h2>${v} <small>${list.length}</small></h2><div class="cards">${list.map(card).join('')}</div></section>` : '';
   }).join('\n')}
 </main>`;
   const jsonLd = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Arduino tutorials', description, url: `${SITE}/learn/`,

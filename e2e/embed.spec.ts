@@ -14,9 +14,9 @@ test('the embedded 3D view shows only the project, runs it, and links to the ful
   await expect(page.getByTestId('status')).toHaveText(/Pin 13/, { timeout: 30_000 });
 });
 
-test('a project with a written tutorial links to it from Home', async ({ page }) => {
+test('every project links to its written tutorial from Home', async ({ page }) => {
   await page.goto('/?test#/projects/distance');
   await expect(page.getByRole('link', { name: 'Read the full tutorial' })).toHaveAttribute('href', '/learn/measure-distance-hc-sr04/');
   await page.goto('/?test#/projects/tune');
-  await expect(page.getByRole('link', { name: 'Read the full tutorial' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Read the full tutorial' })).toHaveAttribute('href', '/learn/play-a-tune-buzzer-arduino/');
 });

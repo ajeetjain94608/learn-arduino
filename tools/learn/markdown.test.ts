@@ -50,3 +50,12 @@ describe('the live 3D block', () => {
     expect(render('::: 3d servo\n').html).toContain('data-src="/?embed#/projects/servo"');
   });
 });
+
+describe('the quiz', () => {
+  it('questions, answers with the right one marked, and an explanation', () => {
+    const r = render('::: quiz\n? What is 1 s?\n- 1000 ms *\n- 100 ms\n= A second has 1000 milliseconds.\n:::\nafter\n');
+    expect(r.html).toContain('<button type="button" class="quiz__a" data-ok>1000 ms</button><button type="button" class="quiz__a">100 ms</button>');
+    expect(r.html).toContain('<p class="quiz__why" hidden>A second has 1000 milliseconds.</p>');
+    expect(r.html).toContain('<p>after</p>');
+  });
+});

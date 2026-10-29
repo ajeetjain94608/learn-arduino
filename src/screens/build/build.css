@@ -15,17 +15,32 @@
 .bench-list__switch input { width: 24px; height: 24px; }
 .part-window__param .part-window__label { align-self: center; font-size: 14px; font-weight: 700; color: var(--ink-2); }
 .schem { display: grid; gap: 8px; }
-.schem__card { margin: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); }
-.schem__card figcaption { font-size: 14px; font-weight: 700; }
-.schem__card svg { width: 100%; max-width: 360px; height: auto; display: block; margin: 0 auto; overflow: visible; }
+.schem__bar { display: flex; align-items: flex-start; gap: 8px; }
+.schem__bar .build-note { flex: 1; margin: 0; }
+.schem__zoom { display: flex; gap: 4px; flex: none; }
+.schem__zoom button, .schem__more button { appearance: none; min-width: 48px; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 800; font-size: 16px; cursor: pointer; }
+/* the drawing: a sheet of engineering paper that scrolls when the circuit is bigger than the panel */
+.schem__sheet { overflow: auto; max-height: 70vh; border: 1px solid var(--line); border-radius: 12px; color: var(--ink);
+  background-color: var(--card); background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 20px 20px; background-position: -1px -1px; }
+.schem__sheet svg { display: block; }
 .schem text { fill: currentColor; stroke: none; font-family: inherit; }
-.schem__pin { font-size: 7.5px; }
-.schem__net { font-size: 8px; font-weight: 800; }
-.schem__free { font-size: 7.5px; opacity: .65; }
+.schem__chip { fill: var(--card); }
+.schem__wire { stroke: var(--ink); stroke-width: 1.8; fill: none; }
+.schem__dot { fill: var(--ink); stroke: none; }
+.schem__gnd, .schem__vcc path { stroke: var(--ink); stroke-width: 1.6; }
+.schem__pin { font-size: 11px; }
+.schem__pinname { font-size: 10px; opacity: .7; }
+.schem__name { font-size: 12px; font-weight: 800; }
+.schem__net { font-size: 11px; font-weight: 800; }
+.schem__on { fill: var(--ink); } .schem__off { fill: var(--card); stroke: var(--ink-2); }
 .schem__hit { fill: transparent; stroke: none; cursor: pointer; }
 .schem__hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
-.schem__term.is-from circle:first-child { r: 4.6; stroke: var(--accent); fill: var(--accent); }
-.schem__term.is-net circle:first-child { stroke: var(--accent); stroke-width: 2; }
+.schem__term.is-from circle:first-child { r: 5; stroke: var(--accent); fill: var(--accent); }
+.schem__term.is-net circle:first-child { stroke: var(--accent); stroke-width: 2.4; }
+.schem__more { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.schem__more .build-note { width: 100%; margin: 0; }
+.schem__more button { min-width: 52px; font-size: 14px; }
+.schem__more button.is-on { background: var(--primary-bg); color: var(--primary-fg); }
 .wiring__board { margin: 4px 0 10px; font-size: 14px; }
 .wiring__board h4 { margin: 8px 0 4px; font-size: 14px; }
 .wiring__board ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }

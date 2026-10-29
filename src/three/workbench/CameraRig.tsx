@@ -20,7 +20,8 @@ export function sceneBox(scene: THREE.Object3D): THREE.Box3 | null {
   scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.layers.isEnabled(0) && shown(m)) box.expandByObject(m); });
   return box.isEmpty() ? null : box;
 }
-const shown = (o: THREE.Object3D | null): boolean => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+// (an object marked userData.noFit, like the USB cable trailing off the table, is left out of the framing)
+const shown = (o: THREE.Object3D | null): boolean => { for (; o; o = o.parent) if (!o.visible || o.userData?.noFit) return false; return true; };
 
 type Tween = { t: number; fromP: THREE.Vector3; fromT: THREE.Vector3; fromZ: number; toP: THREE.Vector3; toT: THREE.Vector3; toZ: number };
 

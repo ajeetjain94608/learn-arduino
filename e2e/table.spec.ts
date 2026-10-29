@@ -141,15 +141,16 @@ test.describe('Wiring as a schematic', () => {
     await call(page, 'select', null);
     await page.getByRole('tab', { name: 'Wiring' }).click();
     await expect(page.getByTestId('schematic')).toBeVisible();
-    await expect(page.getByRole('group', { name: 'LED 1' })).toBeVisible();
+    await expect(page.locator('.schem__sheet')).toContainText('LED 1');                // its symbol is on the drawing
     await pick(page, 'uno.D13');
     await expect(page.getByTestId('schematic')).toContainText('UNO D13 is picked');
     await pick(page, 'led1.A');
     const w = (await store(page)).wires;
     expect(w).toHaveLength(1);
     expect([w[0].from, w[0].to].sort()).toEqual(['bb.10a', 'uno.D13']);             // a jumper in a free hole of the LED's strip
-    // the pins now carry the same label
-    await expect(page.locator('[data-ref="led1.A"]').locator('xpath=..').locator('text')).toHaveText('D13');
+    // the drawing now has a wire for it, and the pin says which net it is on
+    await expect(page.locator('.schem__wire')).toHaveCount(1);
+    await expect(page.locator('[data-ref="led1.A"]')).toHaveAttribute('aria-label', /D13/);
     await pick(page, 'led1.K');
     await pick(page, 'uno.GND');
     expect((await store(page)).wires).toHaveLength(2);

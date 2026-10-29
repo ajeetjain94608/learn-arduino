@@ -100,7 +100,27 @@ void loop() {
 1. Make it blink twice as fast (change both delays to `500`).
 2. Make a heartbeat: on 100 ms, off 100 ms, on 100 ms, off 700 ms.
 3. Move the LED to pin 12 — change the wire **and** the code.
-4. Remove the resistor in the 3D lab and press Run. Watch what happens, then press *Replace part*.
+4. In the 3D lab, delete the resistor and put a jumper wire in its place (from the LED's short-leg row to GND). Press Run and watch what happens — then press *Replace part*.
+
+## Check yourself
+
+::: quiz
+? Which leg of the LED goes toward pin 13?
+- The long leg (anode, +) *
+- The short leg (cathode, −)
+- It does not matter
+= An LED only conducts one way: current goes in at the long leg (anode) and out at the short leg (cathode).
+? What does delay(1000) do?
+- Waits one second *
+- Makes the LED 1000 times brighter
+- Sets pin 13 to 1000
+= delay() pauses the program for that many milliseconds — 1000 ms is one second.
+? Why is the 220 Ω resistor there?
+- It limits the current so the LED and the pin are safe *
+- It makes the LED blink
+- It stores energy for the LED
+= Without it the LED would try to pull far more current than it can take, and burn out.
+:::
 
 ## Questions people ask
 
@@ -115,4 +135,4 @@ No. Every project here runs in our free [3D lab](/) in your browser — the code
 
 ## What's next
 
-You now know how to **control** something. Next, learn how to **sense** something: measure how far away an object is with an ultrasonic sensor.
+You now know how to **control** something. Next, learn how to **read** something: [a push button](/learn/push-button-arduino/) — your first input.
