@@ -47,7 +47,7 @@ function learnPages(): Plugin {
 export default defineConfig({
   plugins: [react(), learnPages()],
   worker: { format: 'es' },
-  // 5173 is used by the 3D spike in spikes/uno-3d; the app always runs on its own port.
+  // the app always runs on its own port (5173 is often taken by other Vite projects).
   server: { port: 5180, strictPort: true, host: true },
   preview: { port: 5181, strictPort: true },
   test: {

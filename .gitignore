@@ -19,3 +19,10 @@ tsconfig.tsbuildinfo
 
 # Cloudflare Wrangler local state
 .wrangler/
+
+# social media work (videos, posts, profile pictures): kept on this computer only
+social-media/
+
+# internal notes and early experiments: kept on this computer only
+docs/superpowers/
+spikes/
