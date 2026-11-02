@@ -161,4 +161,47 @@ test.describe('Wiring as a schematic', () => {
     await page.getByRole('radio', { name: 'List' }).click();
     await expect(page.getByRole('combobox', { name: 'From' })).toBeVisible();
   });
+  test('an EDA-style sheet: drag a symbol, turn it, draw a wire with a corner, undo and redo', async ({ page }) => {
+    const schem = () => page.evaluate(() => (window as unknown as { __rq: { debug: { build(): { schem: { pos: Record<string, { x: number; y: number; rot: number }>; wires: { pts: number[][] }[] } } } } }).__rq.debug.build().schem);
+    await openBuild(page);
+    await call(page, 'addPart', 'resistor');
+    await call(page, 'select', null);
+    await page.getByRole('tab', { name: 'Wiring' }).click();
+    await expect(page.locator('.schem__sheet')).toContainText('R1');          // designator
+    await expect(page.locator('.schem__sheet')).toContainText('220Ω');        // value
+    await page.getByRole('button', { name: 'Full screen' }).click();          // (room to work, on a phone too)
+    // drag the resistor's symbol
+    const body = page.locator('[data-kind="part"][data-id="resistor1"]');
+    const b = (await body.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+    const moved = (await schem()).pos.resistor1;
+    expect(moved).toBeTruthy();
+    // R turns it a quarter
+    await page.locator('.schem__sheet').press('r');
+    expect((await schem()).pos.resistor1.rot).toBe(90);
+    // a wire: a pin, a corner on the paper, another pin
+    await page.locator('[data-ref="uno.D9"]').click({ force: true });
+    const sheet = (await page.locator('.schem__sheet').boundingBox())!;
+    await page.mouse.click(sheet.x + sheet.width * 0.5, sheet.y + sheet.height * 0.9);
+    await page.locator('[data-ref="resistor1.1"]').click({ force: true });
+    expect((await store(page)).wires).toHaveLength(1);
+    const drawn = (await schem()).wires;
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0].pts.length).toBeGreaterThan(0);
+    // Undo takes the wire (and its drawing) back in one step; Redo brings it again (the sheet's own buttons, in full screen)
+    await page.getByRole('button', { name: 'Undo (Ctrl+Z)' }).click();
+    expect((await store(page)).wires).toHaveLength(0);
+    expect((await schem()).wires).toHaveLength(0);
+    await page.getByRole('button', { name: 'Redo (Ctrl+Y)' }).click();
+    expect((await store(page)).wires).toHaveLength(1);
+    // Ctrl+Z works too; and out of full screen, the panel's Undo / Redo
+    await page.keyboard.press('Control+z');
+    expect((await store(page)).wires).toHaveLength(0);
+    await page.getByRole('button', { name: 'Exit full screen' }).click();
+    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    expect((await store(page)).wires).toHaveLength(1);
+  });
 });

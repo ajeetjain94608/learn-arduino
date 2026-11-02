@@ -17,7 +17,18 @@ const WIRE_COLORS = ['#F28C16', '#2563EB', '#10B981', '#E2483D', '#8B5CF6', '#2B
 // counters: the highest number each part type has used, so an id is never given out twice (a new LED must never
 // inherit an old one's burn)
 // burns: what is burnt stays burnt (across screen switches and reloads) until the learner replaces it
-type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number>; burns?: Burn[] };
+// schem: the schematic sheet's own layout (where each symbol sits, the corners of wires drawn on it)
+type Saved = { v: 1; parts: PartInstance[]; wires: Wire[]; inputs: InputValues; code: string; counters?: Record<string, number>; burns?: Burn[]; schem?: Schem };
+
+// The schematic sheet: each symbol's place (sheet units, on a 10-unit grid) and turn (0, 90, 180, 270); 'uno' is the UNO's.
+// A wire drawn on the sheet keeps its corners; `wire` is the build wire it made (it goes when that wire goes).
+export type SchemPos = { x: number; y: number; rot: number };
+export type SchemWire = { id: string; wire: string; from: PinRef; to: PinRef; pts: [number, number][] };
+export type Schem = { pos: Record<string, SchemPos>; wires: SchemWire[] };
+const EMPTY_SCHEM: Schem = { pos: {}, wires: [] };
+// what Undo goes back to: the circuit and its sheet (not the code, which has its own undo, and not what is selected)
+type Snapshot = { parts: PartInstance[]; wires: Wire[]; inputs: InputValues; schem: Schem; counters: Record<string, number> };
+const HISTORY = 100;
 
 export type BuildState = {
   counters: Record<string, number>;
@@ -28,6 +39,13 @@ export type BuildState = {
   selected: string | null;   // a part id or wire id
   message: string | null;    // why the last action was refused (cleared by the next action that works)
   burns: Burn[];
+  schem: Schem;
+  past: Snapshot[];          // Undo goes back through these (newest last)
+  future: Snapshot[];        // and Redo forward through these
+  undo(): void;
+  redo(): void;
+  setSchemPos(id: string, pos: SchemPos, gesture?: number): void; // one drag on the sheet is one step to undo (`gesture` tells drags apart)
+  addSchemWire(w: SchemWire): void;
   addPart(type: PartType): string | null;  // a new part stands on the table (a breadboard is a part too); drag it into a breadboard's holes
   movePart(id: string, at: Placement): boolean;
   dragPart(id: string, at: Placement): boolean;   // like movePart, silently: a drag looks for a free spot as it goes
@@ -75,6 +93,18 @@ const validPart = (p: unknown): p is PartInstance => {
   return typeof at.col === 'number' && typeof at.row === 'string' && footprintOf({ type: p.type as PartType, params: p.params as Record<string, string | number>, rot: typeof p.rot === 'number' ? p.rot : 0, at: p.at as Placement }) !== null;
 };
 const BURN_REASONS = ['led-overcurrent', 'pin-overcurrent', 'short', 'reversed'];
+const num = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
+// a saved sheet, checked: places of parts that are still there, drawn wires whose build wire is still there
+function validSchem(x: unknown, ids: Set<string>, wireIds: Set<string>): Schem {
+  if (!isObject(x)) return EMPTY_SCHEM;
+  const pos: Record<string, SchemPos> = {};
+  if (isObject(x.pos)) for (const [id, v] of Object.entries(x.pos)) {
+    if ((id === 'uno' || ids.has(id)) && isObject(v) && num(v.x) && num(v.y) && num(v.rot)) pos[id] = { x: v.x as number, y: v.y as number, rot: v.rot as number };
+  }
+  const wires = Array.isArray(x.wires) ? x.wires.filter((w): w is SchemWire => isObject(w) && typeof w.id === 'string' && typeof w.wire === 'string' && wireIds.has(w.wire)
+    && typeof w.from === 'string' && typeof w.to === 'string' && Array.isArray(w.pts) && w.pts.every((q) => Array.isArray(q) && q.length === 2 && q.every(num))) : [];
+  return { pos, wires };
+}
 const validBurn = (b: unknown): b is Burn => isObject(b) && typeof b.id === 'string' && BURN_REASONS.includes(b.reason as string);
 const validWire = (parts: PartInstance[]) => (w: unknown): w is Wire =>
   isObject(w) && typeof w.id === 'string' && typeof w.color === 'string' && isPoint(w.from as string, parts) && isPoint(w.to as string, parts);
@@ -96,14 +126,15 @@ function load(storage: Storage | undefined, key: string): Saved | null {
     }
     const counters = isObject(s.counters) ? Object.fromEntries(Object.entries(s.counters).filter(([, n]) => typeof n === 'number')) as Record<string, number> : {};
     const burns = Array.isArray(s.burns) ? s.burns.filter(validBurn).filter((b) => b.id.startsWith('uno') || ids.has(b.id)) : [];
-    return { v: 1, parts, wires: s.wires.filter(validWire(parts)), inputs, code: s.code, counters, burns };
+    const wires = s.wires.filter(validWire(parts));
+    return { v: 1, parts, wires, inputs, code: s.code, counters, burns, schem: validSchem(s.schem, ids, new Set(wires.map((w) => w.id))) };
   } catch { return null; }
 }
 
 // The learner's build: parts on the breadboard, wires, input values and code. Saved on the device (under `key`) as it
 // changes. `start`: what a new build begins with (a project's ready-made build) when nothing is saved yet.
 export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStart): BuildStore {
-  const saved = load(storage, key) ?? (start ? { v: 1 as const, parts: withBoard(start.parts, start.wires), wires: start.wires, inputs: startInputs(start), code: start.code, counters: {}, burns: [] } : null);
+  const saved = load(storage, key) ?? (start ? { v: 1 as const, parts: withBoard(start.parts, start.wires), wires: start.wires, inputs: startInputs(start), code: start.code, counters: {}, burns: [], schem: EMPTY_SCHEM } : null);
   const store = create<BuildState>((set, get) => {
     // holes taken by part bodies and legs (except `ignore`'s), and holes and module pins taken by wire ends
     const taken = (ignore?: string) => {
@@ -138,6 +169,22 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       set({ parts: get().parts.map((x) => (x.id === id ? { ...x, at: to.at, rot: to.rot || undefined } : x)), message: null });
     const refuse = (key: Parameters<typeof t>[0]) => { set({ message: t(key) }); return null; };
     let nextWire = 0;
+    // Undo history: a snapshot is kept before each change. Changes that come as a stream (dragging a part, sliding its
+    // angle) make one step: the same `tag` again within a moment belongs to the same step.
+    const snap = (): Snapshot => { const s = get(); return { parts: s.parts, wires: s.wires, inputs: s.inputs, schem: s.schem, counters: s.counters }; };
+    let lastTag = '', lastAt = 0;
+    const record = (tag = '') => {
+      const now = Date.now();
+      if (tag && tag === lastTag && now - lastAt < 700) { lastAt = now; return; }
+      lastTag = tag; lastAt = now;
+      set({ past: [...get().past, snap()].slice(-HISTORY), future: [] });
+    };
+    const restore = (s: Snapshot) => {
+      const ids = new Set(s.parts.map((p) => p.id)), wireIds = new Set(s.wires.map((w) => w.id));
+      const sel = get().selected;
+      set({ ...s, selected: sel && (ids.has(sel) || wireIds.has(sel)) ? sel : null, message: null });
+      lastTag = '';
+    };
 
     return {
       counters: saved?.counters ?? {},
@@ -148,6 +195,32 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       selected: null,
       message: null,
       burns: saved?.burns ?? [],
+      schem: saved?.schem ?? EMPTY_SCHEM,
+      past: [],
+      future: [],
+
+      undo() {
+        const past = get().past;
+        if (!past.length) return;
+        set({ past: past.slice(0, -1), future: [...get().future, snap()] });
+        restore(past[past.length - 1]);
+      },
+      redo() {
+        const future = get().future;
+        if (!future.length) return;
+        set({ future: future.slice(0, -1), past: [...get().past, snap()] });
+        restore(future[future.length - 1]);
+      },
+      setSchemPos(id, pos, gesture) {
+        const was = get().schem.pos[id];
+        if (was && was.x === pos.x && was.y === pos.y && was.rot === pos.rot) return;
+        record(gesture === undefined ? '' : `schem:${id}:${gesture}`);
+        set({ schem: { ...get().schem, pos: { ...get().schem.pos, [id]: pos } } });
+      },
+      addSchemWire(w) {
+        record('wire');
+        set({ schem: { ...get().schem, wires: [...get().schem.wires, w] } });
+      },
 
       addPart(type) {
         const n = 1 + Math.max(get().counters[type] ?? 0, ...get().parts.filter((p) => p.type === type).map((p) => Number(p.id.slice(type.length)) || 0));
@@ -159,6 +232,7 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         for (const at of spots) {
           if (!fits(part, at)) continue;
           part.at = at;
+          record();
           set({ parts: [...get().parts, part], inputs: { ...get().inputs, [part.id]: defaultInputs(type) }, counters: { ...get().counters, [type]: n }, message: null });
           return part.id;
         }
@@ -167,12 +241,14 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       movePart(id, at) {
         const p = get().parts.find((x) => x.id === id), to = p && resolve(p, at);
         if (!to) { if (p) set({ message: t('build.msg.cantMove') }); return false; }
+        record();
         put(id, to);
         return true;
       },
       dragPart(id, at) {
         const p = get().parts.find((x) => x.id === id), to = p && resolve(p, at);
         if (!to) return false;
+        if (JSON.stringify(p.at) !== JSON.stringify(to.at) || (p.rot ?? 0) !== to.rot) record(`drag:${id}`);
         put(id, to);
         return true;
       },
@@ -184,6 +260,7 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         const snapped = isFree(p) ? Math.round(rot * 10) / 10 : Math.round(rot / 90) * 90;
         const turned = ((snapped % 360) + 360) % 360; // 0 ≤ turned < 360
         if (!fits(p, p.at, id, turned)) { set({ message: t('build.msg.cantTurn') }); return false; }
+        if ((p.rot ?? 0) !== turned) record(`turn:${id}`);
         set({ parts: get().parts.map((x) => (x.id === id ? { ...x, rot: turned } : x)), message: null });
         return true;
       },
@@ -193,6 +270,11 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         const gone = get().parts.find((p) => p.id === id);
         const pins = new Set(gone ? partPoints(gone) : []); // a module's wires go with it
         const isBoard = gone?.type === 'breadboard';
+        if (gone) record();
+        // its place on the sheet, and the sheet's wires that went with its own wires
+        const goneWires = new Set(get().wires.filter((w) => pins.has(w.from) || pins.has(w.to) || (isBoard && (w.from.startsWith(`${id}.`) || w.to.startsWith(`${id}.`)))).map((w) => w.id));
+        const { [id]: _place, ...pos } = get().schem.pos;
+        set({ schem: { pos, wires: get().schem.wires.filter((w) => !goneWires.has(w.wire) && !w.from.startsWith(`${id}.`) && !w.to.startsWith(`${id}.`)) } });
         set({
           parts: get().parts.filter((p) => p.id !== id), inputs,
           wires: get().wires.filter((w) => !pins.has(w.from) && !pins.has(w.to) && !(isBoard && (w.from.startsWith(`${id}.`) || w.to.startsWith(`${id}.`)))),
@@ -206,7 +288,7 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
           else set({ parts: get().parts.filter((p) => p.id !== k.id) });
         }
       },
-      setParam(id, key, value) { set({ parts: get().parts.map((p) => (p.id === id ? { ...p, params: { ...p.params, [key]: value } } : p)), message: null }); },
+      setParam(id, key, value) { record(`param:${id}:${key}`); set({ parts: get().parts.map((p) => (p.id === id ? { ...p, params: { ...p.params, [key]: value } } : p)), message: null }); },
       setInput(id, key, value) {
         const p = get().parts.find((x) => x.id === id);
         const def = p && PART_DEFS[p.type].inputs.find((i) => i.key === key);
@@ -223,14 +305,19 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
         const used = taken();
         if ([from, to].some((end) => !end.startsWith('uno.') && used.has(end))) return refuse('build.msg.holeTaken');
         const id = `w${Date.now().toString(36)}${nextWire++}`;
+        record('wire');
         set({ wires: [...get().wires, { id, from, to, color: color ?? WIRE_COLORS[get().wires.length % WIRE_COLORS.length] }], message: null });
         return id;
       },
-      removeWire(id) { set({ wires: get().wires.filter((w) => w.id !== id), selected: get().selected === id ? null : get().selected, message: null }); },
-      setWireColor(id, color) { set({ wires: get().wires.map((w) => (w.id === id ? { ...w, color } : w)) }); },
+      removeWire(id) {
+        if (!get().wires.some((w) => w.id === id)) return;
+        record();
+        set({ schem: { ...get().schem, wires: get().schem.wires.filter((w) => w.wire !== id) } });
+        set({ wires: get().wires.filter((w) => w.id !== id), selected: get().selected === id ? null : get().selected, message: null }); },
+      setWireColor(id, color) { record(`color:${id}`); set({ wires: get().wires.map((w) => (w.id === id ? { ...w, color } : w)) }); },
       select(selected) { set({ selected }); },
       setCode(code) { set({ code }); },
-      reset() { set({ parts: [], wires: [], inputs: {}, code: FRESH_CODE, selected: null, message: null, burns: get().burns.filter((b) => b.id.startsWith('uno')) }); }, // counters stay: ids are never reused
+      reset() { record(); set({ schem: EMPTY_SCHEM, parts: [], wires: [], inputs: {}, code: FRESH_CODE, selected: null, message: null, burns: get().burns.filter((b) => b.id.startsWith('uno')) }); }, // counters stay: ids are never reused
       spec() { return { parts: get().parts, wires: get().wires }; },
       usedPins() {
         const used = taken();
@@ -239,13 +326,14 @@ export function createBuildStore(storage?: Storage, key = KEY, start?: BuildStar
       },
       setBurns(burns) { set({ burns }); },
       restart(begin) {
-        set({ parts: withBoard(begin.parts, begin.wires), wires: begin.wires, inputs: startInputs(begin), code: begin.code, selected: null, message: null, burns: [] });
+        record();
+        set({ schem: EMPTY_SCHEM, parts: withBoard(begin.parts, begin.wires), wires: begin.wires, inputs: startInputs(begin), code: begin.code, selected: null, message: null, burns: [] });
       },
       replaceBurn(id) { set({ burns: get().burns.filter((b) => (id === 'uno' ? !b.id.startsWith('uno') : b.id !== id)) }); },
     };
   });
   store.subscribe((s) => {
-    try { storage?.setItem(key, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns } satisfies Saved)); } catch { /* storage full or blocked */ }
+    try { storage?.setItem(key, JSON.stringify({ v: 1, parts: s.parts, wires: s.wires, inputs: s.inputs, code: s.code, counters: s.counters, burns: s.burns, schem: s.schem } satisfies Saved)); } catch { /* storage full or blocked */ }
   });
   return store;
 }

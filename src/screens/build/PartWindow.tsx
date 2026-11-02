@@ -112,18 +112,10 @@ export function PartWindow({ fixed = false }: { fixed?: boolean } = {}) {
         </div>
       </div>}
       {!fixed && part.type !== 'breadboard' && (free || canTurn(part.type)) && (
-        <div className="part-window__place">
-          <span>{t('build.turn')} <b>{Math.round((part.rot ?? 0) * 10) / 10}°</b></span>
-          <div className="part-window__moves">
-            <button type="button" aria-label={t('build.turn.left')} onClick={() => rotatePart(part.id, (part.rot ?? 0) - (free ? 15 : 90))}>↺</button>
-            <button type="button" aria-label={t('build.turn.right')} onClick={() => rotatePart(part.id, (part.rot ?? 0) + (free ? 15 : 90))}>↻</button>
-          </div>
-        </div>
-      )}
-      {!fixed && free && part.type !== 'breadboard' && (
+        // turning: any angle on the table, quarter turns in the breadboard (Undo takes a turn back)
         <div className="part-window__input">
-          <label className="part-window__label">{t('build.turn.angle')}</label>
-          <input type="range" min={0} max={359} step={1} value={Math.round(part.rot ?? 0)} aria-label={t('build.turn.angle')}
+          <label className="part-window__label">{t('build.turn')} <b>{Math.round((part.rot ?? 0) * 10) / 10}°</b></label>
+          <input type="range" min={0} max={free ? 359 : 270} step={free ? 1 : 90} value={Math.round(part.rot ?? 0)} aria-label={t('build.turn.angle')}
             onChange={(e) => rotatePart(part.id, Number(e.target.value))} />
         </div>
       )}

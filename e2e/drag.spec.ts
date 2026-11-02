@@ -53,34 +53,34 @@ test.describe('Press and drag a part, and turn it', () => {
     expect((await part(page, id)).at.col).toBeGreaterThan(before.at.col as number);
   });
 
-  test('the Turn buttons turn a module by 15° and a breadboard part by a quarter turn', async ({ page }) => {
+  test('the Turn slider turns a module to any angle and a breadboard part in quarter turns; Undo turns it back', async ({ page }) => {
     await openBuild(page);
     const m = (await dbg(page, 'addPart', 'servo')) as string;
     await dbg(page, 'select', m);
-    await page.getByRole('button', { name: 'Turn right' }).click();
-    expect((await part(page, m)).rot).toBe(15);
     const slider = page.getByRole('slider', { name: 'Angle in degrees' });
+    await slider.fill('15');
+    expect((await part(page, m)).rot).toBe(15);
     await slider.fill('90');
     expect((await part(page, m)).rot).toBe(90);
     const led = await inHoles(page, 'led');
     await dbg(page, 'movePart', led, { col: 8, row: 'c' });
     await dbg(page, 'select', led);
-    await expect(page.getByRole('slider', { name: 'Angle in degrees' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Turn right' }).click();
+    await page.getByRole('slider', { name: 'Angle in degrees' }).fill('90');
     expect((await part(page, led)).rot).toBe(90);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect((await part(page, led)).rot ?? 0).toBe(0);
   });
 
   test('the push button has no Turn control', async ({ page }) => {
     await openBuild(page);
     await dbg(page, 'select', await inHoles(page, 'button'));
-    await expect(page.getByRole('button', { name: 'Turn right' })).toHaveCount(0);
+    await expect(page.getByRole('slider', { name: 'Angle in degrees' })).toHaveCount(0);
   });
 
-  test('the Turn buttons are big enough to tap', async ({ page }) => {
+  test('Undo and Redo are big enough to tap', async ({ page }) => {
     await openBuild(page);
-    await dbg(page, 'select', (await dbg(page, 'addPart', 'servo')) as string);
-    for (const n of ['Turn left', 'Turn right']) {
-      const b = (await page.getByRole('button', { name: n }).boundingBox())!;
+    for (const n of ['Undo', 'Redo']) {
+      const b = (await page.getByRole('button', { name: n, exact: true }).boundingBox())!;
       expect(b.width).toBeGreaterThanOrEqual(47.5);
       expect(b.height).toBeGreaterThanOrEqual(47.5);
     }

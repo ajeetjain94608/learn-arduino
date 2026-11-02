@@ -63,6 +63,8 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
   const burns = useBuild((s) => s.burns);
   const setBurns = useBuild((s) => s.setBurns);
   const message = useBuild((s) => s.message);
+  const canUndo = useBuild((s) => s.past.length > 0);
+  const canRedo = useBuild((s) => s.future.length > 0);
   const circuitState = useWorkbenchStore((s) => s.circuitState);
   const pinHigh = useWorkbenchStore((s) => s.pinHigh);
   const labels = useWorkbenchStore((s) => s.labels);
@@ -104,6 +106,20 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
     };
   }, [api]);
 
+  // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z, ⌘ on a Mac) undo and redo the circuit — not while typing (the code has its own undo)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.closest('.cm-editor'))) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); api.getState().undo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); api.getState().redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [api]);
+
   return (
     <main className="app layout" data-testid="build-screen">
       <NavBar current={project ? 'projects' : 'build'} onNavigate={onNavigate} onSettings={() => setSettings(true)} />
@@ -122,6 +138,16 @@ function Workspace({ onNavigate, project }: { onNavigate(s: Screen): void; proje
         <GlGuardCard state={guard.state} onReload={guard.reload} />
       </section>
       <div className="side build-side" data-expand={panel ?? undefined}>
+        <div className="build-history" role="toolbar" aria-label={t('build.history')}>
+          <button type="button" onClick={() => api.getState().undo()} disabled={!canUndo} title={t('build.undo.key')}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
+            {t('build.undo')}
+          </button>
+          <button type="button" onClick={() => api.getState().redo()} disabled={!canRedo} title={t('build.redo.key')}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>
+            {t('build.redo')}
+          </button>
+        </div>
         <BurnCard />
         {message && <p className="build-message" role="status">{message}</p>}
         <PartWindow />
