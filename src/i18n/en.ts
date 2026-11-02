@@ -143,7 +143,7 @@ export const en = {
   'menu.open': 'Menu', 'menu.close': 'Close', 'menu.view': 'View', 'menu.theme': 'Theme',
   'themeName.lab': 'Lab', 'themeName.night': 'Night Workshop', 'themeName.mint': 'Mint',
   'about.open': 'About', 'about.title': 'About Learn Arduino', 'about.close': 'Close',
-  'about.body': 'Learn electronics and coding by building real circuits in 3D — free, with nothing to sign up for.', 'about.madeBy': 'Made by Ajeet Jain.', 'about.github': 'GitHub', 'about.privacy': 'Privacy', 'about.terms': 'Terms of use',
+  'about.body': 'Learn electronics and coding by building real circuits in 3D — free, with nothing to sign up for.', 'about.madeBy': 'Made by Ajeet Jain.', 'about.github': 'GitHub', 'about.privacy': 'Privacy', 'about.terms': 'Terms of use', 'about.aboutPage': 'About', 'about.contact': 'Contact', 'about.disclaimer': 'Disclaimer',
   'gl.restoring': 'Restoring 3D…', 'gl.reload': 'Tap to reload 3D',
 
   'part.atmega328.name': 'ATmega328P', 'part.atmega328.line': 'The microcontroller that runs your code at 16 MHz.',

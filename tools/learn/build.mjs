@@ -205,7 +205,7 @@ ${body}
   <p><b>Learn Arduino</b> — learn electronics by building in 3D, free. Made by Ajeet Jain.</p>
   <p class="foot__small">Ads on the tutorials keep Learn Arduino free. The 3D lab never shows ads.</p>
   <p class="foot__small">Not affiliated with or endorsed by Arduino. “Arduino” is a trademark of Arduino SA. Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0).</p>
-  <p class="foot__small"><a href="/learn/">All tutorials</a> · <a href="/">3D lab</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></p>
+  <p class="foot__small"><a href="/learn/">All tutorials</a> · <a href="/">3D lab</a> · <a href="/about.html">About</a> · <a href="/contact.html">Contact</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/disclaimer.html">Disclaimer</a></p>
 </footer>
 <script>
 document.querySelectorAll('[data-copy]').forEach(function (b) { b.addEventListener('click', function () { navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy).then(function () { var s = b.querySelector('span'); if (s) { s.textContent = 'Copied!'; setTimeout(function () { s.textContent = 'Copy link'; }, 1600); } }); }); });
@@ -364,7 +364,7 @@ export function build(out = path.join(ROOT, 'dist')) {
   // search engines: every page, and where the list is
   const today = new Date().toISOString().slice(0, 10);
   const urls = [{ loc: `${SITE}/`, lastmod: today }, { loc: `${SITE}/learn/`, lastmod: today }, ...all.map((a) => ({ loc: SITE + url(a.slug), lastmod: a.updated ?? a.date ?? today })),
-    { loc: `${SITE}/privacy.html` }, { loc: `${SITE}/terms.html` }];
+    { loc: `${SITE}/about.html` }, { loc: `${SITE}/contact.html` }, { loc: `${SITE}/privacy.html` }, { loc: `${SITE}/terms.html` }, { loc: `${SITE}/disclaimer.html` }];
   fs.writeFileSync(path.join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${u.loc}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`);
   fs.writeFileSync(path.join(out, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`);
   return all;
