@@ -14,7 +14,9 @@ page.on('pageerror', (e) => problems.push(`page error: ${e}`));
 page.on('console', (m) => { if (m.type() === 'error' && !/nope.html|404/.test(m.text())) problems.push(`console error: ${m.text().slice(0, 200)}`); });
 page.on('requestfailed', (r) => problems.push(`request failed: ${r.url()}`));
 page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('/nope.html')) problems.push(`${r.status()} ${r.url()}`); });
-page.on('request', (r) => { const u = r.url(); if (!u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:')) problems.push(`other site: ${u}`); });
+// the only outside request allowed: Cloudflare Web Analytics, the visit counter the host adds (no cookies; see privacy.html)
+const ALLOWED = ['https://static.cloudflareinsights.com/beacon.min.js'];
+page.on('request', (r) => { const u = r.url(); if (!u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:') && !ALLOWED.some((a) => u.startsWith(a))) problems.push(`other site: ${u}`); });
 
 const step = (s) => console.log(`✓ ${s}`);
 await page.goto(`${base}/`);
@@ -66,4 +68,4 @@ step('Build opens');
 
 await browser.close();
 if (problems.length) { console.error('\nPROBLEMS:\n' + [...new Set(problems)].join('\n')); process.exit(1); }
-console.log('\nall good: no errors, no failed requests, nothing fetched from another site');
+console.log('\nall good: no errors, no failed requests, nothing fetched from another site (but the visit counter)');

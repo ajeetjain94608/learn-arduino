@@ -13,7 +13,7 @@ Live at **[learnarduino.tech](https://learnarduino.tech)**, with free step-by-st
 - **Make mistakes safely.** Forget the resistor and the LED burns; short 5 V to GND and the board burns, with sparks.
 - **Read the real schematic.** Every circuit is also drawn as a schematic with standard symbols.
 - **16 ready projects and 19 parts**, from Blink to an ultrasonic parking sensor and an OLED plant monitor, each with a written tutorial.
-- Works on phones, and the 3D lab has no ads and no trackers.
+- Works on phones. The 3D lab has no ads and sets no cookies; visits are only counted (Cloudflare Web Analytics, no cookies).
 
 ## Run it on your computer
 
