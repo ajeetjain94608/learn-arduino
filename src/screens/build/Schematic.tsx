@@ -16,6 +16,12 @@ import { designators, symbolOf, unoSymbol, valueOf } from './schematicSymbols';
 // get a ground or supply flag; a dot marks where wires join. Wheel or pinch to zoom, drag the sheet to pan.
 
 const C = { paper: '#FFFFFF', dot: '#C3C9D1', sym: '#A0161A', pinText: '#5A1010', des: '#1F3BA8', val: '#4B5563', wire: '#1F3BA8', hot: '#00A3FF', dot2: '#C81E1E', title: '#1F2937' };
+// The pointer for drawing wires and picking pins: a black crosshair with a white outline, so it shows on the white sheet
+// (the system crosshair is a thin line that disappears on it). The hot spot is its centre.
+const CROSS_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><g fill='none' stroke-linecap='round'>"
+  + "<path d='M16 2v10M16 20v10M2 16h10M20 16h10' stroke='white' stroke-width='5'/><circle cx='16' cy='16' r='4' stroke='white' stroke-width='5'/>"
+  + "<path d='M16 2v10M16 20v10M2 16h10M20 16h10' stroke='%23111' stroke-width='2'/><circle cx='16' cy='16' r='4' stroke='%23111' stroke-width='2'/></g></svg>";
+const CROSS = `url("data:image/svg+xml;utf8,${CROSS_SVG}") 16 16, crosshair`;
 type Pick = { ref: PinRef; part?: PartInstance; pin: string; label: string };
 const TWO_SIDED = new Set(['resistor', 'ldr', 'fsr', 'led', 'diode', 'buzzer', 'motor', 'button', 'pot', 'npn']); // a chain of parts goes on past these (not past a module)
 type Wiring = { from: Pick; pts: Pt[] };
@@ -284,7 +290,7 @@ export function Schematic() {
       <div className="schem__sheet" ref={boxRef} tabIndex={0} onKeyDown={onKey} aria-label={t('build.schem.title')}>
         <svg ref={svgRef} viewBox={`${v.x} ${v.y} ${v.w} ${vh}`} width={size.w} height={size.h} role="group" aria-label={t('build.schem.title')}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onContextMenu={(e) => { e.preventDefault(); setWiring(null); }}
-          style={{ touchAction: 'none', cursor: wiring ? 'crosshair' : 'default' }} fontFamily="Arial, Helvetica, sans-serif">
+          style={{ touchAction: 'none', cursor: wiring ? CROSS : 'default' }} fontFamily="Arial, Helvetica, sans-serif">
           <defs>
             <pattern id="schem-grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse"><circle cx={0} cy={0} r={0.7} fill={C.dot} /></pattern>
           </defs>
@@ -319,7 +325,7 @@ export function Schematic() {
                     ? <><text x={cx} y={b.y0 + 6} textAnchor="middle" fill={C.des} stroke="none" fontSize={12} fontWeight={700}>{des.get(p.id)}</text><text x={cx} y={b.y1 - 8} textAnchor="middle" fill={C.val} stroke="none" fontSize={11}>{part && valueOf(part)}</text></>
                     : <><text x={b.x1 - 30} y={(b.y0 + b.y1) / 2 - 4} fill={C.des} stroke="none" fontSize={12} fontWeight={700}>{des.get(p.id)}</text><text x={b.x1 - 30} y={(b.y0 + b.y1) / 2 + 12} fill={C.val} stroke="none" fontSize={11}>{part && valueOf(part)}</text></>}
                 <rect x={b.x0 + 8} y={b.y0 + 8} width={b.x1 - b.x0 - 16} height={b.y1 - b.y0 - 16} fill="transparent" stroke={isSel ? C.hot : 'none'} strokeDasharray="5 4" strokeWidth={1.4}
-                  className="schem__hit" data-kind="part" data-id={p.id} style={{ cursor: wiring ? 'crosshair' : 'move' }} />
+                  className="schem__hit" data-kind="part" data-id={p.id} style={{ cursor: wiring ? CROSS : 'move' }} />
               </g>
             );
           })}
@@ -331,13 +337,21 @@ export function Schematic() {
               <g key={tm.ref} className={`schem__term${from ? ' is-from' : isHot(tm.ref) ? ' is-net' : ''}`}>
                 <circle cx={tm.x} cy={tm.y} r={from ? 4.5 : 3} className="schem__ui" fill={from || isHot(tm.ref) ? C.hot : 'transparent'} stroke={from || isHot(tm.ref) ? C.hot : 'none'} />
                 <circle cx={tm.x} cy={tm.y} r={tm.id === 'uno' ? 9 : 12} className="schem__hit" data-kind="pin" data-ref={tm.ref} role="button" tabIndex={0}
-                  aria-label={`${pick.label}${net ? ` — ${net}` : ''}`} aria-pressed={from} fill="transparent" style={{ cursor: 'crosshair' }}
+                  aria-label={`${pick.label}${net ? ` — ${net}` : ''}`} aria-pressed={from} fill="transparent" style={{ cursor: CROSS }}
                   onPointerEnter={() => setHover(tm.ref)} onPointerLeave={() => setHover((h) => (h === tm.ref ? null : h))}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choosePin(tm.ref); } }} />
               </g>
             );
           })}
           {preview && <polyline points={preview.map((q) => q.join(',')).join(' ')} className="schem__ui" fill="none" stroke={C.hot} strokeWidth={1.6} strokeDasharray="6 4" />}
+          {/* where the next corner snaps to (on the grid), easy to see on the white sheet */}
+          {wiring && cursor && (
+            <g className="schem__ui" pointerEvents="none">
+              <circle cx={cursor[0]} cy={cursor[1]} r={5} fill="none" stroke="#FFFFFF" strokeWidth={4} />
+              <circle cx={cursor[0]} cy={cursor[1]} r={5} fill="none" stroke={C.hot} strokeWidth={2} />
+              <path d={`M${cursor[0] - 11} ${cursor[1]}h6M${cursor[0] + 5} ${cursor[1]}h6M${cursor[0]} ${cursor[1] - 11}v6M${cursor[0]} ${cursor[1] + 5}v6`} stroke={C.hot} strokeWidth={1.6} />
+            </g>
+          )}
 
           {/* the title block */}
           <g transform={`translate(${title.x} ${title.y})`} stroke={C.title} strokeWidth={1} fill="none">
