@@ -30,13 +30,13 @@ const statusOf = async (path) => {
   const url = base + path; let status = 0;
   const probe = await browser.newPage();
   probe.on('response', (r) => { if (r.url() === url) status = r.status(); });
-  // (goto gives the final answer after redirects such as /privacy.html → /privacy; a 404 with no body makes the browser
+  // (goto gives the final answer after redirects such as /privacy → /privacy; a 404 with no body makes the browser
   // call the navigation failed, so then the first answer's status is what we want)
   try { status = (await probe.goto(url))?.status() ?? status; } catch { /* keep the status seen */ }
   await probe.close();
   return status;
 };
-for (const path of ['/privacy.html', '/terms.html']) {
+for (const path of ['/privacy', '/terms']) {
   const st = await statusOf(path);
   if (st !== 200) problems.push(`${path}: ${st}`);
 }
