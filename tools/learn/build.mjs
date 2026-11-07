@@ -21,6 +21,7 @@ const GUIDE_PART = {
   'what-is-arduino': 'uno', 'what-is-a-breadboard': 'breadboard', 'arduino-code-basics-setup-loop': 'uno', 'voltage-current-resistance-ohms-law': 'resistor',
   'digital-vs-analog-arduino': 'pot', 'pwm-explained-analogwrite': 'led', 'arduino-serial-monitor-explained': 'uno', 'pull-up-pull-down-resistors': 'button',
   'resistor-color-code': 'resistor', 'how-to-read-a-schematic': 'diode', 'short-circuits-how-not-to-burn-your-arduino': 'led',
+  'millis-vs-delay-arduino': 'led', 'arduino-map-constrain-function': 'pot', 'arduino-variables-data-types': 'uno',
 };
 // the component an article's card shows (a file in src/assets/components, copied to /learn/parts/)
 export const thumbOf = (a) => (a.kind === 'project' ? MAIN[a.project] : a.kind === 'component' ? a.image?.replace(/-3d\.jpg$/, '') : GUIDE_PART[a.slug] ?? 'uno');

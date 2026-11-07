@@ -163,7 +163,8 @@ th { background: var(--accent-soft); font-weight: 800; }
 .readbar { position: fixed; left: 0; right: 0; top: 0; height: 3px; z-index: 10; pointer-events: none; }
 .readbar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .1s linear; }
 /* copy code */
-.code__copy { position: absolute; top: 8px; right: 8px; min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: var(--code-ink); font: 700 13px 'Nunito', system-ui, sans-serif; cursor: pointer; }
+.code:has(.code__copy) { padding-top: 64px; padding-bottom: 30px; }
+.code__copy { position: absolute; top: 8px; right: 8px; min-height: 48px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: var(--code-ink); font: 700 14px 'Nunito', system-ui, sans-serif; cursor: pointer; }
 .code__copy:hover { background: rgba(255,255,255,.18); }
 .code::before { right: auto; left: 16px; top: auto; bottom: 6px; }
 /* done + next */
