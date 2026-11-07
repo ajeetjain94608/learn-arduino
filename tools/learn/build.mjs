@@ -344,6 +344,44 @@ function indexPage(all) {
   return page({ title: 'Free Arduino tutorials for beginners, in 3D | Learn Arduino', description, canonical: `${SITE}/learn/`, ogImage: all[0]?.og ? SITE + imgUrl(all[0].og) : undefined, body, jsonLd, type: 'website' });
 }
 
+// The home page is the 3D lab (an app drawn by script), so on its own it has no words for a reader or a search engine until
+// the app has loaded. Put a real page in its place: what the lab is, what you can do in it, and every tutorial with a line
+// about it. The app replaces it as soon as it starts (inside a tutorial's 3D frame it is not shown at all).
+function homeText(out, all) {
+  const file = path.join(out, 'index.html');
+  if (!fs.existsSync(file)) return;
+  const html = fs.readFileSync(file, 'utf8');
+  if (!html.includes('<div id="root"></div>')) return;
+  const group = (kind) => all.filter((a) => a.kind === kind).map((a) => `<li><a href="${url(a.slug)}">${escapeHtml(a.title)}</a><br /><span>${escapeHtml(a.description)}</span></li>`).join('');
+  const section = (kind, intro) => `<h2>${KINDS[kind]}</h2><p>${intro}</p><ul>${group(kind)}</ul>`;
+  const text = `<div id="root"><main id="home-text">
+<h1>Learn Arduino: learn electronics by building in 3D</h1>
+<p>Learn Arduino is a free 3D electronics lab that runs in your browser. You get an UNO-compatible board, a breadboard and real parts (LEDs, resistors, buttons, a potentiometer, a buzzer, sensors, motors and an OLED screen). You wire them with jumper wires, write Arduino code, and run it. The code is compiled by the real AVR compiler and runs on a simulated ATmega328P, so what you see is what a real board would do.</p>
+<p>Mistakes are safe here. Forget the resistor and the LED burns, with a puff of smoke, and the lab tells you why. Short 5V to GND and you see it happen. Nothing costs money and nothing gets damaged, so you can try things before you buy a single part.</p>
+<h2>What you can do in the lab</h2>
+<ul class="plain">
+<li>Explore the board in 3D: tap a part to learn what it does and which pins it uses.</li>
+<li>Build circuits on a breadboard and watch the current flow through the wires.</li>
+<li>Write and run real Arduino code, and read what it prints in the Serial Monitor.</li>
+<li>See your circuit as a schematic, and edit it like a real schematic editor.</li>
+<li>Follow guided projects, from Blink to a parking sensor and a plant monitor.</li>
+</ul>
+<p><a href="/learn/">Read all ${all.length} tutorials</a>. Every project tutorial has the same circuit live in 3D inside the page.</p>
+${section('project', 'Step-by-step builds: the parts, the wiring, the code line by line, and what to try next.')}
+${section('component', 'How each part works, its pins, and the mistakes beginners make with it.')}
+${section('guide', 'The ideas behind every project: voltage and current, digital and analog, PWM, schematics.')}
+<p class="small">Made by Ajeet Jain. Not affiliated with or endorsed by Arduino. “Arduino” is a trademark of Arduino SA. Board layout based on Arduino UNO Rev3 design files (CC BY-SA 4.0).</p>
+<p class="small"><a href="/about">About</a> · <a href="/contact">Contact</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/disclaimer">Disclaimer</a></p>
+</main></div>`;
+  const style = `<style>#home-text{max-width:760px;margin:0 auto;padding:32px 16px 64px;font:16px/1.6 system-ui,sans-serif;color:#E2E8F0;background:#0F172A}
+#home-text h1{font-size:30px;line-height:1.2}#home-text h2{margin-top:32px;font-size:22px}#home-text a{color:#7DD3FC}
+#home-text ul{padding-left:20px}#home-text li{margin:10px 0}#home-text li span{color:#94A3B8;font-size:15px}#home-text .small{color:#94A3B8;font-size:14px}
+html,body{background:#0F172A}</style>
+<script>if(/[?&]embed/.test(location.search))document.documentElement.className+=' embed';</script>
+<style>html.embed #home-text{display:none}</style>`;
+  fs.writeFileSync(file, html.replace('<div id="root"></div>', text).replace('</head>', `${style}\n</head>`));
+}
+
 export function build(out = path.join(ROOT, 'dist')) {
   const all = loadArticles();
   const affiliate = (() => { try { return JSON.parse(fs.readFileSync(path.join(CONTENT, 'affiliate.json'), 'utf8')); } catch { return {}; } })();
@@ -355,6 +393,7 @@ export function build(out = path.join(ROOT, 'dist')) {
     fs.writeFileSync(path.join(dir, a.slug, 'index.html'), articlePage(a, all, affiliate));
   }
   fs.writeFileSync(path.join(dir, 'index.html'), indexPage(all));
+  homeText(out, all);
   fs.copyFileSync(path.join(ROOT, 'tools/learn/learn.css'), path.join(dir, 'learn.css'));
   fs.cpSync(path.join(CONTENT, 'img'), path.join(dir, 'img'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'parts'), { recursive: true });
